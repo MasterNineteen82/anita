@@ -1,0 +1,49 @@
+{% macro render_card(title, id=None, icon=None, actions=True, footer=True, footer_content="", footer_buttons=[], variant="default") %}
+<div {% if id %}id="{{ id }}"{% endif %} class="bg-gray-800 rounded-lg shadow-lg flex flex-col card-hover dashboard-card anita-card-processed {% if variant == 'header' %}anita-header-card{% endif %}">
+  <div class="flex justify-between items-center border-b border-gray-700 anita-card-header">
+    <span class="text-md font-semibold text-white flex items-center gap-2">
+      {% if icon %}<i class="fas fa-{{ icon }} gradient-icon"></i>{% endif %}
+      {{ title }}
+    </span>
+    {% if actions and variant != 'header' %}
+    <div class="flex items-center gap-2">
+      <button class="card-footer-btn text-gray-400 hover:text-white"><i class="fas fa-chevron-down"></i></button>
+      <button class="card-footer-btn text-gray-400 hover:text-white cursor-move"><i class="fas fa-grip-lines"></i></button>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="px-4 py-3 flex-grow anita-card-content">
+    {{ caller() }}
+  </div>
+
+  {% if footer_buttons and variant != 'header' %}
+    <div class="px-4 py-3 card-footer-actions">
+      {% for btn in footer_buttons %}
+        <button 
+          id="{{ btn.id }}" 
+          class="card-footer-btn {% if btn.primary %}card-footer-btn-primary{% else %}card-footer-btn-secondary{% endif %}"
+          {% if btn.disabled %}disabled{% endif %}
+          {% if btn.onClick %}onclick="{{ btn.onClick }}"{% endif %}
+        >
+          {% if btn.icon %}<i class="fas fa-{{ btn.icon }}"></i>{% endif %}
+          {{ btn.text }}
+        </button>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if footer and variant != 'header' %}
+  <div class="border-t border-gray-700 anita-card-footer">
+    {% if footer_content %}
+      {{ footer_content }}
+    {% else %}
+      <div class="flex justify-between items-center">
+        <span class="gradient-text text-sm">{{ title }} Module</span>
+        <span class="text-xs text-gray-500">ANITA System</span>
+      </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}

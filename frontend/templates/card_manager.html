@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% from "components/card.html" import render_card %}
+{% from "components/page_header.html" import render_page_header %}
+
+{% block title %}Card Manager | ANITA{% endblock %}
+{% block page_id %}card-manager{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Page Header -->
+    {{ render_page_header(
+        title="Card Manager",
+        description="Smart Card and NFC card configuration & management",
+        icon="credit-card"
+    ) }}
+
+    <!-- First Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {% call render_card(title="Card Detection", icon="credit-card", id="card-detection", footer_buttons=[
+            {"id": "detect-card-btn", "icon": "search", "text": "Detect Card", "primary": true},
+            {"id": "card-info-btn", "icon": "info-circle", "text": "Card Info"}
+        ]) %}
+            <!-- Card Detection Content -->
+            <div class="space-y-4">
+                <div class="flex items-center justify-center py-6">
+                    <div id="card-status-indicator" class="relative">
+                        <div class="w-32 h-32 rounded-full flex items-center justify-center bg-gray-700">
+                            <i id="card-icon" class="fas fa-credit-card text-5xl text-gray-500"></i>
+                        </div>
+                        <div id="detection-ring" class="absolute top-0 left-0 w-32 h-32 border-4 border-transparent rounded-full"></div>
+                    </div>
+                </div>
+                <div class="bg-gray-700 p-3 rounded">
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div>Status:</div>
+                        <div id="card-status" class="text-yellow-400">Not Detected</div>
+                        <div>Reader:</div>
+                        <div id="reader-name" class="text-gray-300">--</div>
+                        <div>Card Type:</div>
+                        <div id="card-type" class="text-gray-300">--</div>
+                        <div>Last Detected:</div>
+                        <div id="last-detected" class="text-gray-300">--</div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+
+        {% call render_card(title="Reader Configuration", icon="cog", id="reader-config", footer_buttons=[
+            {"id": "refresh-readers-btn", "icon": "sync", "text": "Refresh Readers"},
+            {"id": "save-config-btn", "icon": "save", "text": "Save Config", "primary": true}
+        ]) %}
+            <!-- Reader Configuration Content -->
+            <div class="space-y-3">
+                <div>
+                    <label for="active-reader" class="block text-sm text-gray-400 mb-1">Active Reader</label>
+                    <select id="active-reader" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
+                        <option value="">-- Select Reader --</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="card-protocol" class="block text-sm text-gray-400 mb-1">Card Protocol</label>
+                    <select id="card-protocol" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
+                        <option value="T=0">T=0 (ISO 7816-3)</option>
+                        <option value="T=1" selected>T=1 (ISO 7816-3)</option>
+                        <option value="T=CL">T=CL (Contactless)</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="timeout" class="block text-sm text-gray-400 mb-1">Timeout (ms)</label>
+                        <input type="number" id="timeout" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" value="1000">
+                    </div>
+                    <div>
+                        <label for="retry-count" class="block text-sm text-gray-400 mb-1">Retry Count</label>
+                        <input type="number" id="retry-count" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" value="3">
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="auto-detect" class="mr-2" checked>
+                    <label for="auto-detect">Enable Auto Detection</label>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+
+    <!-- Second Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {% call render_card(title="Card Operations", icon="tools", id="card-operations", footer_buttons=[
+            {"id": "factory-reset-btn", "icon": "sync-alt", "text": "Factory Reset"}
+        ]) %}
+            <!-- Card Operations Content -->
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="read-card-btn" class="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded flex items-center justify-center">
+                        <i class="fas fa-file-import mr-2"></i> Read Card
+                    </button>
+                    <button id="write-card-btn" class="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded flex items-center justify-center">
+                        <i class="fas fa-file-export mr-2"></i> Write Card
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="format-card-btn" class="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded flex items-center justify-center">
+                        <i class="fas fa-eraser mr-2"></i> Format Card
+                    </button>
+                    <button id="verify-card-btn" class="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded flex items-center justify-center">
+                        <i class="fas fa-check-circle mr-2"></i> Verify Card
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="authenticate-btn" class="bg-blue-700 hover:bg-blue-600 text-white py-2 px-4 rounded flex items-center justify-center">
+                        <i class="fas fa-key mr-2"></i> Authenticate
+                    </button>
+                    <button id="erase-card-btn" class="bg-red-700 hover:bg-red-600 text-white py-2 px-4 rounded flex items-center justify-center">
+                        <i class="fas fa-trash mr-2"></i> Erase Card
+                    </button>
+                </div>
+            </div>
+        {% endcall %}
+
+        {% call render_card(title="Card Data", icon="database", id="card-data", footer_buttons=[
+            {"id": "export-data-btn", "icon": "download", "text": "Export Data", "primary": true},
+            {"id": "clear-data-btn", "icon": "trash", "text": "Clear"}
+        ]) %}
+            <!-- Card Data Content -->
+            <div class="space-y-3">
+                <div class="flex gap-2">
+                    <div class="flex-grow">
+                        <select id="data-view-mode" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-1 px-2">
+                            <option value="hex">Hexadecimal View</option>
+                            <option value="ascii">ASCII View</option>
+                            <option value="structured">Structured View</option>
+                        </select>
+                    </div>
+                    <button id="refresh-data-btn" class="bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded">
+                        <i class="fas fa-sync"></i>
+                    </button>
+                </div>
+                <div id="card-data-container" class="bg-gray-900 h-48 font-mono text-sm overflow-auto p-3 rounded">
+                    <div class="text-gray-500">No card data available. Use the card operations to read data.</div>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+
+    <!-- Third Row -->
+    <div class="grid grid-cols-1 gap-6">
+        {% call render_card(title="Card Configuration", icon="sliders-h", id="card-config", footer_buttons=[
+            {"id": "load-config-btn", "icon": "file-import", "text": "Load"},
+            {"id": "apply-config-btn", "icon": "check", "text": "Apply", "primary": true}
+        ]) %}
+            <!-- Card Configuration Content -->
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label for="card-type-select" class="block text-sm text-gray-400 mb-1">Card Type</label>
+                        <select id="card-type-select" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
+                            <option value="TypeA">ISO 14443A</option>
+                            <option value="TypeB">ISO 14443B</option>
+                            <option value="MifareClassic">MIFARE Classic</option>
+                            <option value="MifareUltralight">MIFARE Ultralight</option>
+                            <option value="FeliCa">FeliCa</option>
+                            <option value="NTAG">NTAG21x</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="security-level" class="block text-sm text-gray-400 mb-1">Security Level</label>
+                        <select id="security-level" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
+                            <option value="1">Level 1 - Basic</option>
+                            <option value="2" selected>Level 2 - Standard</option>
+                            <option value="3">Level 3 - Enhanced</option>
+                            <option value="4">Level 4 - High</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="comm-mode" class="block text-sm text-gray-400 mb-1">Communication Mode</label>
+                        <select id="comm-mode" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
+                            <option value="plain">Plain</option>
+                            <option value="mac" selected>MAC Protected</option>
+                            <option value="full">Fully Encrypted</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Configuration Parameters</label>
+                    <div id="config-editor" class="bg-gray-900 rounded p-3 h-32 font-mono text-sm overflow-auto">
+{
+  "param1": "value1",
+  "param2": "value2",
+  "securitySettings": {
+    "authMode": "AES",
+    "keyLength": 128
+  }
+}
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+
+    <!-- Fourth Row -->
+    <div class="grid grid-cols-1 gap-6">
+        {% call render_card(title="Card Activity Log", icon="history", id="card-log", footer_buttons=[
+            {"id": "clear-log-btn", "icon": "trash", "text": "Clear Log"},
+            {"id": "export-log-btn", "icon": "download", "text": "Export Log", "primary": true}
+        ]) %}
+            <!-- Card Activity Log Content -->
+            <div id="log-container" class="h-48 bg-gray-900 rounded p-3 overflow-y-auto font-mono text-sm">
+                <div class="text-gray-500">[System] Card Manager initialized</div>
+                <div class="text-blue-400">[Info] Waiting for card detection...</div>
+            </div>
+        {% endcall %}
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script type="module" src="/static/js/pages/card_manager.js"></script>
+{% endblock %}

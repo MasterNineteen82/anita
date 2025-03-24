@@ -1,0 +1,208 @@
+/* NFC Component Styles - Modern Dark Theme */
+.nfc-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.nfc-panel {
+    background-color: var(--bg-secondary);
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px var(--shadow-color);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transform: translateZ(0);
+    overflow: hidden;
+}
+
+.nfc-panel:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px var(--shadow-color), 0 0 10px var(--glow-primary);
+}
+
+.nfc-panel-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--accent-primary);
+    position: relative;
+}
+
+.nfc-panel-title:before {
+    content: '';
+    position: absolute;
+    height: 2px;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    box-shadow: 0 0 8px var(--glow-primary);
+}
+
+.nfc-status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background-color: var(--bg-tertiary);
+    transition: all 0.2s ease;
+}
+
+.nfc-status:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 15px var(--glow-primary);
+}
+
+.nfc-status-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: var(--accent-danger);
+    box-shadow: 0 0 8px var(--accent-danger);
+}
+
+.nfc-status-icon.active {
+    background-color: var(--accent-secondary);
+    box-shadow: 0 0 10px var(--glow-secondary);
+}
+
+.nfc-text-input, .nfc-uri-input, .nfc-raw-input, .nfc-uri-type {
+    width: 100%;
+    font-family: monospace;
+    margin-bottom: 1rem;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 8px;
+    color: var(--text-primary);
+    padding: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.nfc-text-input:focus, .nfc-uri-input:focus, .nfc-raw-input:focus, .nfc-uri-type:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 8px var(--glow-primary);
+    outline: none;
+}
+
+.nfc-raw-input {
+    min-height: 150px;
+}
+
+.nfc-result {
+    background-color: var(--bg-tertiary);
+    border: none;
+    border-radius: 8px;
+    padding: 1rem;
+    min-height: 100px;
+    margin-top: 1rem;
+    box-shadow: inset 0 2px 4px var(--shadow-color);
+}
+
+.nfc-result pre {
+    margin: 0;
+    white-space: pre-wrap;
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+.nfc-tag-info {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background-color: var(--bg-tertiary);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.nfc-tag-info:hover {
+    box-shadow: 0 0 12px var(--glow-primary);
+}
+
+.nfc-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.nfc-controls button {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: var(--text-primary);
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 8px var(--shadow-color);
+}
+
+.nfc-controls button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px var(--shadow-color), 0 0 8px var(--glow-primary);
+}
+
+/* NFC-specific styling */
+
+/* Virtual card styling */
+#nfc-card-container {
+    width: 100%;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+/* Result area styling */
+.result-area {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow: auto;
+    font-family: monospace;
+    color: rgba(255, 255, 255, 0.9);
+    min-height: 100px;
+    max-height: 300px;
+}
+
+.result-area pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Button group styling */
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Table styling specific to NFC operations */
+#nfc-operation-history td {
+    vertical-align: middle;
+    padding: 0.5rem 0.75rem;
+}
+
+/* Status indicators */
+.status-success {
+    color: #4CAF50;
+}
+
+.status-error {
+    color: #F44336;
+}
+
+.status-pending {
+    color: #FFC107;
+}

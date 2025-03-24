@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% from "components/card.html" import render_card %}
+{% from "components/page_header.html" import render_page_header %}
+{% from "components/alerts.html" import render_alert %}
+{% from "components/toggle_control.html" import render_toggle %}
+
+{% block title %}UWB Manager | ANITA{% endblock %}
+{% block page_id %}uwb-manager{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+  <!-- Page Header Card -->
+  <div class="grid grid-cols-1 gap-6">
+    {{ render_page_header(
+      title="UWB Manager",
+      description="Ultra-Wideband device location tracking system",
+      icon="broadcast-tower"
+    ) }}
+  </div>
+
+  <!-- First Row -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- Device Registration Card -->
+    {% call render_card(title="Device Registration", icon="broadcast-tower", id="device-registration", footer_buttons=[
+      {"id": "register-device-btn", "icon": "plus", "text": "Register", "primary": true}
+    ]) %}
+      <div class="space-y-3">
+        <div>
+          <label for="device-id" class="block mb-1 text-sm text-gray-300">Device ID</label>
+          <input type="text" id="device-id" placeholder="Enter UWB device ID" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
+        </div>
+        <div>
+          <label for="initial-location" class="block mb-1 text-sm text-gray-300">Initial Location (x, y, z)</label>
+          <div class="grid grid-cols-3 gap-2">
+            <input type="number" id="loc-x" placeholder="X" step="0.1" class="bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
+            <input type="number" id="loc-y" placeholder="Y" step="0.1" class="bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
+            <input type="number" id="loc-z" placeholder="Z" step="0.1" class="bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
+          </div>
+        </div>
+      </div>
+    {% endcall %}
+
+    <!-- Active Devices Card -->
+    {% call render_card(title="Active Devices", icon="list", id="active-devices", footer_buttons=[
+      {"id": "refresh-devices-btn", "icon": "sync", "text": "Refresh"}
+    ]) %}
+      <div class="space-y-1">
+        <div class="py-2 px-3 bg-gray-700 bg-opacity-50 rounded flex justify-between items-center">
+          <div>
+            <div class="font-medium">UWB001</div>
+            <div class="text-xs text-gray-400">Last seen: 2 mins ago</div>
+          </div>
+          <div class="flex space-x-2">
+            <button class="text-blue-400 hover:text-blue-300"><i class="fas fa-edit"></i></button>
+            <button class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+        <div class="py-2 px-3 bg-gray-700 bg-opacity-50 rounded flex justify-between items-center">
+          <div>
+            <div class="font-medium">UWB002</div>
+            <div class="text-xs text-gray-400">Last seen: 5 mins ago</div>
+          </div>
+          <div class="flex space-x-2">
+            <button class="text-blue-400 hover:text-blue-300"><i class="fas fa-edit"></i></button>
+            <button class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+        <div class="py-2 px-3 bg-gray-700 bg-opacity-50 rounded flex justify-between items-center">
+          <div>
+            <div class="font-medium">UWB003</div>
+            <div class="text-xs text-gray-400">Last seen: Just now</div>
+          </div>
+          <div class="flex space-x-2">
+            <button class="text-blue-400 hover:text-blue-300"><i class="fas fa-edit"></i></button>
+            <button class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+      </div>
+    {% endcall %}
+
+    <!-- Device Location Card -->
+    {% call render_card(title="Device Location", icon="map-marker-alt", id="device-location") %}
+      <div class="space-y-3">
+        <div>
+          <label for="select-device" class="block mb-1 text-sm text-gray-300">Select Device</label>
+          <select id="select-device" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
+            <option value="UWB001">UWB001</option>
+            <option value="UWB002">UWB002</option>
+            <option value="UWB003">UWB003</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-3 gap-4 text-center p-3 bg-gray-800 rounded">
+          <div>
+            <div class="text-gray-400 text-sm">X Coordinate</div>
+            <div id="coord-x" class="text-xl font-mono">1.20</div>
+          </div>
+          <div>
+            <div class="text-gray-400 text-sm">Y Coordinate</div>
+            <div id="coord-y" class="text-xl font-mono">3.45</div>
+          </div>
+          <div>
+            <div class="text-gray-400 text-sm">Z Coordinate</div>
+            <div id="coord-z" class="text-xl font-mono">0.90</div>
+          </div>
+        </div>
+        <div class="text-center">
+          <button id="locate-device-btn" class="btn bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded">
+            <i class="fas fa-crosshairs mr-2"></i> Get Current Location
+          </button>
+        </div>
+      </div>
+    {% endcall %}
+  </div>
+
+  <!-- Second Row -->
+  <div class="grid grid-cols-1 gap-6">
+    <!-- Location Visualization Card -->
+    {% call render_card(title="Location Map", icon="project-diagram", id="location-map") %}
+      <div class="h-80 bg-gray-800 rounded flex items-center justify-center relative">
+        <!-- This would be replaced with actual map visualization -->
+        <div class="absolute top-0 left-0 w-full h-full border border-gray-700" id="map-container">
+          <!-- Sample UWB device dots -->
+          <div class="absolute w-3 h-3 bg-blue-500 rounded-full" style="top: 30%; left: 40%;" title="UWB001"></div>
+          <div class="absolute w-3 h-3 bg-green-500 rounded-full" style="top: 60%; left: 70%;" title="UWB002"></div>
+          <div class="absolute w-3 h-3 bg-yellow-500 rounded-full" style="top: 40%; left: 20%;" title="UWB003"></div>
+          <!-- Coordinate grid lines would be drawn here -->
+        </div>
+        <div class="text-gray-400 z-10">
+          <i class="fas fa-map-marked-alt text-3xl mb-2"></i>
+          <p>Interactive location map</p>
+        </div>
+      </div>
+      <div class="mt-3 flex justify-between">
+        <div>
+          <label class="text-sm text-gray-400">Auto Update</label>
+          <label class="switch ml-2">
+            <input type="checkbox" id="auto-update-map">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <button id="center-map-btn" class="text-sm text-gray-300 hover:text-white">
+          <i class="fas fa-compress-arrows-alt mr-1"></i> Center Map
+        </button>
+      </div>
+    {% endcall %}
+  </div>
+
+  <!-- Third Row -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Location History Card -->
+    {% call render_card(title="Location History", icon="history", id="location-history", footer_buttons=[
+      {"id": "clear-history-btn", "icon": "trash", "text": "Clear"},
+      {"id": "export-history-btn", "icon": "download", "text": "Export", "primary": true}
+    ]) %}
+      <div class="space-y-3">
+        <div>
+          <label for="history-device" class="block mb-1 text-sm text-gray-300">Select Device</label>
+          <select id="history-device" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
+            <option value="UWB001">UWB001</option>
+            <option value="UWB002">UWB002</option>
+            <option value="UWB003">UWB003</option>
+          </select>
+        </div>
+        <div class="h-48 overflow-y-auto">
+          <table class="w-full text-sm">
+            <thead class="text-gray-400">
+              <tr>
+                <th class="text-left py-2">Time</th>
+                <th class="text-left py-2">X</th>
+                <th class="text-left py-2">Y</th>
+                <th class="text-left py-2">Z</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-t border-gray-700">
+                <td class="py-2">14:35:22</td>
+                <td>1.20</td>
+                <td>3.45</td>
+                <td>0.90</td>
+              </tr>
+              <tr class="border-t border-gray-700">
+                <td class="py-2">14:34:52</td>
+                <td>1.18</td>
+                <td>3.40</td>
+                <td>0.92</td>
+              </tr>
+              <tr class="border-t border-gray-700">
+                <td class="py-2">14:34:22</td>
+                <td>1.15</td>
+                <td>3.38</td>
+                <td>0.91</td>
+              </tr>
+              <tr class="border-t border-gray-700">
+                <td class="py-2">14:33:52</td>
+                <td>1.10</td>
+                <td>3.35</td>
+                <td>0.90</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endcall %}
+
+    <!-- UWB Activity Log Card -->
+    {% call render_card(title="UWB Activity Log", icon="history", id="uwb-log", footer_buttons=[
+      {"id": "clear-log-btn", "icon": "trash", "text": "Clear Log"},
+      {"id": "export-log-btn", "icon": "download", "text": "Export Log", "primary": true}
+    ]) %}
+      <div id="log-container" class="h-48 bg-gray-900 rounded p-3 overflow-y-auto font-mono text-sm">
+        <div class="text-gray-500">[System] UWB Manager initialized</div>
+        <div class="text-blue-400">[Info] Waiting for device registration...</div>
+      </div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script type="module" src="/static/js/pages/uwb-manager.js"></script>
+{% endblock %}

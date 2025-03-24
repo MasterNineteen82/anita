@@ -1,0 +1,111 @@
+<!-- filepath: k:\anita\poc\frontend\templates\rfid.html -->
+{% extends "base.html" %}
+{% from "components/card.html" import render_card %}
+{% from "components/page_header.html" import render_page_header %}
+{% from "components/reader_panel.html" import render_reader_panel %}
+
+{% block title %}RFID Manager | ANITA{% endblock %}
+{% block page_id %}rfid-manager{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+  <!-- Page Header -->
+  {{ render_page_header(
+    title="RFID Manager",
+    description="Advanced RFID reader interactions and operations",
+    icon="id-card"
+  ) }}
+
+  <!-- First Row -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Reader Panel Card -->
+    {% call render_card(title="Reader Panel", icon="usb", id="reader-panel-card") %}
+      <div class="space-y-4">
+        {{ render_reader_panel() }}
+      </div>
+    {% endcall %}
+
+    <!-- RFID Card Status -->
+    {% call render_card(title="RFID Card Status", icon="id-card", id="rfid-status", footer_buttons=[
+      {"id": "detect-card-btn", "icon": "search", "text": "Detect Card", "primary": true}
+    ]) %}
+      <!-- Card status content -->
+      <div class="space-y-3">
+        <div class="grid grid-cols-2 gap-2">
+          <div class="bg-gray-700 p-2 rounded">
+            <div class="text-gray-400 text-sm">Card Present</div>
+            <div id="card-present" class="text-lg">No</div>
+          </div>
+          <div class="bg-gray-700 p-2 rounded">
+            <div class="text-gray-400 text-sm">Card Type</div>
+            <div id="card-type" class="text-lg">--</div>
+          </div>
+        </div>
+        <div class="bg-gray-700 p-2 rounded">
+          <div class="text-gray-400 text-sm">ATR</div>
+          <div id="card-atr" class="text-sm font-mono break-all">--</div>
+        </div>
+      </div>
+    {% endcall %}
+  </div>
+
+  <!-- Second Row -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- RFID Operations Card -->
+    {% call render_card(title="RFID Operations", icon="tools", id="rfid-operations", footer_buttons=[
+      {"id": "read-card-btn", "icon": "file-import", "text": "Read Card"},
+      {"id": "write-card-btn", "icon": "file-export", "text": "Write Card"}
+    ]) %}
+      <div class="space-y-3">
+        <button id="read-card-btn" class="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded flex items-center justify-center">
+          <i class="fas fa-file-import mr-2"></i> Read Card
+        </button>
+        <button id="write-card-btn" class="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded flex items-center justify-center">
+          <i class="fas fa-file-export mr-2"></i> Write Card
+        </button>
+      </div>
+    {% endcall %}
+
+    <!-- RFID Data Card -->
+    {% call render_card(title="RFID Data", icon="database", id="rfid-data", footer_buttons=[
+      {"id": "export-data-btn", "icon": "download", "text": "Export Data", "primary": true},
+      {"id": "clear-data-btn", "icon": "trash", "text": "Clear"}
+    ]) %}
+      <div class="space-y-3">
+        <div class="flex gap-2">
+          <div class="flex-grow">
+            <select id="data-view-mode" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-1 px-2">
+              <option value="raw">Raw Data</option>
+              <option value="parsed">Parsed Data</option>
+            </select>
+          </div>
+          <button id="refresh-data-btn" class="bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded">
+            <i class="fas fa-sync"></i>
+          </button>
+        </div>
+        <div id="rfid-data-container" class="bg-gray-900 h-48 font-mono text-sm overflow-auto p-3 rounded">
+          <div class="text-gray-500">No RFID data available. Use the operations to read data.</div>
+        </div>
+      </div>
+    {% endcall %}
+  </div>
+
+  <!-- Third Row -->
+  <div class="grid grid-cols-1 gap-6">
+    <!-- RFID Log Card -->
+    {% call render_card(title="RFID Activity Log", icon="history", id="rfid-log", footer_buttons=[
+      {"id": "clear-log-btn", "icon": "trash", "text": "Clear Log"},
+      {"id": "export-log-btn", "icon": "download", "text": "Export Log", "primary": true}
+    ]) %}
+      <div id="log-container" class="h-48 bg-gray-900 rounded p-3 overflow-y-auto font-mono text-sm">
+        <div class="text-gray-500">[System] RFID Manager initialized</div>
+        <div class="text-blue-400">[Info] Waiting for card detection...</div>
+      </div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script type="module" src="/static/js/pages/rfid.js"></script>
+{% endblock %}

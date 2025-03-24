@@ -1,0 +1,222 @@
+{% macro render_navbar(active_path=None) %}
+<nav class="bg-gray-800 shadow relative h-16 navbar">
+  <div class="container mx-auto px-4 py-2 flex items-center justify-between h-full">
+    <!-- Brand Section -->
+    <a href="/" class="navbar-brand flex items-center gap-3 py-2">
+      <span class="brand-title text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan to-magenta animate-gradient">ANITA</span>
+      <span class="text-sm text-gray-400">Advanced NFC, Identification & Technology Authentication Solutions</span>
+    </a>
+
+    <!-- Navigation Links -->
+    <div class="navbar-links flex space-x-4 items-center">
+      <!-- App Panel Toggle Button -->
+      <button id="app-panel-toggle" class="nav-item app-panel-toggle flex items-center justify-center p-2 rounded-md text-gray-300 hover:text-white hover:bg-gray-700 focus:outline-none transition-all duration-300 ease-in-out" aria-label="Open applications panel">
+        <i class="fas fa-th-large text-lg text-transparent bg-clip-text bg-gradient-to-r from-cyan to-magenta animate-gradient"></i>
+        <span class="nav-tooltip">Apps</span>
+      </button>
+
+      {% set nav_items = [
+        ('/', 'fas fa-home', 'Home'),
+        ('/smartcard', 'fas fa-credit-card', 'Smart Card'),
+        ('/mifare', 'fas fa-id-card', 'MIFARE'),
+        ('/nfc', 'fas fa-mobile-alt', 'NFC'),
+        ('/settings', 'fas fa-cog', 'Settings')
+      ] %}
+
+      {% for path, icon, name in nav_items %}
+        <a href="{{ path }}" class="nav-item flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium
+          {% if active_path == path %}
+            bg-gray-700 text-white active
+          {% else %}
+            text-gray-300 hover:bg-gray-700 hover:text-white
+          {% endif %} transition-all duration-300 ease-in-out">
+          <i class="{{ icon }} text-lg text-transparent bg-clip-text bg-gradient-to-r from-cyan to-magenta animate-gradient"></i>
+          <span class="nav-tooltip">{{ name }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</nav>
+
+<!-- Applications Panel -->
+<div id="app-panel" class="app-panel fixed inset-0 z-[9999] transform translate-y-full transition-transform duration-500 ease-in-out hidden">
+  <div class="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-sm" id="app-panel-backdrop"></div>
+  <div class="relative mt-16 mx-auto w-full max-w-5xl bg-gray-800 rounded-xl border-gray-700 shadow-2xl transform transition-all duration-500 gradient-border-container overflow-hidden">
+    <!-- Vertical Panel Grip -->
+    <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-6 h-12 bg-gray-800 rounded-t-lg border-t border-l border-r border-gray-700 flex items-center justify-center cursor-pointer rotate-90" id="app-panel-grip">
+      <div class="w-6 h-1 bg-gray-600 rounded-full transform -rotate-90"></div>
+    </div>
+
+    <!-- Panel Content -->
+    <div class="p-6 bg-gray-800 rounded-xl relative z-10">
+      <h3 class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan to-magenta mb-6">Applications</h3>
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {% set all_pages = [
+          ('/api_manager', 'fas fa-network-wired', 'API Manager'),
+        ('/base', 'fas fa-database', 'Base'),
+        ('/biometric_fusion', 'fas fa-layer-group', 'Biometric Fusion'),
+        ('/biometric_manager', 'fas fa-fingerprint', 'Biometric Manager'),
+        ('/ble', 'fab fa-bluetooth-b', 'BLE'),
+        ('/card_manager', 'fas fa-layer-group', 'Card Manager'),
+        ('/device_manager', 'fas fa-microchip', 'Device Manager'),
+        ('/facial_recognition', 'fas fa-user', 'Facial Recognition'),
+        ('/fingerprint', 'fas fa-fingerprint', 'Fingerprint'),
+        ('/help', 'fas fa-question-circle', 'Help'),
+        ('/iris_recognition', 'fas fa-eye', 'Iris Recognition'),
+        ('/login', 'fas fa-sign-in-alt', 'Login'),
+        ('/logs', 'fas fa-file-alt', 'Logs'),
+        ('/mifare', 'fas fa-id-card', 'MIFARE'),
+        ('/mqtt', 'fas fa-server', 'MQTT'),
+        ('/nfc', 'fas fa-mobile-alt', 'NFC'),
+        ('/palm_recognition', 'fas fa-hand-paper', 'Palm Recognition'),
+        ('/rfid', 'fas fa-broadcast-tower', 'RFID'),
+        ('/settings', 'fas fa-cog', 'Settings'),
+        ('/smartcard', 'fas fa-credit-card', 'Smart Card'),
+        ('/splash', 'fas fa-tint', 'Splash'),
+        ('/uwb', 'fas fa-wifi', 'UWB'),
+        ('/websocket_manager', 'fas fa-exchange-alt', 'WebSocket Manager')
+        ] %}
+
+        {% for path, icon, name in all_pages %}
+          <a href="{{ path }}" class="app-tile flex flex-col items-center justify-center p-4 rounded-lg bg-gray-700 hover:bg-gray-600 transition-all duration-300 group">
+            <div class="app-icon-container relative mb-2 w-12 h-12 flex items-center justify-center">
+              <div class="absolute inset-0 rounded-full bg-gradient-to-br from-cyan/10 to-magenta/10 group-hover:from-cyan/20 group-hover:to-magenta/20 transform transition-all duration-300 group-hover:scale-110"></div>
+              <i class="{{ icon }} text-2xl app-icon text-transparent bg-clip-text bg-gradient-to-r from-cyan to-magenta animate-gradient"></i>
+            </div>
+            <span class="text-sm text-center text-gray-300 group-hover:text-white">{{ name }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JavaScript for Interactivity -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const appPanel = document.getElementById('app-panel');
+    const appPanelToggle = document.getElementById('app-panel-toggle');
+    const appPanelBackdrop = document.getElementById('app-panel-backdrop');
+    const appPanelGrip = document.getElementById('app-panel-grip');
+    const navItems = document.querySelectorAll('.nav-item');
+    let isDragging = false;
+    let startY = 0;
+    let startTranslate = 0;
+
+    // Make sure panel is initially hidden but ready for animation
+    setTimeout(() => {
+      appPanel.classList.remove('hidden');
+    }, 100);
+
+    // Toggle panel visibility
+    appPanelToggle.addEventListener('click', () => {
+      togglePanel();
+    });
+
+    // Close panel when clicking backdrop
+    appPanelBackdrop.addEventListener('click', () => {
+      closePanel();
+    });
+
+    // Panel grip drag functionality
+    appPanelGrip.addEventListener('mousedown', startDrag);
+    appPanelGrip.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      startDrag(e.touches[0]);
+    });
+
+    function startDrag(e) {
+      isDragging = true;
+      startY = e.clientY || e.pageY;
+      startTranslate = getCurrentTranslate();
+
+      document.addEventListener('mousemove', drag);
+      document.addEventListener('touchmove', touchDrag);
+      document.addEventListener('mouseup', stopDrag);
+      document.addEventListener('touchend', stopDrag);
+    }
+
+    function touchDrag(e) {
+      drag(e.touches[0]);
+    }
+
+    function drag(e) {
+      if (!isDragging) return;
+      const y = e.clientY || e.pageY;
+      const diff = y - startY;
+
+      let newTranslate = Math.min(100, Math.max(0, startTranslate + (diff / window.innerHeight * 100)));
+      appPanel.style.transform = `translateY(${newTranslate}%)`;
+
+      if (newTranslate > 50) {
+        appPanel.classList.add('closing');
+      } else {
+        appPanel.classList.remove('closing');
+      }
+    }
+
+    function stopDrag() {
+      if (!isDragging) return;
+      isDragging = false;
+
+      document.removeEventListener('mousemove', drag);
+      document.removeEventListener('touchmove', touchDrag);
+      document.removeEventListener('mouseup', stopDrag);
+      document.removeEventListener('touchend', stopDrag);
+
+      const currentTranslate = getCurrentTranslate();
+      if (currentTranslate > 30) {
+        closePanel();
+      } else {
+        openPanel();
+      }
+    }
+
+    function getCurrentTranslate() {
+      const transform = window.getComputedStyle(appPanel).getPropertyValue('transform');
+      const matrix = new DOMMatrixReadOnly(transform);
+      const translateY = matrix.m42;
+      return (translateY / window.innerHeight) * 100;
+    }
+
+    function togglePanel() {
+      if (appPanel.classList.contains('panel-open')) {
+        closePanel();
+      } else {
+        openPanel();
+      }
+    }
+
+    function openPanel() {
+      appPanel.style.transform = 'translateY(0)';
+      appPanel.classList.add('panel-open');
+      appPanel.classList.remove('closing');
+      document.body.classList.add('panel-is-open');
+    }
+
+    function closePanel() {
+      appPanel.style.transform = 'translateY(100%)';
+      appPanel.classList.remove('panel-open');
+      setTimeout(() => {
+        document.body.classList.remove('panel-is-open');
+      }, 500);
+    }
+
+    // Close with ESC key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && appPanel.classList.contains('panel-open')) {
+        closePanel();
+      }
+    });
+
+    // Highlight active navigation item
+    navItems.forEach(item => {
+      item.addEventListener('click', () => {
+        navItems.forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+      });
+    });
+  });
+</script>
+{% endmacro %}

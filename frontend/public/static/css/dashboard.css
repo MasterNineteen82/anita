@@ -1,0 +1,324 @@
+/* Modern Dark Theme Dashboard Styles */
+
+:root {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #283548;
+    --accent-primary: #3b82f6;
+    --accent-secondary: #10b981;
+    --accent-danger: #ef4444;
+    --accent-warning: #f59e0b;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #64748b;
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --glow-primary: rgba(59, 130, 246, 0.5);
+    --glow-secondary: rgba(16, 185, 129, 0.5);
+}
+
+/* Base Styles */
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* Dashboard Layout */
+.dashboard-container {
+    padding: 1.5rem;
+}
+
+/* Card Styling with 3D effect */
+.card {
+    background-color: var(--bg-secondary);
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px var(--shadow-color);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transform: translateZ(0);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px var(--shadow-color), 0 0 10px var(--glow-primary);
+}
+
+.card-header {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+    border-bottom: 2px solid var(--accent-primary);
+    position: relative;
+    overflow: hidden;
+}
+
+.card-header:before {
+    content: '';
+    position: absolute;
+    height: 2px;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    box-shadow: 0 0 8px var(--glow-primary);
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Status Indicators */
+#system-status {
+    position: relative;
+}
+
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    width: 100%;
+    border-radius: 8px;
+    background-color: var(--bg-tertiary);
+    transition: all 0.2s ease;
+}
+
+.status-indicator:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 15px var(--glow-primary);
+}
+
+.status-indicator .icon {
+    margin-right: 0.75rem;
+    height: 24px;
+    width: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-online {
+    border-left: 4px solid var(--accent-secondary);
+}
+
+.status-online .icon {
+    background-color: var(--accent-secondary);
+    box-shadow: 0 0 10px var(--glow-secondary);
+}
+
+.status-warning {
+    border-left: 4px solid var(--accent-warning);
+}
+
+.status-warning .icon {
+    background-color: var(--accent-warning);
+}
+
+.status-error {
+    border-left: 4px solid var(--accent-danger);
+}
+
+.status-error .icon {
+    background-color: var(--accent-danger);
+}
+
+/* Device Overview */
+.device-card {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    background-color: var(--bg-tertiary);
+    transition: all 0.3s ease;
+}
+
+.device-card:hover {
+    background-color: var(--bg-secondary);
+    box-shadow: 0 0 12px var(--glow-primary);
+    transform: translateX(5px);
+}
+
+.device-icon {
+    background-color: var(--accent-primary);
+    border-radius: 12px;
+    height: 40px;
+    width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    box-shadow: 0 0 8px var(--glow-primary);
+}
+
+.device-details {
+    flex: 1;
+}
+
+.device-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.device-status {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* Activity Log */
+.activity-container {
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.activity-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--bg-tertiary);
+    transition: all 0.2s ease;
+}
+
+.activity-item:hover {
+    background-color: var(--bg-tertiary);
+    border-radius: 6px;
+    padding-left: 0.5rem;
+}
+
+.activity-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    min-width: 80px;
+}
+
+.activity-content {
+    flex: 1;
+}
+
+.activity-title {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.activity-details {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--accent-primary);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-secondary);
+    box-shadow: 0 0 8px var(--glow-secondary);
+}
+
+/* Stats and Charts */
+.stat-card {
+    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+    border-radius: 12px;
+    padding: 1.25rem;
+    height: 100%;
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.stat-card:before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, var(--glow-primary), transparent 70%);
+    opacity: 0;
+    z-index: -1;
+    transition: opacity 0.3s ease;
+}
+
+.stat-card:hover:before {
+    opacity: 0.1;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 10px 20px var(--shadow-color);
+}
+
+.stat-title {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.stat-value.positive {
+    color: var(--accent-secondary);
+}
+
+.stat-value.negative {
+    color: var(--accent-danger);
+}
+
+.stat-change {
+    font-size: 0.75rem;
+}
+
+/* Charts container */
+.chart-container {
+    position: relative;
+    height: 250px;
+    margin-top: 1rem;
+}
+
+/* Animations */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 var(--glow-primary);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 1rem;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+}

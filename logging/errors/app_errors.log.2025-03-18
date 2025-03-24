@@ -1,0 +1,4 @@
+2025-03-18 10:54:14 - ERROR - app:244 - Error loading splash page: [Errno 2] No such file or directory: 'k:\\anita\\poc\\splash.html'
+2025-03-18 10:54:34 - ERROR - app:244 - Error loading splash page: [Errno 2] No such file or directory: 'k:\\anita\\poc\\splash.html'
+2025-03-18 11:55:44 - ERROR - app:244 - Error loading splash page: [Errno 2] No such file or directory: 'K:\\anita\\poc\\splash.html'
+2025-03-18 23:11:56 - ERROR - app:244 - Error loading splash page: [Errno 2] No such file or directory: 'K:\\anita\\poc\\splash.html'

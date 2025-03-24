@@ -1,0 +1,86 @@
+{% macro render_card(title, id=None, icon=None, actions=True, footer=True, footer_content="", footer_buttons=[], body=None, card_class="", icon_bg="", button_text="", button_class="") %}
+<div {% if id %}id="{{ id }}"{% endif %} class="bg-gray-800 rounded-lg shadow-lg flex flex-col card-hover dashboard-card anita-card-processed">
+  <div class="flex justify-between items-center border-b border-gray-700 anita-card-header">
+    <span class="text-md font-semibold text-white flex items-center gap-2">
+      {% if icon %}<i class="fas fa-{{ icon }} gradient-icon"></i>{% endif %}
+      {{ title }}
+    </span>
+    {% if actions %}
+    <div class="flex items-center gap-2">
+      <button class="card-footer-btn text-gray-400 hover:text-white"><i class="fas fa-chevron-down"></i></button>
+      <button class="card-footer-btn text-gray-400 hover:text-white cursor-move"><i class="fas fa-grip-lines"></i></button>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="px-4 py-3 flex-grow anita-card-content">
+    {{ caller() }}
+  </div>
+
+  {% if footer_buttons %}
+    <div class="px-4 py-3 card-footer-actions">
+      {% for btn in footer_buttons %}
+        <button 
+          id="{{ btn.id }}" 
+          class="card-footer-btn {% if btn.primary %}card-footer-btn-primary{% else %}card-footer-btn-secondary{% endif %}"
+          {% if btn.disabled %}disabled{% endif %}
+          {% if btn.onClick %}onclick="{{ btn.onClick }}"{% endif %}
+        >
+          {% if btn.icon %}<i class="fas fa-{{ btn.icon }}"></i>{% endif %}
+          {{ btn.text }}
+        </button>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if footer %}
+  <div class="border-t border-gray-700 anita-card-footer">
+    {% if footer_content %}
+      {{ footer_content }}
+    {% else %}
+      <div class="flex justify-between items-center">
+        <span class="gradient-text text-sm">{{ title }} Module</span>
+      </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro render_anita_card(title, id=None, icon=None, footer_text=None, footer_info=None) %}
+<div {% if id %}id="{{ id }}"{% endif %} class="anita-card" data-card-id="{{ id }}">
+  <div class="anita-card-border">
+    <div class="anita-card-inner">
+      <!-- Card Header -->
+      <div class="anita-card-header">
+        <span class="anita-card-title">
+          {% if icon %}<i class="fas fa-{{ icon }} anita-card-icon"></i>{% endif %}
+          {{ title }}
+        </span>
+        <div class="flex items-center">
+          {% block card_header_actions %}
+          <button class="card-footer-btn mr-1">
+            <i class="fas fa-ellipsis-v"></i>
+          </button>
+          {% endblock %}
+        </div>
+      </div>
+
+      <!-- Card Content -->
+      <div class="anita-card-content">
+        {{ caller() }}
+      </div>
+
+      <!-- Card Footer -->
+      <div class="anita-card-footer">
+        <span class="anita-card-footer-text">
+          {% if footer_text %}{{ footer_text }}{% else %}ANITA Console{% endif %}
+        </span>
+        <span class="text-gray-500 text-xs">
+          {% if footer_info %}{{ footer_info }}{% else %}{% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endmacro %}

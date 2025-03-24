@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% from "components/card.html" import render_card %}
+{% from "components/page_header.html" import render_page_header %}
+{% from "components/alerts.html" import render_alert %}
+{% from "components/toggle_control.html" import render_toggle %}
+
+{% block title %}API Manager | ANITA{% endblock %}
+
+{% block page_id %}api-manager{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Page Header Card -->
+    {{ render_page_header(
+        title="API Manager",
+        description="Monitor, test, and manage API endpoints",
+        icon="link"
+    ) }}
+
+    <!-- First Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- API Endpoints Card (Spans 2 Columns) -->
+        {% call render_card(title="API Endpoints", icon="link", id="api-endpoints-card", footer_buttons=[
+            {"id": "refresh-endpoints", "icon": "sync", "text": "Refresh", "primary": true}
+        ]) %}
+            <div class="space-y-4">
+                <!-- Search and Filters -->
+                <div class="relative">
+                    <input type="text" id="endpoint-search" placeholder="Search endpoints..." 
+                        class="w-full bg-gray-700 border border-gray-600 rounded py-2 pl-3 pr-10 text-white">
+                    <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </div>
+                </div>
+
+                <!-- Category Tabs -->
+                <ul id="api-categories" class="flex flex-wrap border-b border-gray-700">
+                    <li class="mr-2">
+                        <button type="button" class="category-tab tab-item active py-2 px-3" data-category="all">All</button>
+                    </li>
+                    <!-- Categories dynamically added here -->
+                </ul>
+
+                <!-- Endpoints Table -->
+                <div id="endpoints-container" class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead>
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Method</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Endpoint</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Description</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="endpoints-list" class="divide-y divide-gray-700 bg-gray-800 bg-opacity-50">
+                            <tr>
+                                <td colspan="4" class="px-3 py-4 text-center text-gray-400">
+                                    <div class="flex items-center justify-center">
+                                        <i class="fas fa-circle-notch fa-spin mr-2"></i>
+                                        Loading API endpoints...
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endcall %}
+
+        <!-- Stats Card -->
+        {% call render_card(title="API Status", icon="heartbeat", id="api-status-card") %}
+            <div class="space-y-4">
+                <div class="flex items-center">
+                    <div id="api-status-indicator" class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                    <span id="api-status-text" class="font-medium">Operational</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-3 bg-gray-700 bg-opacity-50 rounded">
+                        <div class="text-xs text-gray-400 mb-1">Uptime</div>
+                        <div id="api-uptime" class="text-lg font-medium">--:--:--</div>
+                    </div>
+                    <div class="p-3 bg-gray-700 bg-opacity-50 rounded">
+                        <div class="text-xs text-gray-400 mb-1">Version</div>
+                        <div id="api-version" class="text-lg font-medium">-.-.-</div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+
+    <!-- Second Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Recent Requests Card -->
+        {% call render_card(title="Recent Requests", icon="history", id="recent-requests-card", footer_buttons=[
+            {"id": "clear-recent", "icon": "trash", "text": "Clear"}
+        ]) %}
+            <div id="recent-requests" class="space-y-2 max-h-60 overflow-auto">
+                <div class="text-gray-400 text-center py-3">No recent requests</div>
+            </div>
+        {% endcall %}
+
+        <!-- Connection Stats Card -->
+        {% call render_card(title="Connection Stats", icon="chart-bar", id="connection-stats-card") %}
+            <div class="grid grid-cols-2 gap-4">
+                <div class="p-3 bg-gray-700 bg-opacity-50 rounded">
+                    <div class="text-xs text-gray-400 mb-1">Avg Response</div>
+                    <div id="avg-response-time" class="text-lg font-medium">0 ms</div>
+                </div>
+                <div class="p-3 bg-gray-700 bg-opacity-50 rounded">
+                    <div class="text-xs text-gray-400 mb-1">Total Requests</div>
+                    <div id="total-requests" class="text-lg font-medium">0</div>
+                </div>
+                <div class="p-3 bg-gray-700 bg-opacity-50 rounded">
+                    <div class="text-xs text-gray-400 mb-1">Success Rate</div>
+                    <div id="success-rate" class="text-lg font-medium">0%</div>
+                </div>
+                <div class="p-3 bg-gray-700 bg-opacity-50 rounded">
+                    <div class="text-xs text-gray-400 mb-1">Active Routes</div>
+                    <div id="active-routes" class="text-lg font-medium">0</div>
+                </div>
+            </div>
+        {% endcall %}
+
+        <!-- Test API Card (Hidden by Default) -->
+        {% call render_card(title="Test API Endpoint", icon="flask", id="test-api-card", footer_buttons=[
+            {"id": "send-request", "icon": "paper-plane", "text": "Send Request", "primary": true}
+        ]) %}
+            <div class="space-y-4">
+                <!-- Endpoint Info -->
+                <div id="endpoint-details" class="p-3 bg-gray-700 bg-opacity-50 rounded">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-xs text-gray-400">METHOD</span>
+                            <div id="test-method" class="font-mono font-bold"></div>
+                        </div>
+                        <div class="md:col-span-2">
+                            <span class="text-xs text-gray-400">ENDPOINT</span>
+                            <div id="test-path" class="font-mono text-green-500 break-all"></div>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <span class="text-xs text-gray-400">DESCRIPTION</span>
+                        <div id="test-description" class="text-sm"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Request Section -->
+                    <div class="space-y-3">
+                        <h3 class="text-sm font-semibold text-gray-300 uppercase">Request</h3>
+                        <!-- Parameters Accordion -->
+                        <div id="parameters-section">
+                            <div class="accordion-item">
+                                <button type="button" id="params-accordion" class="w-full flex justify-between items-center py-2 px-3 bg-gray-700 hover:bg-gray-600 rounded">
+                                    <span class="font-medium">Query Parameters</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div id="params-content" class="p-3 bg-gray-800 rounded-b hidden">
+                                    <div id="query-params-container">
+                                        <div class="text-sm text-gray-400 italic py-2">No parameters required</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Headers Accordion -->
+                        <div class="accordion-item">
+                            <button type="button" id="headers-accordion" class="w-full flex justify-between items-center py-2 px-3 bg-gray-700 hover:bg-gray-600 rounded">
+                                <span class="font-medium">Headers</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div id="headers-content" class="p-3 bg-gray-800 rounded-b hidden">
+                                <div id="headers-container">
+                                    <div class="grid grid-cols-2 gap-2 mb-2">
+                                        <input type="text" placeholder="Key" class="bg-gray-700 border border-gray-600 rounded py-1 px-2 text-white text-sm">
+                                        <input type="text" placeholder="Value" class="bg-gray-700 border border-gray-600 rounded py-1 px-2 text-white text-sm">
+                                    </div>
+                                    <button type="button" id="add-header" class="text-blue-500 text-sm hover:text-blue-400">
+                                        <i class="fas fa-plus-circle mr-1"></i> Add Header
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Request Body Accordion -->
+                        <div id="body-section" class="accordion-item">
+                            <button type="button" id="body-accordion" class="w-full flex justify-between items-center py-2 px-3 bg-gray-700 hover:bg-gray-600 rounded">
+                                <span class="font-medium">Request Body</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div id="body-content" class="p-3 bg-gray-800 rounded-b hidden">
+                                <div class="space-y-2">
+                                    <select id="body-content-type" class="w-full bg-gray-700 border border-gray-600 rounded py-1 px-2 text-white text-sm">
+                                        <option value="application/json">JSON</option>
+                                        <option value="application/x-www-form-urlencoded">Form URL Encoded</option>
+                                        <option value="multipart/form-data">Multipart Form</option>
+                                    </select>
+                                    <textarea id="request-body" rows="6" placeholder="{}" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white font-mono text-sm"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Response Section -->
+                    <div class="space-y-3">
+                        <h3 class="text-sm font-semibold text-gray-300 uppercase">Response</h3>
+                        <div id="response-waiting" class="flex items-center justify-center h-16 mb-2 hidden">
+                            <div class="animate-spin h-5 w-5 mr-3 border-2 border-t-2 border-blue-500 rounded-full"></div>
+                            <span class="text-gray-400">Waiting for response...</span>
+                        </div>
+                        <div id="response-container" class="hidden">
+                            <div class="flex justify-between items-center py-2 px-3 bg-gray-700 rounded-t">
+                                <div class="flex items-center">
+                                    <span id="response-status-code" class="font-mono font-bold mr-2">200</span>
+                                    <span id="response-status-text" class="text-sm text-gray-400">OK</span>
+                                </div>
+                                <div class="text-sm text-gray-400">
+                                    <span id="response-time">0</span> ms
+                                </div>
+                            </div>
+                            <pre id="response-body" class="p-3 bg-gray-800 rounded-b font-mono text-sm overflow-auto max-h-60 whitespace-pre-wrap"></pre>
+                        </div>
+                        <div id="response-error" class="py-2 px-3 bg-red-900 bg-opacity-50 border border-red-800 rounded text-red-200 hidden" role="alert">
+                            <div class="flex items-center">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>
+                                <strong class="font-bold">Error! </strong>
+                            </div>
+                            <span class="block mt-1" id="error-message"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script src="/static/js/pages/api-manager.js"></script>
+{% endblock %}

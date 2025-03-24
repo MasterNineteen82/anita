@@ -1,0 +1,485 @@
+/* filepath: k:\anita\poc\frontend\static\css\components\settings.css */
+/* Modern Dark Theme Settings Styles */
+
+/* Inheriting the same color scheme from dashboard.css */
+:root {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #283548;
+    --accent-primary: #3b82f6;
+    --accent-secondary: #10b981;
+    --accent-danger: #ef4444;
+    --accent-warning: #f59e0b;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #64748b;
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --glow-primary: rgba(59, 130, 246, 0.5);
+    --glow-secondary: rgba(16, 185, 129, 0.5);
+}
+
+/* Settings Container */
+.settings-container {
+    padding: 1.5rem;
+}
+
+/* Settings Card Styling */
+.settings-card {
+    background-color: var(--bg-secondary);
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px var(--shadow-color);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.settings-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px var(--shadow-color), 0 0 8px var(--glow-primary);
+}
+
+.settings-header {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+    border-bottom: 2px solid var(--accent-primary);
+    position: relative;
+    overflow: hidden;
+}
+
+.settings-header:before {
+    content: '';
+    position: absolute;
+    height: 2px;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    box-shadow: 0 0 8px var(--glow-primary);
+}
+
+.settings-body {
+    padding: 1.5rem;
+}
+
+/* Settings Group */
+.settings-group {
+    margin-bottom: 1.5rem;
+}
+
+.settings-group-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.settings-group h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    color: rgba(255, 255, 255, 0.9);
+    position: relative;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.settings-group h3::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 50px;
+    height: 2px;
+    background-image: linear-gradient(90deg, rgb(0, 183, 255), rgb(255, 48, 255));
+    border-radius: 2px;
+}
+
+/* Settings Item */
+.settings-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border-radius: 8px;
+    background-color: var(--bg-tertiary);
+    transition: all 0.3s ease;
+}
+
+.settings-item:hover {
+    background-color: var(--bg-secondary);
+    box-shadow: 0 0 10px var(--glow-primary);
+    transform: translateX(3px);
+}
+
+.settings-item-info {
+    flex: 1;
+}
+
+.settings-item-title {
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.settings-item-description {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--bg-primary);
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: var(--text-secondary);
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+    background-color: var(--accent-secondary);
+    box-shadow: 0 0 8px var(--glow-secondary);
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+    background-color: var(--text-primary);
+}
+
+/* Form Controls */
+.settings-input {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 6px;
+    color: var(--text-primary);
+    padding: 0.75rem 1rem;
+    width: 100%;
+    transition: all 0.3s ease;
+}
+
+.settings-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--glow-primary);
+}
+
+.settings-select {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 6px;
+    color: var(--text-primary);
+    padding: 0.75rem 1rem;
+    width: 100%;
+    transition: all 0.3s ease;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23cbd5e1' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+}
+
+.settings-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--glow-primary);
+}
+
+/* Action Buttons */
+.settings-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+    gap: 1rem;
+}
+
+.btn-save {
+    background-color: var(--accent-secondary);
+    color: var(--text-primary);
+    border: none;
+    border-radius: 6px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-save:hover {
+    background-color: var(--accent-primary);
+    box-shadow: 0 0 10px var(--glow-primary);
+    transform: translateY(-2px);
+}
+
+.btn-cancel {
+    background-color: var(--bg-tertiary);
+    color: var (--text-primary);
+    border: none;
+    border-radius: 6px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-cancel:hover {
+    background-color: var(--accent-danger);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+    transform: translateY(-2px);
+}
+
+/* Notification Settings */
+.notification-type {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    border-radius: 8px;
+    background-color: var(--bg-tertiary);
+    transition: all 0.2s ease;
+}
+
+.notification-type:hover {
+    transform: translateX(3px);
+    background-color: var(--bg-secondary);
+}
+
+.notification-icon {
+    margin-right: 0.75rem;
+    height: 32px;
+    width: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--accent-primary);
+    box-shadow: 0 0 8px var(--glow-primary);
+}
+
+/* Settings page specific styles */
+
+.form-check {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.form-check-input {
+    cursor: pointer;
+    margin-right: 0.75rem;
+    width: 40px;
+    height: 20px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.form-check-input::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: white;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.3s ease;
+}
+
+.form-check-input:checked {
+    background: linear-gradient(90deg, rgb(0, 183, 255), rgb(255, 48, 255));
+}
+
+.form-check-input:checked::before {
+    transform: translateX(20px);
+}
+
+.form-control {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: rgb(0, 183, 255);
+    box-shadow: 0 0 0 2px rgba(0, 183, 255, 0.3);
+}
+
+/* System info styling */
+.info-container {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Plugin list styling */
+.plugin-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.plugin-list li {
+    padding: 0.75rem 1rem;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.plugin-list li::before {
+    content: '\f187';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    margin-right: 0.75rem;
+    color: rgb(0, 183, 255);
+}
+
+/* Improved Card Grid Layout */
+.card-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.card-row {
+  display: flex;
+  width: 100%;
+  gap: 24px;
+  margin-bottom: 0; /* Remove margin as gap handles spacing */
+}
+
+/* Equal height and width columns */
+.card-column {
+  flex: 1 1 0; /* Equal width growth */
+  min-width: 0; /* Allow shrinking below content width */
+  display: flex;
+}
+
+/* Force cards to fill columns evenly */
+.card-column .card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  margin: 0; /* Remove any default card margins */
+}
+
+/* Card internals sizing */
+.settings-card .card-header {
+  height: 60px; /* Fixed height header */
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-card .card-body {
+  flex: 1; /* Take up available space */
+  overflow-y: auto; /* Scroll when content is too tall */
+  min-height: 300px; /* Minimum height for all cards */
+  height: 100%;
+}
+
+.settings-card .card-footer {
+  height: 60px; /* Fixed height footer */
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .card-row {
+    flex-wrap: wrap;
+  }
+  
+  .card-column {
+    flex: 0 0 calc(50% - 12px); /* 2 cards per row on medium screens */
+    margin-bottom: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .card-column {
+    flex: 0 0 100%; /* 1 card per row on small screens */
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .settings-container {
+        padding: 1rem;
+    }
+    
+    .settings-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .settings-item-info {
+        margin-bottom: 1rem;
+    }
+    
+    .settings-actions {
+        flex-direction: column;
+    }
+    
+    .btn-save, .btn-cancel {
+        width: 100%;
+    }
+}

@@ -1,0 +1,216 @@
+<!-- filepath: k:\anita\poc\frontend\templates\nfc.html -->
+{% extends "base.html" %}
+{% from "components/card.html" import render_card %}
+{% from "components/page_header.html" import render_page_header %}
+{% from "components/alerts.html" import render_alert %}
+{% from "components/toggle_control.html" import render_toggle %}
+
+{% block title %}NFC Manager | ANITA{% endblock %}
+
+{% block page_id %}nfc{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Page Header Card -->
+    {{ render_page_header(
+        title="NFC Manager",
+        description="Near Field Communication controls",
+        icon="signal"
+    ) }}
+
+    <!-- First Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Reader and Status Card (Spans 2 Columns) -->
+        {% call render_card(title="NFC Interface", icon="usb", id="nfc-interface-card", footer_buttons=[
+            {"id": "refresh-nfc-status", "icon": "sync", "text": "Refresh", "primary": true}
+        ]) %}
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Reader Status -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Reader Status</h3>
+                        <div class="p-3 bg-gray-700 bg-opacity-50 rounded">
+                            <div class="flex items-center">
+                                <div id="connection-indicator" class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                                <span id="connection-status" class="font-medium">Unknown</span>
+                            </div>
+                            <div class="mt-2 text-sm">
+                                <div>Devices: <span id="available-devices">0</span></div>
+                                <div>Active: <span id="active-device">None</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Tag Info -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Tag Info</h3>
+                        <div id="nfc-tag-details" class="p-3 bg-gray-700 bg-opacity-50 rounded">
+                            <div class="text-sm space-y-2">
+                                <div>UID: <span id="tag-uid" class="font-mono">--</span></div>
+                                <div>Type: <span id="tag-type">--</span></div>
+                                <div>Size: <span id="tag-size">--</span></div>
+                                <div>Writable: <span id="tag-writable">--</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+
+        <!-- Connection Status Card -->
+        {% call render_card(title="Connection Status", icon="broadcast-tower", id="nfc-connection-status") %}
+            <div class="space-y-4">
+                <div class="flex items-center">
+                    <div id="status-indicator" class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                    <span id="nfc-active-tag" class="font-medium">No Tag</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-3 bg-gray-700 bg-opacity-50 rounded">
+                        <div class="text-xs text-gray-400 mb-1">Latency</div>
+                        <div id="nfc-latency" class="text-lg font-medium">--</div>
+                    </div>
+                    <div class="p-3 bg-gray-700 bg-opacity-50 rounded">
+                        <div class="text-xs text-gray-400 mb-1">Last Seen</div>
+                        <div id="nfc-last-seen" class="text-lg font-medium">--</div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+
+    <!-- Second Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Basic Operations Card -->
+        {% call render_card(title="Basic Operations", icon="tasks", id="basic-nfc-operations", footer_buttons=[
+            {"id": "read-tag-info-btn", "icon": "info-circle", "text": "Read Info", "primary": true},
+            {"id": "read-ndef-btn", "icon": "list-alt", "text": "Read Records"}
+        ]) %}
+            <div class="space-y-4">
+                <button id="write-text-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded">
+                    <i class="fas fa-edit mr-2"></i> Write Text
+                </button>
+                <button id="write-url-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded">
+                    <i class="fas fa-link mr-2"></i> Write URL
+                </button>
+                <button id="erase-tag-btn" class="w-full bg-red-600 hover:bg-red-500 text-white py-2 px-4 rounded">
+                    <i class="fas fa-trash-alt mr-2"></i> Erase Tag
+                </button>
+            </div>
+        {% endcall %}
+
+        <!-- Advanced Operations Card -->
+        {% call render_card(title="Advanced Operations", icon="cogs", id="advanced-nfc-operations", footer_buttons=[
+            {"id": "write-vcard-btn", "icon": "address-card", "text": "vCard"},
+            {"id": "write-wifi-btn", "icon": "wifi", "text": "WiFi"}
+        ]) %}
+            <div class="space-y-4">
+                <button id="emulate-tag-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded">
+                    <i class="fas fa-broadcast-tower mr-2"></i> Tag Emulation
+                </button>
+                <button id="format-tag-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded">
+                    <i class="fas fa-eraser mr-2"></i> Format Tag
+                </button>
+                <button id="lock-tag-btn" class="w-full bg-yellow-600 hover:bg-yellow-500 text-white py-2 px-4 rounded">
+                    <i class="fas fa-lock mr-2"></i> Lock Tag
+                </button>
+            </div>
+        {% endcall %}
+
+        <!-- NDEF Records Card -->
+        {% call render_card(title="NDEF Records", icon="list", id="ndef-records-card") %}
+            <div id="ndef-records-container" class="space-y-4">
+                <div id="ndef-placeholder" class="text-gray-400 text-center py-4">
+                    No NDEF records available. Use operations to read a tag.
+                </div>
+                <div id="ndef-records" class="hidden">
+                    <div class="flex justify-between text-xs text-gray-400 mb-2">
+                        <span>RECORD TYPE</span>
+                        <span>ACTIONS</span>
+                    </div>
+                    <div id="ndef-records-list" class="space-y-2"></div>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+
+    <!-- Third Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Tag Type Detection Card -->
+        {% call render_card(title="Tag Detection", icon="clipboard-check", id="tag-type-detection", footer_buttons=[
+            {"id": "scan-tag-type-btn", "icon": "search", "text": "Scan", "primary": true}
+        ]) %}
+            <div class="space-y-4">
+                <div class="p-3 bg-gray-700 bg-opacity-50 rounded">
+                    <span class="text-xs text-gray-400">COMPATIBLE TAG TYPES</span>
+                    <div class="mt-2 grid grid-cols-2 gap-2 text-sm">
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                            <span>MIFARE Classic</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                            <span>MIFARE Ultralight</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                            <span>NTAG21x</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                            <span>ISO 14443-A</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                            <span>MIFARE DESFire</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                            <span>ISO 14443-B</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+
+        <!-- Activity Log Card -->
+        {% call render_card(title="Activity Log", icon="history", id="nfc-activity-log-card", footer_buttons=[
+            {"id": "clear-nfc-log", "icon": "trash", "text": "Clear"},
+            {"id": "export-nfc-log", "icon": "download", "text": "Export", "primary": true}
+        ]) %}
+            <div id="nfc-activity-log" class="h-64 overflow-y-auto p-2 bg-gray-800 rounded">
+                <div id="log-empty-placeholder" class="text-gray-400 text-center py-4">
+                    No activity recorded yet
+                </div>
+                <ul id="nfc-log-entries" class="space-y-2 hidden"></ul>
+            </div>
+        {% endcall %}
+
+        <!-- Settings Card -->
+        {% call render_card(title="Settings", icon="cog", id="nfc-settings-card", footer_buttons=[
+            {"id": "save-nfc-settings", "icon": "save", "text": "Save", "primary": true}
+        ]) %}
+            <div class="space-y-4">
+                <div>
+                    <span class="text-xs text-gray-400">POLLING INTERVAL</span>
+                    <input type="range" id="polling-interval" min="100" max="2000" step="100" value="500" class="w-full mt-2">
+                    <div class="flex justify-between text-xs text-gray-400">
+                        <span>100ms</span>
+                        <span id="polling-interval-value">500ms</span>
+                        <span>2000ms</span>
+                    </div>
+                </div>
+                {{ render_toggle(id="continuous-reading", title="Continuous Reading") }}
+                {{ render_toggle(id="beep-on-detection", title="Beep on Detection", checked=true) }}
+                {{ render_toggle(id="auto-refresh-status", title="Auto Refresh Status") }}
+            </div>
+        {% endcall %}
+    </div>
+</div>
+
+<!-- Modals remain unchanged -->
+{% include 'modals/nfc-write-text-modal.html' %}
+{% include 'modals/nfc-write-url-modal.html' %}
+{% endblock %}
+
+{% block page_scripts %}
+<script type="module" src="/static/js/pages/nfc.js"></script>
+{% endblock %}

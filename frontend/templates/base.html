@@ -1,0 +1,73 @@
+<!-- base.html -->
+<!DOCTYPE html>
+<html lang="en" class="bg-gray-900 text-gray-200">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ANITA - Advanced NFC, Identification & Technology Authentication Solutions">
+    
+    <title>{% block title %}ANITA{% endblock %}</title>
+    
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/custom.css">
+
+    <!-- Tailwind CSS CDN (for development; consider pre-building in production) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#07182E',
+                        cyan: '#00b7ff',
+                        magenta: '#FF30FF',
+                    },
+                }
+            }
+        }
+    </script>
+
+    {% block page_css %}{% endblock %}
+</head>
+<body class="flex flex-col min-h-screen">
+    <!-- Navbar Component -->
+    {% from "components/navbar.html" import render_navbar %}
+    {{ render_navbar(request.path) }}
+    <div class="gradient-divider"></div>
+
+    <!-- Main Content Area -->
+    <main class="container mx-auto flex-grow py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <div class="gradient-divider"></div>
+    <!-- Footer Component -->
+    {% from "components/footer.html" import render_footer %}
+    {{ render_footer() }}
+
+    <!-- Global JavaScript Utilities -->
+    <script type="module">
+        import UI from '/static/js/utils/ui.js';
+        import CardStandardizer from '/static/js/utils/card-standardizer.js';
+        import buttonFixer from '/static/js/utils/button-fixer.js';
+        import logger from '/static/js/utils/logger.js';
+    
+        window.UI = UI;
+        window.buttonFixer = buttonFixer;
+        window.logger = logger;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            buttonFixer.fixAllButtons();
+            CardStandardizer.init();
+            logger.info('Page loaded', { page: document.title });
+        });
+    </script>
+
+    {% block scripts %}{% endblock %}
+    {% block page_scripts %}{% endblock %}
+</body>
+</html>

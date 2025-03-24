@@ -1,0 +1,16 @@
+<!-- components/page_header.html -->
+{% macro render_page_header(title, description=None, icon=None, extra_content=None, icon_bg=None) %}
+<div class="anita-card dashboard-card">
+    <div class="anita-card-header">
+        <span class="anita-card-title">
+            {% if icon %}<i class="fas fa-{{ icon }} anita-card-icon"></i>{% endif %}
+            <span class="bg-gradient-to-r from-cyan to-magenta text-transparent bg-clip-text">{{ title }}</span>
+        </span>
+    </div>
+    {% if description %}
+    <div class="anita-card-content">
+        <p class="text-gray-400">{{ description }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}

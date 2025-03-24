@@ -1,0 +1,7 @@
+{
+  "theme": "dark",
+  "logging_enabled": true,
+  "auto_refresh": true,
+  "refresh_interval": 5000,
+  "simulation_mode": true
+}

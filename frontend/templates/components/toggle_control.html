@@ -1,0 +1,20 @@
+<!-- filepath: k:\anita\poc\frontend\templates\components\toggle_control.html -->
+{% macro render_toggle(id, title, description=None, checked=False, disabled=False, color='cyan', label=None) %}
+<div class="flex items-center justify-between py-2">
+  <div>
+    <label for="{{ id }}" class="block text-sm font-medium text-gray-200">{{ title }}</label>
+    {% if description %}
+      <p class="text-xs text-gray-400">{{ description }}</p>
+    {% endif %}
+  </div>
+
+  <div class="relative inline-block toggle-switch">
+    <input type="checkbox" id="{{ id }}" class="sr-only peer" {% if checked %}checked{% endif %} {% if disabled %}disabled{% endif %}>
+    <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:bg-{{ color }} peer-disabled:opacity-50 transition-colors duration-200 toggle-slider"></div>
+    <div class="absolute top-0.5 left-0.5 h-5 w-5 bg-white rounded-full peer-checked:translate-x-full transition-transform duration-200"></div>
+  </div>
+  {% if label %}
+    <label for="{{ id }}" class="ml-3 text-sm font-medium text-gray-200">{{ label }}</label>
+  {% endif %}
+</div>
+{% endmacro %}

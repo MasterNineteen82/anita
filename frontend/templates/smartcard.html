@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% from "components/card.html" import render_card %}
+{% from "components/page_header.html" import render_page_header %}
+{% from "components/reader_panel.html" import render_reader_panel %}
+
+{% block title %}Smart Card Manager | ANITA{% endblock %}
+{% block page_id %}smartcard-manager{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+  <!-- Page Header -->
+  {{ render_page_header(
+    title="Smart Card Manager",
+    description="Smart card management and operations",
+    icon="credit-card"
+  ) }}
+
+  <!-- First Row -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {% call render_card(title="Reader Panel", icon="usb", id="reader-panel") %}
+      {{ render_reader_panel() }}
+    {% endcall %}
+
+    {% call render_card(title="Card Information", icon="info-circle", id="card-information", footer_buttons=[
+      {"id": "refresh-card-info", "icon": "sync-alt", "text": "Refresh", "primary": true}
+    ]) %}
+      <ul class="text-sm space-y-2">
+        <li><strong>Card Type:</strong> <span id="card-type">--</span></li>
+        <li><strong>ATR:</strong> <span id="card-atr">--</span></li>
+        <li><strong>Protocol:</strong> <span id="card-protocol">--</span></li>
+        <li><strong>Status:</strong> <span id="card-status">--</span></li>
+      </ul>
+    {% endcall %}
+  </div>
+
+  <!-- Second Row -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {% call render_card(title="APDU Commands", icon="terminal", id="apdu-commands", footer_buttons=[
+      {"id": "send-apdu", "icon": "paper-plane", "text": "Send", "primary": true}
+    ]) %}
+      <div class="space-y-4">
+        <div class="flex space-x-2">
+          <select id="apdu-presets" class="bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3">
+            <option value="">-- Select Preset --</option>
+            <option value="00A4040000">SELECT (default)</option>
+            <option value="00B0000000">READ BINARY</option>
+            <option value="00200000FF">VERIFY PIN</option>
+            <option value="80CA9F7F00">GET DATA</option>
+          </select>
+          <button id="load-preset" class="bg-gray-600 hover:bg-gray-500 text-white py-1 px-3 rounded">
+            <i class="fas fa-upload"></i> Load
+          </button>
+        </div>
+        <input type="text" id="apdu-command" placeholder="Enter APDU command (hex)" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3">
+        <textarea id="apdu-response" rows="4" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3" readonly></textarea>
+      </div>
+    {% endcall %}
+
+    {% call render_card(title="Memory Operations", icon="memory", id="memory-operations", footer_buttons=[
+      {"id": "read-memory", "icon": "download", "text": "Read"},
+      {"id": "write-memory", "icon": "upload", "text": "Write"}
+    ]) %}
+      <div class="space-y-4">
+        <div class="flex items-center space-x-2 mb-3">
+          <label for="memory-offset" class="text-sm">Offset:</label>
+          <input type="text" id="memory-offset" placeholder="0000" class="bg-gray-700 border border-gray-600 text-gray-200 rounded py-1 px-2 w-24">
+          <label for="memory-length" class="text-sm">Length:</label>
+          <input type="text" id="memory-length" placeholder="16" class="bg-gray-700 border border-gray-600 text-gray-200 rounded py-1 px-2 w-24">
+        </div>
+        <textarea id="memory-data" rows="3" placeholder="Memory data (hex)" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3"></textarea>
+      </div>
+    {% endcall %}
+  </div>
+
+  <!-- Third Row -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {% call render_card(title="PIN Management", icon="key", id="pin-management", footer_buttons=[
+      {"id": "verify-pin", "icon": "check-circle", "text": "Verify"},
+      {"id": "change-pin", "icon": "edit", "text": "Change PIN"}
+    ]) %}
+      <div class="space-y-4">
+        <div class="mb-3">
+          <label for="current-pin" class="block text-sm mb-1">Current PIN:</label>
+          <input type="password" id="current-pin" class="bg-gray-700 border border-gray-600 text-gray-200 rounded py-1 px-3 w-full">
+        </div>
+        <div class="text-sm mt-2">
+          <span id="pin-attempts" class="text-yellow-500"></span>
+        </div>
+      </div>
+    {% endcall %}
+
+    {% call render_card(title="Card Lifecycle", icon="id-card", id="card-lifecycle", footer_buttons=[
+      {"id": "register-card", "icon": "user-plus", "text": "Register"},
+      {"id": "activate-card", "icon": "toggle-on", "text": "Activate"},
+      {"id": "deactivate-card", "icon": "toggle-off", "text": "Deactivate"}
+    ]) %}
+      <div class="space-y-4">
+        <div class="text-sm">
+          <p><strong>Status:</strong> <span id="lifecycle-status">Unknown</span></p>
+          <p><strong>Registered:</strong> <span id="is-registered">Unknown</span></p>
+          <p><strong>Last Operation:</strong> <span id="last-operation">None</span></p>
+        </div>
+      </div>
+    {% endcall %}
+  </div>
+
+  <!-- Fourth Row -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {% call render_card(title="Format & Block Operations", icon="shield-alt", id="format-block-operations", footer_buttons=[
+      {"id": "format-card", "icon": "eraser", "text": "Format Card"},
+      {"id": "block-card", "icon": "ban", "text": "Block Card"}
+    ]) %}
+      <div class="space-y-4">
+        <div class="text-sm mb-3">
+          <p>Warning: These operations may permanently alter your smartcard.</p>
+        </div>
+      </div>
+    {% endcall %}
+
+    {% call render_card(title="Card Diagnostics", icon="stethoscope", id="card-diagnostics", footer_buttons=[
+      {"id": "run-diagnostics", "icon": "heartbeat", "text": "Run Diagnostics"}
+    ]) %}
+      <div class="space-y-4">
+        <div id="diagnostics-results" class="text-sm mt-2 h-24 overflow-auto bg-gray-800 p-2 rounded">
+          <p class="text-gray-400">No diagnostics run yet.</p>
+        </div>
+      </div>
+    {% endcall %}
+  </div>
+
+  <!-- Fifth Row -->
+  <div class="grid grid-cols-1 gap-6">
+    {% call render_card(title="Card Activity Log", icon="history", id="card-log", footer_buttons=[
+      {"id": "clear-log-btn", "icon": "trash", "text": "Clear Log"},
+      {"id": "export-log-btn", "icon": "download", "text": "Export Log", "primary": true}
+    ]) %}
+      <div id="log-container" class="h-48 bg-gray-900 rounded p-3 overflow-y-auto font-mono text-sm">
+        <div class="text-gray-500">[System] Smart Card Manager initialized</div>
+        <div class="text-blue-400">[Info] Waiting for card detection...</div>
+      </div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script type="module" src="/static/js/pages/smartcard.js"></script>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% from "components/card.html" import render_card %}
+{% from "components/page_header.html" import render_page_header %}
+
+{% block title %}Logs | ANITA{% endblock %}
+{% block page_id %}system-logs{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Page Header -->
+    {{ render_page_header(
+        title="System Logs",
+        description="Monitor and analyze application and system activity logs",
+        icon="file-alt"
+    ) }}
+
+    <!-- Log Controls -->
+    <div class="grid grid-cols-1 gap-6">
+        {% call render_card(title="Log Controls", icon="sliders-h", id="log-controls") %}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">Log Level</label>
+                    <select id="log-level" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
+                        <option value="all">All Levels</option>
+                        <option value="info">Info</option>
+                        <option value="warning">Warning</option>
+                        <option value="error">Error</option>
+                        <option value="debug">Debug</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">Time Period</label>
+                    <select id="time-period" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
+                        <option value="1h">Last Hour</option>
+                        <option value="24h" selected>Last 24 Hours</option>
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">Search</label>
+                    <div class="relative">
+                        <input type="text" id="log-search" placeholder="Search logs..." class="w-full bg-gray-700 border border-gray-600 rounded py-2 pl-10 pr-3 text-white">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button id="btn-apply-filters" class="bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded mr-2">
+                    <i class="fas fa-filter mr-2"></i>Apply Filters
+                </button>
+                <button id="btn-export-logs" class="bg-gray-600 hover:bg-gray-500 text-white py-2 px-4 rounded">
+                    <i class="fas fa-download mr-2"></i>Export
+                </button>
+            </div>
+        {% endcall %}
+    </div>
+
+    <!-- Log Categories -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {% call render_card(title="Application Logs", icon="code", id="app-logs") %}
+            <div class="space-y-4">
+                <p class="text-gray-400">Core application activities and events.</p>
+                <div class="flex justify-end">
+                    <button class="bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded">
+                        <i class="fas fa-eye mr-2"></i>View Logs
+                    </button>
+                </div>
+            </div>
+        {% endcall %}
+        
+        {% call render_card(title="System Logs", icon="server", id="system-logs") %}
+            <div class="space-y-4">
+                <p class="text-gray-400">Server and infrastructure related events.</p>
+                <div class="flex justify-end">
+                    <button class="bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded">
+                        <i class="fas fa-eye mr-2"></i>View Logs
+                    </button>
+                </div>
+            </div>
+        {% endcall %}
+        
+        {% call render_card(title="Access Logs", icon="user-shield", id="access-logs") %}
+            <div class="space-y-4">
+                <p class="text-gray-400">User authentication and authorization events.</p>
+                <div class="flex justify-end">
+                    <button class="bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded">
+                        <i class="fas fa-eye mr-2"></i>View Logs
+                    </button>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+
+    <!-- Log Display -->
+    <div class="grid grid-cols-1 gap-6">
+        {% call render_card(title="Log Entries", icon="list", id="log-entries") %}
+            <div id="log-table-container" class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-700">
+                    <thead class="bg-gray-700">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Timestamp</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Level</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Source</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Message</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-gray-800 divide-y divide-gray-700" id="log-entries-body">
+                        <!-- Log entries will be populated via JavaScript -->
+                        <tr><td colspan="5" class="px-6 py-4 text-center text-gray-400">Loading logs...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex justify-between items-center mt-4">
+                <div class="text-sm text-gray-400">
+                    Showing <span id="log-count">0</span> entries
+                </div>
+                <div class="flex space-x-2">
+                    <button id="prev-page" class="bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded disabled:opacity-50">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button id="next-page" class="bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded disabled:opacity-50">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script type="module" src="/static/js/pages/logs.js"></script>
+{% endblock %}

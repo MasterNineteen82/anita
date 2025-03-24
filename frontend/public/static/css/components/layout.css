@@ -1,0 +1,406 @@
+/* Consistent theme styling for navigation elements */
+
+/* Navbar styling to match cards */
+.navbar {
+  background-color: #07182E;
+  position: relative;
+  overflow: hidden;
+  padding: 1rem 0;
+}
+
+/* Move gradient from top to bottom */
+.navbar::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 4px;
+  bottom: 0; /* Changed from top to bottom */
+  left: 0;
+  background-image: linear-gradient(90deg, rgb(0, 183, 255), rgb(255, 48, 255));
+  opacity: 0.7;
+}
+
+/* Improved navbar menu styling */
+.navbar-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Navbar links */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+  text-decoration: none;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.nav-item.active {
+  background-image: linear-gradient(135deg, rgba(0, 183, 255, 0.3), rgba(255, 48, 255, 0.3));
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: white;
+}
+
+.nav-text {
+  font-weight: 500;
+  color: white;
+}
+
+/* Brand section with title and strapline */
+.brand-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 1.5rem;
+  margin-right: 2rem;
+}
+
+.navbar-brand {
+  color: white !important;
+  font-weight: bold;
+  font-size: 1.5rem;
+  text-decoration: none;
+  margin-bottom: 0.25rem;
+}
+
+.brand-separator {
+  width: 100%;
+  height: 2px;
+  background-image: linear-gradient(90deg, rgb(0, 183, 255), rgb(255, 48, 255));
+  margin: 4px 0;
+}
+
+.brand-strapline {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  font-style: italic;
+  letter-spacing: 0.5px;
+}
+
+/* Footer styling */
+.footer {
+  background-color: #07182E;
+  color: white;
+  padding: 1.5rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  margin-top: 2rem;
+}
+
+/* Footer styling - move gradient to top */
+.footer::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 4px;
+  top: 0; /* Changed from bottom to top */
+  left: 0;
+  background-image: linear-gradient(90deg, rgb(255, 48, 255), rgb(0, 183, 255));
+  opacity: 0.7;
+}
+
+.footer-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* Proper spacing for footer elements */
+.footer-links {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.footer-links a {
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer-links a:hover {
+  color: white;
+}
+
+/* Sidebar styling */
+#reader-panel {
+  background-color: #07182E;
+  color: white;
+  position: relative;
+  overflow: hidden;
+  height: 100%; /* Make sure sidebar extends full height */
+}
+
+/* Sidebar styling - move gradient to right */
+#reader-panel::before {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 100%;
+  top: 0;
+  right: 0; /* Changed from left to right */
+  background-image: linear-gradient(0deg, rgb(0, 183, 255), rgb(255, 48, 255));
+  opacity: 0.7;
+}
+
+#reader-panel .card-header {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: white;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Form elements within dark panels */
+#reader-panel .form-select,
+#reader-panel .form-check-input {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#reader-panel .form-select option {
+  background-color: #07182E;
+  color: white;
+}
+
+#reader-panel label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Layout adjustments for full-height sidebar */
+.layout-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  grid-gap: 1.5rem;
+  min-height: calc(100vh - 140px); /* Accounting for navbar and footer */
+}
+
+.content-container {
+  padding: 1.5rem 0;
+}
+
+/* Status messages */
+.status-message {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-top: 1rem;
+}
+
+/* Container adjustments to ensure proper spacing */
+.container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* Page layout structure */
+.page-container {
+  width: 100%;
+  padding: 1rem 0;
+}
+
+.page-header {
+  margin-bottom: 0.5rem;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+  position: relative;
+  display: inline-block;
+  padding-bottom: 10px;
+}
+
+.page-title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background-image: linear-gradient(90deg, rgb(0, 183, 255), rgb(255, 48, 255));
+  border-radius: 3px;
+}
+
+.page-subtitle {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 0.5rem;
+}
+
+/* Three-column grid layout */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+/* Make cards equal height and add grab cursor for dragging */
+.card-grid .card {
+  height: 100%;
+  cursor: grab;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.card-grid .card:active {
+  cursor: grabbing;
+}
+
+/* Card that's being dragged */
+.card-grid .card.dragging {
+  opacity: 0.8;
+  box-shadow: 0 0 20px rgba(0, 183, 255, 0.5);
+}
+
+/* Fix card height issues */
+.card {
+  height: 100%;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 20px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Card header with drag handle */
+.card .card-header {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  font-size: 1.1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drag-handle {
+  cursor: grab;
+  padding: 0.25rem;
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.drag-handle:hover {
+  color: rgba(255, 255, 255, 1);
+}
+
+/* Card body should expand to fill available space */
+.card-body {
+  padding: 1.5rem;
+  flex: 1 1 auto;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  max-height: 600px; /* Prevent extremely tall cards */
+}
+
+/* Fix for tables inside cards */
+.card-body .table-responsive {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Card actions area */
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .container {
+    padding: 0 1rem;
+  }
+  
+  .footer-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .footer-links {
+    justify-content: center;
+  }
+}
+
+/* Reader panel moved inside grid */
+#reader-panel {
+  background-color: #07182E;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+#reader-panel::before {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 100%;
+  top: 0;
+  right: 0;
+  background-image: linear-gradient(0deg, rgb(0, 183, 255), rgb(255, 48, 255));
+  opacity: 0.7;
+}
+
+/* Improved page layout structure */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* Full viewport height */
+  margin: 0;
+}
+
+/* Main content area that expands to fill available space */
+main {
+  flex: 1;
+  padding: 2rem 0;
+  display: flex;
+  flex-direction: column;
+}

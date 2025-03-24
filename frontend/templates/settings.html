@@ -1,0 +1,675 @@
+{% extends "base.html" %}
+{% from "components/card.html" import render_card %}
+{% from "components/page_header.html" import render_page_header %}
+{% from "components/toggle_control.html" import render_toggle %}
+
+{% block title %}Settings | ANITA{% endblock %}
+
+{% block page_id %}settings{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+  <!-- Page Header -->
+  {{ render_page_header("Settings", "Configure system preferences and view information") }}
+
+  <!-- Global Actions at top -->
+  <div class="flex gap-4 justify-end">
+    <button id="cancel-settings" class="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded">
+      <i class="fas fa-times"></i> Cancel Changes
+    </button>
+    <button id="save-settings" class="bg-cyan hover:bg-cyan-600 text-white py-2 px-4 rounded">
+      <i class="fas fa-save"></i> Save All Settings
+    </button>
+  </div>
+
+  <!-- Main Card Grid - all cards should be inside this container -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="card-grid">
+    <!-- Card Manager Module Card -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col card-hover dashboard-card" data-card-id="card-manager">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-gray-700">
+        <span class="text-white font-semibold text-lg flex items-center gap-2">
+          <i class="fas fa-layer-group text-cyan"></i>
+          Card Manager
+        </span>
+        <div class="flex items-center">
+          <button class="text-gray-400 hover:text-white mr-2" id="refresh-card-manager" title="Refresh">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+          <button class="text-gray-400 hover:text-white" title="Configure">
+            <i class="fas fa-ellipsis-v"></i>
+          </button>
+        </div>
+      </div>
+      <div class="px-4 py-3 flex-grow">
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <h4 class="text-sm font-semibold text-gray-300 mb-2">Card Status</h4>
+          <div class="flex items-center mb-2">
+            <div class="w-3 h-3 rounded-full mr-2 bg-green-500" id="card-status-indicator"></div>
+            <span class="text-sm" id="card-status-text">Card detection active</span>
+          </div>
+          <div class="text-xs text-gray-400" id="card-details">Ready to process smartcards</div>
+        </div>
+        
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <div class="flex justify-between mb-2">
+            <span class="text-sm font-semibold text-gray-300">Card Statistics</span>
+            <span class="text-xs text-cyan">Last 24 hours</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-gray-800 p-2 rounded">
+              <div class="text-xs text-gray-400">Processed</div>
+              <div class="text-white font-semibold" id="cards-processed">--</div>
+            </div>
+            <div class="bg-gray-800 p-2 rounded">
+              <div class="text-xs text-gray-400">Failed</div>
+              <div class="text-white font-semibold" id="cards-failed">--</div>
+            </div>
+            <div class="bg-gray-800 p-2 rounded">
+              <div class="text-xs text-gray-400">Read Rate</div>
+              <div class="text-white font-semibold" id="read-rate">--</div>
+            </div>
+            <div class="bg-gray-800 p-2 rounded">
+              <div class="text-xs text-gray-400">Avg Response</div>
+              <div class="text-white font-semibold" id="avg-response">--</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex justify-between space-x-2">
+          <button id="detect-card" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-search"></i> Detect
+          </button>
+          <button id="card-info" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-info-circle"></i> Info
+          </button>
+          <button id="card-config" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-cog"></i> Config
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Reader Manager Module Card -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col card-hover dashboard-card" data-card-id="reader-manager">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-gray-700">
+        <span class="text-white font-semibold text-lg flex items-center gap-2">
+          <i class="fas fa-usb text-cyan"></i>
+          Reader Manager
+        </span>
+        <div class="flex items-center">
+          <button class="text-gray-400 hover:text-white mr-2" id="refresh-readers" title="Refresh">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+          <button class="text-gray-400 hover:text-white" title="Configure">
+            <i class="fas fa-ellipsis-v"></i>
+          </button>
+        </div>
+      </div>
+      <div class="px-4 py-3 flex-grow">
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <div class="flex justify-between mb-2">
+            <span class="text-sm font-semibold text-gray-300">Connected Readers</span>
+            <span class="text-xs text-cyan" id="reader-count">0 found</span>
+          </div>
+          <div id="readers-list" class="max-h-32 overflow-y-auto">
+            <div class="bg-gray-800 p-2 rounded mb-2 flex items-center justify-between">
+              <div class="flex flex-col">
+                <span class="text-white text-sm">Loading devices...</span>
+                <span class="text-xs text-gray-400">Scanning for readers</span>
+              </div>
+              <div class="pulse-dot bg-blue-500"></div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <h4 class="text-sm font-semibold text-gray-300 mb-2">Reader Settings</h4>
+          <div class="flex items-center mb-2 justify-between">
+            <span class="text-sm text-gray-400">Auto detect readers</span>
+            <label class="switch">
+              <input type="checkbox" id="auto-detect-readers" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-400">Polling interval</span>
+            <select class="bg-gray-800 border-none text-white text-sm rounded" id="polling-interval">
+              <option value="1000">1 second</option>
+              <option value="2000">2 seconds</option>
+              <option value="5000" selected>5 seconds</option>
+              <option value="10000">10 seconds</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="flex justify-between space-x-2">
+          <button id="test-reader" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-vial"></i> Test
+          </button>
+          <button id="add-reader" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-plus"></i> Add
+          </button>
+          <button id="reader-config" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-cog"></i> Config
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Configuration Module Card -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col card-hover dashboard-card" data-card-id="configuration">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-gray-700">
+        <span class="text-white font-semibold text-lg flex items-center gap-2">
+          <i class="fas fa-cogs text-cyan"></i>
+          Configuration
+        </span>
+        <div class="flex items-center">
+          <button class="text-gray-400 hover:text-white" title="Advanced Settings">
+            <i class="fas fa-ellipsis-v"></i>
+          </button>
+        </div>
+      </div>
+      <div class="px-4 py-3 flex-grow">
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <h4 class="text-sm font-semibold text-gray-300 mb-2">Global Settings</h4>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-400">Auto refresh</span>
+            <label class="switch">
+              <input type="checkbox" id="auto-refresh" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-400">Dark mode</span>
+            <label class="switch">
+              <input type="checkbox" id="dark-mode" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-400">Simulation mode</span>
+            <label class="switch">
+              <input type="checkbox" id="simulation-mode">
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-400">Debug logging</span>
+            <label class="switch">
+              <input type="checkbox" id="debug-logging">
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Network Settings Card -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col card-hover dashboard-card">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-gray-700">
+        <span class="text-white font-semibold text-lg flex items-center gap-2">
+          <i class="fas fa-network-wired text-cyan"></i>
+          Network Settings
+        </span>
+      </div>
+      <div class="px-4 py-3 flex-grow">
+        <label class="block text-sm text-gray-300">API Base URL</label>
+        <input type="text" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3" placeholder="https://api.example.com">
+
+        <label class="block text-sm text-gray-300 mt-3">WebSocket URL</label>
+        <input type="text" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3" placeholder="wss://socket.example.com">
+      </div>
+    </div>
+
+    <!-- MIFARE Settings Card -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col card-hover dashboard-card">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-gray-700">
+        <span class="text-white font-semibold text-lg flex items-center gap-2">
+          <i class="fas fa-id-card text-cyan"></i>
+          MIFARE Settings
+        </span>
+      </div>
+      <div class="px-4 py-3 flex-grow">
+        <label class="block text-sm text-gray-300">Default Authentication Key</label>
+        <input type="text" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3" value="FFFFFFFFFFFF">
+
+        <label class="block text-sm text-gray-300 mt-3">Default Key Type</label>
+        <select class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3">
+          <option value="A">Key A</option>
+          <option value="B">Key B</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- System Information Card -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col card-hover dashboard-card">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-gray-700">
+        <span class="text-white font-semibold text-lg flex items-center gap-2">
+          <i class="fas fa-info-circle text-cyan"></i>
+          System Information
+        </span>
+      </div>
+      <div class="px-4 py-3 flex-grow">
+        <ul class="text-sm space-y-2">
+          <li>Application Version: <span>1.0.0</span></li>
+          <li>Python Version: <span>3.11.2</span></li>
+          <li>Operating System: <span>Linux</span></li>
+          <li>CPU Cores: <span>8</span></li>
+          <li>Data Directory: <span>/var/data</span></li>
+          <li>Uptime: <span id="uptime">Calculating...</span></li>
+        </ul>
+        <button class="mt-4 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded">
+          <i class="fas fa-sync-alt"></i> Refresh Info
+        </button>
+      </div>
+    </div>
+
+    <!-- NFC Manager Module Card -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col card-hover dashboard-card" data-card-id="nfc-manager">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-gray-700">
+        <span class="text-white font-semibold text-lg flex items-center gap-2">
+          <i class="fas fa-wifi text-cyan"></i>
+          NFC Manager
+        </span>
+        <div class="flex items-center">
+          <button class="text-gray-400 hover:text-white mr-2" id="refresh-nfc" title="Refresh">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+          <button class="text-gray-400 hover:text-white" title="Configure">
+            <i class="fas fa-ellipsis-v"></i>
+          </button>
+        </div>
+      </div>
+      <div class="px-4 py-3 flex-grow">
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <div class="flex justify-between mb-2">
+            <span class="text-sm font-semibold text-gray-300">NFC Devices</span>
+            <span class="text-xs text-cyan" id="nfc-device-count">0 found</span>
+          </div>
+          <div id="nfc-devices-list" class="max-h-32 overflow-y-auto">
+            <div class="bg-gray-800 p-2 rounded mb-2 flex items-center justify-between">
+              <div class="flex flex-col">
+                <span class="text-white text-sm">Scanning for devices...</span>
+                <span class="text-xs text-gray-400">Please wait</span>
+              </div>
+              <div class="pulse-dot bg-blue-500"></div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <h4 class="text-sm font-semibold text-gray-300 mb-2">NFC Settings</h4>
+          <div class="flex items-center mb-2 justify-between">
+            <span class="text-sm text-gray-400">Auto discover tags</span>
+            <label class="switch">
+              <input type="checkbox" id="auto-discover-nfc" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-400">Tag scan timeout</span>
+            <select class="bg-gray-800 border-none text-white text-sm rounded" id="nfc-timeout">
+              <option value="5000">5 seconds</option>
+              <option value="10000" selected>10 seconds</option>
+              <option value="30000">30 seconds</option>
+              <option value="60000">60 seconds</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex justify-between space-x-2">
+          <button id="discover-nfc" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-search"></i> Discover
+          </button>
+          <button id="nfc-test" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-vial"></i> Test
+          </button>
+          <button id="nfc-config" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-cog"></i> Config
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Logging Configuration Card -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col card-hover dashboard-card" data-card-id="logging">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-gray-700">
+        <span class="text-white font-semibold text-lg flex items-center gap-2">
+          <i class="fas fa-file-alt text-cyan"></i>
+          Logging Configuration
+        </span>
+        <div class="flex items-center">
+          <button class="text-gray-400 hover:text-white" id="clear-logs" title="Clear Logs">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </div>
+      </div>
+      <div class="px-4 py-3 flex-grow">
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <h4 class="text-sm font-semibold text-gray-300 mb-2">Log Settings</h4>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-400">Enable logging</span>
+            <label class="switch">
+              <input type="checkbox" id="enable-logging" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-400">Console logging</span>
+            <label class="switch">
+              <input type="checkbox" id="console-logging" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-400">Log level</span>
+            <select class="bg-gray-800 border-none text-white text-sm rounded" id="log-level">
+              <option value="debug">Debug</option>
+              <option value="info" selected>Info</option>
+              <option value="warning">Warning</option>
+              <option value="error">Error</option>
+            </select>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-400">Log retention (days)</span>
+            <input type="number" class="bg-gray-800 border-none text-white text-sm rounded w-16 text-center" id="log-retention" value="7" min="1" max="90">
+          </div>
+        </div>
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <div class="flex justify-between mb-2">
+            <span class="text-sm font-semibold text-gray-300">Log Stats</span>
+            <span class="text-xs text-cyan">Last 24 hours</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-gray-800 p-2 rounded">
+              <div class="text-xs text-gray-400">Info</div>
+              <div class="text-white font-semibold" id="info-logs">--</div>
+            </div>
+            <div class="bg-gray-800 p-2 rounded">
+              <div class="text-xs text-gray-400">Errors</div>
+              <div class="text-white font-semibold" id="error-logs">--</div>
+            </div>
+            <div class="bg-gray-800 p-2 rounded">
+              <div class="text-xs text-gray-400">Warnings</div>
+              <div class="text-white font-semibold" id="warning-logs">--</div>
+            </div>
+            <div class="bg-gray-800 p-2 rounded">
+              <div class="text-xs text-gray-400">Log Size</div>
+              <div class="text-white font-semibold" id="log-size">--</div>
+            </div>
+          </div>
+        </div>
+        <button id="view-logs" class="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded text-sm flex items-center justify-center gap-1">
+          <i class="fas fa-search"></i> View Log Files
+        </button>
+      </div>
+    </div>
+    
+    <!-- BLE Manager Module Card -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col card-hover dashboard-card" data-card-id="ble-manager">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-gray-700">
+        <span class="text-white font-semibold text-lg flex items-center gap-2">
+          <i class="fab fa-bluetooth-b text-cyan"></i>
+          BLE Manager
+        </span>
+        <div class="flex items-center">
+          <button class="text-gray-400 hover:text-white mr-2" id="scan-ble" title="Scan">
+            <i class="fas fa-search"></i>
+          </button>
+          <button class="text-gray-400 hover:text-white" title="Configure">
+            <i class="fas fa-ellipsis-v"></i>
+          </button>
+        </div>
+      </div>
+      <div class="px-4 py-3 flex-grow">
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <div class="flex justify-between mb-2">
+            <span class="text-sm font-semibold text-gray-300">BLE Status</span>
+            <span class="text-xs px-2 py-1 rounded bg-gray-600" id="ble-status">Inactive</span>
+          </div>
+          <div class="text-xs text-gray-400 mb-2">Bluetooth Low Energy device management</div>
+          <div class="flex items-center mb-2 justify-between">
+            <span class="text-sm text-gray-400">BLE enabled</span>
+            <label class="switch">
+              <input type="checkbox" id="ble-enabled">
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <div class="flex justify-between mb-2">
+            <span class="text-sm font-semibold text-gray-300">Connected Devices</span>
+            <span class="text-xs text-cyan" id="ble-device-count">0 found</span>
+          </div>
+          <div id="ble-devices-list" class="max-h-32 overflow-y-auto">
+            <div class="bg-gray-800 p-2 rounded mb-2 text-center text-gray-400 text-sm">
+              No BLE devices connected
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-between space-x-2">
+          <button id="scan-for-ble" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-search"></i> Scan
+          </button>
+          <button id="connect-ble" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1 disabled:opacity-50" disabled>
+            <i class="fas fa-plug"></i> Connect
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- System Diagnostics Card -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col card-hover dashboard-card" data-card-id="system-diagnostics">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-gray-700">
+        <span class="text-white font-semibold text-lg flex items-center gap-2">
+          <i class="fas fa-heartbeat text-cyan"></i>
+          System Diagnostics
+        </span>
+        <div class="flex items-center">
+          <button class="text-gray-400 hover:text-white mr-2" id="run-diagnostics" title="Run Diagnostics">
+            <i class="fas fa-stethoscope"></i>
+          </button>
+        </div>
+      </div>
+      <div class="px-4 py-3 flex-grow">
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <h4 class="text-sm font-semibold text-gray-300 mb-2">System Health</h4>
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <div class="bg-gray-800 p-2 rounded">
+              <div class="text-xs text-gray-400">CPU Usage</div>
+              <div class="text-white font-semibold" id="cpu-usage">--</div>
+            </div>
+            <div class="bg-gray-800 p-2 rounded">
+              <div class="text-xs text-gray-400">Memory Usage</div>
+              <div class="text-white font-semibold" id="memory-usage">--</div>
+            </div>
+          </div>
+          <div class="bg-gray-800 p-2 rounded mb-2">
+            <div class="text-xs text-gray-400">Disk Space</div>
+            <div class="text-white font-semibold" id="disk-space">--</div>
+          </div>
+          <div class="bg-gray-800 p-2 rounded">
+            <div class="text-xs text-gray-400">Last Diagnostic</div>
+            <div class="text-white font-semibold" id="last-diagnostic">Never</div>
+          </div>
+        </div>
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <h4 class="text-sm font-semibold text-gray-300 mb-2">Diagnostic Tools</h4>
+          <div class="flex items-center mb-2 justify-between">
+            <span class="text-sm text-gray-400">Auto diagnostics</span>
+            <label class="switch">
+              <input type="checkbox" id="auto-diagnostics" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="flex items-center mb-2 justify-between">
+            <span class="text-sm text-gray-400">Diagnostic interval</span>
+            <select class="bg-gray-800 border-none text-white text-sm rounded" id="diagnostic-interval">
+              <option value="3600">Hourly</option>
+              <option value="86400" selected>Daily</option>
+              <option value="604800">Weekly</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="flex justify-between space-x-2">
+          <button id="run-diag-now" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-play"></i> Run Now
+          </button>
+          <button id="export-diag" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-file-export"></i> Export
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Plugin Manager Card -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col card-hover dashboard-card" data-card-id="plugin-manager">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-gray-700">
+        <span class="text-white font-semibold text-lg flex items-center gap-2">
+          <i class="fas fa-puzzle-piece text-cyan"></i>
+          Plugin Manager
+        </span>
+        <div class="flex items-center">
+          <button class="text-gray-400 hover:text-white" title="Configure">
+            <i class="fas fa-ellipsis-v"></i>
+          </button>
+        </div>
+      </div>
+      <div class="px-4 py-3 flex-grow">
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <div class="flex justify-between mb-2">
+            <span class="text-sm font-semibold text-gray-300">Installed Plugins</span>
+            <span class="text-xs text-cyan" id="plugin-count">3 active</span>
+          </div>
+          <div id="plugins-list" class="max-h-32 overflow-y-auto">
+            <div class="bg-gray-800 p-2 rounded mb-2 flex justify-between items-center">
+              <div>
+                <div class="text-white text-sm">Card Reader Plugin</div>
+                <div class="text-xs text-gray-400">v1.2.0</div>
+              </div>
+              <div class="switch">
+                <input type="checkbox" checked>
+                <span class="slider round"></span>
+              </div>
+            </div>
+            <div class="bg-gray-800 p-2 rounded mb-2 flex justify-between items-center">
+              <div>
+                <div class="text-white text-sm">NFC Tools</div>
+                <div class="text-xs text-gray-400">v0.9.1</div>
+              </div>
+              <div class="switch">
+                <input type="checkbox" checked>
+                <span class="slider round"></span>
+              </div>
+            </div>
+            <div class="bg-gray-800 p-2 rounded flex justify-between items-center">
+              <div>
+                <div class="text-white text-sm">Data Export</div>
+                <div class="text-xs text-gray-400">v1.0.3</div>
+              </div>
+              <div class="switch">
+                <input type="checkbox" checked>
+                <span class="slider round"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <h4 class="text-sm font-semibold text-gray-300 mb-2">Plugin Settings</h4>
+          <div class="flex items-center mb-2 justify-between">
+            <span class="text-sm text-gray-400">Auto-update plugins</span>
+            <label class="switch">
+              <input type="checkbox" id="auto-update-plugins" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-400">Plugin sandbox</span>
+            <label class="switch">
+              <input type="checkbox" id="plugin-sandbox" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+        
+        <div class="flex justify-between space-x-2">
+          <button id="check-updates" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-sync-alt"></i> Updates
+          </button>
+          <button id="add-plugin" class="btn bg-gray-700 hover:bg-gray-600 text-white py-1 px-2 rounded flex-1 text-sm flex items-center justify-center gap-1">
+            <i class="fas fa-plus"></i> Add New
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Security Settings Card -->
+    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col card-hover dashboard-card" data-card-id="security-settings">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-gray-700">
+        <span class="text-white font-semibold text-lg flex items-center gap-2">
+          <i class="fas fa-shield-alt text-cyan"></i>
+          Security Settings
+        </span>
+      </div>
+      <div class="px-4 py-3 flex-grow">
+        <div class="bg-gray-700 rounded p-2 mb-3">
+          <h4 class="text-sm font-semibold text-gray-300 mb-2">Authentication</h4>
+          <div class="flex items-center mb-2 justify-between">
+            <span class="text-sm text-gray-400">2FA enabled</span>
+            <label class="switch">
+              <input type="checkbox" id="enable-2fa">
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-400">Session timeout</span>
+            <select class="bg-gray-800 border-none text-white text-sm rounded" id="session-timeout">
+              <option value="15">15 minutes</option>
+              <option value="30" selected>30 minutes</option>
+              <option value="60">60 minutes</option>
+              <option value="120">2 hours</option>
+            </select>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-400">API key expiration</span>
+            <select class="bg-gray-800 border-none text-white text-sm rounded" id="api-key-expiry">
+              <option value="7">7 days</option>
+              <option value="30" selected>30 days</option>
+              <option value="90">90 days</option>
+              <option value="365">1 year</option>
+            </select>
+          </div>
+        </div>
+        <div class="bg-gray-700 rounded p-2">
+          <h4 class="text-sm font-semibold text-gray-300 mb-2">Data Protection</h4>
+          <div class="flex items-center mb-2 justify-between">
+            <span class="text-sm text-gray-400">Encrypt storage</span>
+            <label class="switch">
+              <input type="checkbox" id="encrypt-storage" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-400">Secure communication</span>
+            <label class="switch">
+              <input type="checkbox" id="secure-comms" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div> <!-- End of card grid -->
+
+  <!-- Global Actions at bottom (duplicate of the top one for convenience) -->
+  <div class="flex gap-4 justify-end mt-8">
+    <button id="cancel-settings-bottom" class="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded">
+      <i class="fas fa-times"></i> Cancel Changes
+    </button>
+    <button id="save-settings-bottom" class="bg-cyan hover:bg-cyan-600 text-white py-2 px-4 rounded">
+      <i class="fas fa-save"></i> Save All Settings
+    </button>
+  </div>
+</div> <!-- End of content wrapper -->
+{% endblock %}
+
+{% block page_scripts %}
+<script type="module" src="/static/js/pages/settings.js"></script>
+{% endblock %}

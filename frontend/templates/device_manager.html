@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% from "components/card.html" import render_card %}
+{% from "components/page_header.html" import render_page_header %}
+
+{% block title %}Device Manager | ANITA{% endblock %}
+{% block page_id %}device-manager{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Page Header -->
+    {{ render_page_header(
+        title="Device Manager",
+        description="Manage card readers and NFC devices",
+        icon="credit-card"
+    ) }}
+
+    <!-- Device Controls -->
+    {% call render_card(title="Device Controls", icon="cog", id="device-controls") %}
+        <div class="flex justify-between items-center">
+            <div class="flex space-x-4">
+                <button id="refresh-readers" class="btn btn-primary">
+                    <i class="fas fa-sync mr-2"></i> Refresh Devices
+                </button>
+            </div>
+            <div class="flex items-center">
+                <label class="inline-flex items-center cursor-pointer">
+                    <span class="text-sm text-gray-400 mr-2">Simulation Mode</span>
+                    <div class="relative">
+                        <input type="checkbox" id="simulation-toggle" class="sr-only">
+                        <div class="w-10 h-5 bg-gray-700 rounded-full"></div>
+                        <div class="absolute left-1 top-1 bg-gray-400 w-3 h-3 rounded-full transition-transform"></div>
+                    </div>
+                </label>
+            </div>
+        </div>
+    {% endcall %}
+
+    <!-- First Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {% call render_card(title="Available Readers", icon="credit-card", id="available-readers-card") %}
+            <div id="readers-list" class="min-h-[200px]">
+                <div class="flex items-center justify-center h-full">
+                    <div class="animate-spin h-5 w-5 mr-3 border-2 border-t-2 border-blue-500 rounded-full"></div>
+                    <span class="text-gray-400">Loading card readers...</span>
+                </div>
+            </div>
+        {% endcall %}
+
+        <div id="reader-operations" class="hidden">
+            {% call render_card(title="Reader Operations", icon="cog", id="reader-operations-card") %}
+                <div id="selected-reader-info" class="mb-4 p-3 bg-gray-700 rounded">
+                    <p class="text-sm text-gray-400">Selected Reader:</p>
+                    <p id="selected-reader-name" class="font-medium"></p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button id="read-card-btn" class="btn btn-primary">
+                        <i class="fas fa-id-card mr-2"></i> Read Card
+                    </button>
+                    <button id="write-card-btn" class="btn btn-secondary">
+                        <i class="fas fa-pen mr-2"></i> Write Card
+                    </button>
+                    <button id="eject-card-btn" class="btn btn-outline">
+                        <i class="fas fa-eject mr-2"></i> Eject Card
+                    </button>
+                </div>
+            {% endcall %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script type="module" src="/static/js/pages/device_manager.js"></script>
+{% endblock %}

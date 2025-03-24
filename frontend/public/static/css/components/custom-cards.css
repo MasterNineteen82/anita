@@ -1,0 +1,127 @@
+/* Enhanced card styling with consistent appearance */
+.card {
+  position: relative;
+  background: #07182E;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  /* Prevent cards from growing too tall */
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* Gradient effect only on hover */
+.card::before {
+  content: '';
+  position: absolute;
+  width: 150%;
+  height: 150%;
+  background-image: linear-gradient(180deg, rgb(0, 183, 255), rgb(255, 48, 255));
+  opacity: 0;
+  top: -25%;
+  left: -25%;
+  transition: opacity 0.3s ease;
+  z-index: 0;
+  pointer-events: none; /* Prevent interference with interactions */
+}
+
+.card:hover::before {
+  opacity: 1;
+  animation: rotBGimg 3s linear infinite;
+}
+
+@keyframes rotBGimg {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.card::after {
+  content: '';
+  position: absolute;
+  background: #07182E;
+  inset: 5px;
+  border-radius: 15px;
+  z-index: 1;
+  pointer-events: none; /* Prevent interference with interactions */
+}
+
+/* Ensure card content is above the decorative layers */
+.card > * {
+  position: relative;
+  z-index: 2;
+}
+
+.card-header {
+  background-color: rgba(7, 24, 46, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-body {
+  background-color: transparent;
+}
+
+/* Card hover effect */
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Ensure scrolling content doesn't break the design */
+.card-body {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.card-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.card-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.card-body::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+/* Reader panel specific styling */
+#reader-panel::before {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 100%;
+  top: 0;
+  right: 0;
+  background-image: linear-gradient(0deg, rgb(0, 183, 255), rgb(255, 48, 255));
+  opacity: 0.7;
+  z-index: 3; /* Above the card after effect */
+}
+
+/* Ensure consistent form styling within cards */
+.card .form-group {
+  margin-bottom: 1.25rem;
+}
+
+.card label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+.card .form-select,
+.card .form-control {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: white;
+}

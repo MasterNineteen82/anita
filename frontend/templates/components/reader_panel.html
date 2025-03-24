@@ -1,0 +1,54 @@
+{% macro render_reader_panel() %}
+<div class="bg-gray-800 rounded-lg shadow-lg p-4 anita-card">
+  <div class="flex justify-between items-center border-b border-gray-700 anita-card-header">
+    <h3 class="text-lg font-semibold text-white">Reader Selection</h3>
+    <div class="flex items-center gap-2">
+      <button id="refresh-readers" title="Refresh" class="card-footer-btn text-gray-400 hover:text-white">
+        <i class="fas fa-sync-alt"></i>
+      </button>
+      <button class="card-footer-btn text-gray-400 cursor-move hover:text-white">
+        <i class="fas fa-grip-lines"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="anita-card-content">
+    <div class="space-y-4">
+      <div>
+        <label for="reader-select" class="block text-sm font-medium text-gray-300 mb-1">Select Reader:</label>
+        <select id="reader-select" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3">
+          <option>No readers found</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span id="reader-status-indicator" class="inline-block h-2 w-2 rounded-full bg-red-500"></span>
+        <span id="reader-status-text" class="text-sm text-gray-300">No reader connected</span>
+      </div>
+
+      <div class="flex items-center gap-2 mt-3">
+        <input id="autodetect-reader" type="checkbox" class="h-4 w-4 text-cyan border-gray-600 rounded focus:ring-cyan">
+        <label for="autodetect-reader" class="text-sm text-gray-300">Auto-detect reader and card</label>
+      </div>
+
+      <div class="flex items-center gap-2 mt-3">
+        <span id="card-status-indicator" class="inline-block h-2 w-2 rounded-full bg-red-500"></span>
+        <span id="card-status" class="text-sm text-gray-300">No card detected</span>
+      </div>
+    </div>
+
+    <div class="card-footer-actions">
+      <button id="reader-refresh-btn" class="card-footer-btn card-footer-btn-primary">
+        <i class="fas fa-sync-alt mr-1"></i> Refresh Readers
+      </button>
+    </div>
+  </div>
+
+  <div class="border-t border-gray-700 anita-card-footer">
+    <div class="flex justify-between items-center">
+      <span class="gradient-text text-sm">Reader Selection Module</span>
+      <span class="text-xs text-gray-500">ANITA System</span>
+    </div>
+  </div>
+</div>
+{% endmacro %}

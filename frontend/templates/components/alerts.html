@@ -1,0 +1,129 @@
+{% macro render_alert(type="info", title=None, content=None, dismissible=True, icon=True, classes="") %}
+<div class="alert-component alert-{{ type }} rounded-md p-4 mb-4 {{ classes }}" role="alert">
+  <div class="flex items-start">
+    {% if icon %}
+      <div class="flex-shrink-0 mr-3">
+        {% if type == "info" %}
+          <i class="fas fa-info-circle text-blue-500"></i>
+        {% elif type == "success" %}
+          <i class="fas fa-check-circle text-green-500"></i>
+        {% elif type == "warning" %}
+          <i class="fas fa-exclamation-triangle text-yellow-500"></i>
+        {% elif type == "error" %}
+          <i class="fas fa-times-circle text-red-500"></i>
+        {% elif type == "ble" %}
+          <i class="fab fa-bluetooth-b text-blue-500"></i>
+        {% endif %}
+      </div>
+    {% endif %}
+    
+    <div class="flex-1">
+      {% if title %}
+        <h3 class="text-md font-semibold mb-1">{{ title }}</h3>
+      {% endif %}
+      {% if content %}
+        <div class="text-sm">{{ content|safe }}</div>
+      {% endif %}
+    </div>
+    
+    {% if dismissible %}
+      <div class="flex-shrink-0 ml-2">
+        <button type="button" class="alert-dismiss card-footer-btn text-gray-400 hover:text-gray-500 focus:outline-none">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro render_ble_status_alert(status="disconnected", message="Not connected to any device") %}
+<div class="alert-component alert-info rounded-md p-4 mb-4" role="alert">
+  <div class="flex items-start">
+    <div class="flex-shrink-0 mr-3">
+      <i class="fab fa-bluetooth-b text-blue-500"></i>
+    </div>
+    <div class="flex-1">
+      <h3 class="text-md font-semibold mb-1">BLE Status: {{ status }}</h3>
+      <div class="text-sm">{{ message }}</div>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro render_alert(type="info", title=None, message=None, dismissible=True, icon=True, classes="") %}
+<div class="alert-component alert-{{ type }} rounded-md p-4 mb-4 {{ classes }}" role="alert">
+  <div class="flex items-start">
+    {% if icon %}
+      <div class="flex-shrink-0 mr-3">
+        {% if type == "info" %}
+          <i class="fas fa-info-circle text-blue-500"></i>
+        {% elif type == "success" %}
+          <i class="fas fa-check-circle text-green-500"></i>
+        {% elif type == "warning" %}
+          <i class="fas fa-exclamation-triangle text-yellow-500"></i>
+        {% elif type == "error" %}
+          <i class="fas fa-times-circle text-red-500"></i>
+        {% endif %}
+      </div>
+    {% endif %}
+    
+    <div class="flex-1">
+      {% if title %}
+        <h3 class="text-md font-semibold mb-1">{{ title }}</h3>
+      {% endif %}
+      {% if message %}
+        <div class="text-sm">{{ message|safe }}</div>
+      {% endif %}
+    </div>
+    
+    {% if dismissible %}
+      <div class="flex-shrink-0 ml-2">
+        <button type="button" class="alert-dismiss card-footer-btn text-gray-400 hover:text-gray-500 focus:outline-none">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+<!-- filepath: k:\anita\poc\frontend\templates\components\alerts.html -->
+{% macro render_alert(type="info", title=None, message=None, dismissible=True, icon=True, classes="") %}
+<div class="alert-component alert-{{ type }} rounded-md p-4 mb-4 {{ classes }}" role="alert">
+  <div class="flex items-start">
+    {% if icon %}
+      <div class="flex-shrink-0 mr-3">
+        {% if type == "info" %}
+          <i class="fas fa-info-circle text-blue-500"></i>
+        {% elif type == "success" %}
+          <i class="fas fa-check-circle text-green-500"></i>
+        {% elif type == "warning" %}
+          <i class="fas fa-exclamation-triangle text-yellow-500"></i>
+        {% elif type == "error" %}
+          <i class="fas fa-times-circle text-red-500"></i>
+        {% elif type == "ble" %}
+          <i class="fab fa-bluetooth-b text-blue-500"></i>
+        {% endif %}
+      </div>
+    {% endif %}
+    
+    <div class="flex-1">
+      {% if title %}
+        <h3 class="text-md font-semibold mb-1">{{ title }}</h3>
+      {% endif %}
+      {% if message %}
+        <div class="text-sm">{{ message|safe }}</div>
+      {% endif %}
+    </div>
+    
+    {% if dismissible %}
+      <div class="flex-shrink-0 ml-2">
+        <button type="button" class="alert-dismiss card-footer-btn text-gray-400 hover:text-gray-500 focus:outline-none">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}

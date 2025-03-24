@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% from "components/card.html" import render_card %}
+{% from "components/page_header.html" import render_page_header %}
+
+{% block title %}Biometric Fusion | ANITA{% endblock %}
+
+{% block page_id %}biometric-fusion{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Page Header Card -->
+    {{ render_page_header(
+        title="Biometric Fusion",
+        description="Multi-modal biometrics integration and fusion",
+        icon="fingerprint"
+    ) }}
+
+    <!-- First Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Biometric Sources Card -->
+        {% call render_card(title="Biometric Sources", icon="fingerprint", id="biometric-sources", footer_buttons=[
+            {"id": "add-source-btn", "icon": "plus", "text": "Add Source", "primary": true}
+        ]) %}
+            <div class="space-y-3">
+                <div class="py-2 px-3 bg-gray-700 rounded flex justify-between items-center">
+                    <div class="flex items-center">
+                        <i class="fas fa-fingerprint text-blue-400 mr-3"></i>
+                        <span>Fingerprint</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <span class="px-2 py-1 bg-green-800 text-green-300 text-xs rounded">Active</span>
+                        <button class="text-gray-400 hover:text-white"><i class="fas fa-cog"></i></button>
+                        <button class="text-gray-400 hover:text-red-400"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+                <div class="py-2 px-3 bg-gray-700 rounded flex justify-between items-center">
+                    <div class="flex items-center">
+                        <i class="fas fa-eye text-purple-400 mr-3"></i>
+                        <span>Iris Recognition</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <span class="px-2 py-1 bg-green-800 text-green-300 text-xs rounded">Active</span>
+                        <button class="text-gray-400 hover:text-white"><i class="fas fa-cog"></i></button>
+                        <button class="text-gray-400 hover:text-red-400"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+                <div class="py-2 px-3 bg-gray-700 rounded flex justify-between items-center">
+                    <div class="flex items-center">
+                        <i class="fas fa-user text-cyan-400 mr-3"></i>
+                        <span>Facial Recognition</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <span class="px-2 py-1 bg-gray-800 text-gray-300 text-xs rounded">Inactive</span>
+                        <button class="text-gray-400 hover:text-white"><i class="fas fa-cog"></i></button>
+                        <button class="text-gray-400 hover:text-red-400"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+        
+        <!-- Fusion Methods Card -->
+        {% call render_card(title="Fusion Methods", icon="object-group", id="fusion-methods", footer_buttons=[
+            {"id": "save-fusion-config-btn", "icon": "save", "text": "Save Configuration", "primary": true}
+        ]) %}
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Fusion Level</label>
+                    <div class="flex gap-2">
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="fusion-level" value="sensor" class="hidden peer">
+                            <div class="text-center py-2 bg-gray-700 rounded peer-checked:bg-blue-700 peer-checked:font-medium transition-all">
+                                <div class="text-lg"><i class="fas fa-microchip"></i></div>
+                                <div>Sensor</div>
+                            </div>
+                        </label>
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="fusion-level" value="feature" class="hidden peer" checked>
+                            <div class="text-center py-2 bg-gray-700 rounded peer-checked:bg-blue-700 peer-checked:font-medium transition-all">
+                                <div class="text-lg"><i class="fas fa-fingerprint"></i></div>
+                                <div>Feature</div>
+                            </div>
+                        </label>
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="fusion-level" value="score" class="hidden peer">
+                            <div class="text-center py-2 bg-gray-700 rounded peer-checked:bg-blue-700 peer-checked:font-medium transition-all">
+                                <div class="text-lg"><i class="fas fa-chart-bar"></i></div>
+                                <div>Score</div>
+                            </div>
+                        </label>
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="fusion-level" value="decision" class="hidden peer">
+                            <div class="text-center py-2 bg-gray-700 rounded peer-checked:bg-blue-700 peer-checked:font-medium transition-all">
+                                <div class="text-lg"><i class="fas fa-check-circle"></i></div>
+                                <div>Decision</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Fusion Algorithm</label>
+                    <select class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
+                        <option value="weighted">Weighted Sum</option>
+                        <option value="svm">SVM</option>
+                        <option value="neural">Neural Network</option>
+                        <option value="fuzzy">Fuzzy Logic</option>
+                        <option value="bayesian">Bayesian</option>
+                    </select>
+                </div>
+            </div>
+        {% endcall %}
+        
+        <!-- Fusion Settings Card -->
+        {% call render_card(title="Source Weights", icon="sliders-h", id="source-weights", footer_buttons=[
+            {"id": "reset-weights-btn", "icon": "undo", "text": "Reset"}
+        ]) %}
+            <div class="space-y-3">
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm text-gray-400">Fingerprint Weight</label>
+                        <span id="fingerprint-weight-value">40%</span>
+                    </div>
+                    <input type="range" id="fingerprint-weight" min="0" max="100" value="40" class="w-full">
+                </div>
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm text-gray-400">Iris Weight</label>
+                        <span id="iris-weight-value">35%</span>
+                    </div>
+                    <input type="range" id="iris-weight" min="0" max="100" value="35" class="w-full">
+                </div>
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm text-gray-400">Face Weight</label>
+                        <span id="face-weight-value">25%</span>
+                    </div>
+                    <input type="range" id="face-weight" min="0" max="100" value="25" class="w-full">
+                </div>
+                <div class="mt-3 pt-3 border-t border-gray-700">
+                    <label class="flex items-center justify-between">
+                        <span>Normalize Weights</span>
+                        <div class="inline-block relative">
+                            <input type="checkbox" id="normalize-weights" checked class="peer sr-only">
+                            <div class="block w-10 h-6 bg-gray-600 rounded-full peer-checked:bg-blue-600"></div>
+                            <div class="dot absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4"></div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+    
+    <!-- Second Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Authentication Card -->
+        {% call render_card(title="Authentication", icon="user-shield", id="authentication", footer_buttons=[
+            {"id": "authenticate-btn", "icon": "key", "text": "Authenticate", "primary": true}
+        ]) %}
+            <div class="space-y-4">
+                <div class="py-3 px-4 bg-gray-700 rounded">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="font-medium">Authentication Status</span>
+                        <span id="auth-status" class="px-2 py-1 bg-gray-600 text-gray-300 rounded">Ready</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div>Threshold:</div>
+                        <div>
+                            <input type="range" id="auth-threshold" min="0" max="100" value="80" class="w-full">
+                            <div class="flex justify-between text-xs">
+                                <span>Low Security</span>
+                                <span id="threshold-value">80%</span>
+                                <span>High Security</span>
+                            </div>
+                        </div>
+                        <div>Required Sources:</div>
+                        <div>
+                            <select id="required-sources" class="w-full bg-gray-700 border border-gray-600 text-white py-1 px-2 rounded text-sm">
+                                <option value="1">At least 1</option>
+                                <option value="2" selected>At least 2</option>
+                                <option value="3">All 3</option>
+                                <option value="custom">Custom Rule</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+        
+        <!-- Results Card -->
+        {% call render_card(title="Fusion Results", icon="chart-bar", id="fusion-results", footer_buttons=[
+            {"id": "export-results-btn", "icon": "download", "text": "Export Report", "primary": true}
+        ]) %}
+            <div class="space-y-4">
+                <div id="fusion-results-placeholder" class="text-center py-8 text-gray-400">
+                    <i class="fas fa-chart-bar text-4xl mb-2"></i>
+                    <p>No fusion results available.<br>Run authentication to see biometric fusion results.</p>
+                </div>
+                <div id="fusion-results-data" class="hidden">
+                    <div class="mb-4">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-sm text-gray-400">Combined Match Score</span>
+                            <span id="match-score-value" class="text-lg font-semibold text-green-400">89%</span>
+                        </div>
+                        <div class="h-2 bg-gray-700 rounded overflow-hidden">
+                            <div id="match-score-bar" class="h-full bg-gradient-to-r from-green-500 to-blue-500" style="width: 89%"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="bg-gray-700 p-3 rounded text-center">
+                            <div class="text-sm text-gray-400 mb-1">Fingerprint</div>
+                            <div id="fingerprint-match" class="text-xl font-semibold text-blue-400">92%</div>
+                        </div>
+                        <div class="bg-gray-700 p-3 rounded text-center">
+                            <div class="text-sm text-gray-400 mb-1">Iris</div>
+                            <div id="iris-match" class="text-xl font-semibold text-purple-400">87%</div>
+                        </div>
+                        <div class="bg-gray-700 p-3 rounded text-center">
+                            <div class="text-sm text-gray-400 mb-1">Face</div>
+                            <div id="face-match" class="text-xl font-semibold text-cyan-400">85%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+    
+    <!-- Third Row -->
+    <div class="grid grid-cols-1 gap-6">
+        <!-- Fusion Log Card -->
+        {% call render_card(title="Fusion Log", icon="history", id="fusion-log", footer_buttons=[
+            {"id": "clear-log-btn", "icon": "trash", "text": "Clear Log"}
+        ]) %}
+            <div id="log-container" class="h-48 bg-gray-900 rounded p-3 overflow-y-auto font-mono text-sm">
+                <div class="text-gray-500">[System] Biometric Fusion System initialized with 3 sources.</div>
+                <div class="text-gray-500">[System] Feature-level fusion selected with weighted sum algorithm.</div>
+                <div class="text-gray-500">[System] Ready to perform biometric authentication.</div>
+            </div>
+        {% endcall %}
+    </div>
+
+    <!-- Add Source Modal (Wrapped in a Card) -->
+    <div class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden" id="add-source-modal-container">
+        {% call render_card(title="Add Biometric Source", id="add-source-modal", icon="plus", footer_buttons=[
+            {"id": "add-source-confirm", "icon": "check", "text": "Add Source", "primary": true},
+            {"id": "cancel-modal-btn", "icon": "times", "text": "Cancel", "onClick": "document.getElementById('add-source-modal-container').classList.add('hidden')"}
+        ]) %}
+            <div class="space-y-4">
+                <div class="mb-3">
+                    <label for="source-type" class="form-label">Source Type</label>
+                    <select id="source-type" class="form-select bg-gray-700 text-white border-gray-600">
+                        <option value="fingerprint">Fingerprint</option>
+                        <option value="face">Facial Recognition</option>
+                        <option value="iris">Iris Recognition</option>
+                        <option value="palm">Palm Vein</option>
+                        <option value="voice">Voice Recognition</option>
+                        <option value="gait">Gait Analysis</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="source-device" class="form-label">Device</label>
+                    <select id="source-device" class="form-select bg-gray-700 text-white border-gray-600">
+                        <option value="">Select a device...</option>
+                        <option value="dev1">Fingerprint Scanner (USB)</option>
+                        <option value="dev2">HD Webcam</option>
+                        <option value="dev3">Iris Scanner</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="source-weight" class="form-label">Initial Weight</label>
+                    <input type="range" id="source-weight" class="form-range" min="0" max="100" value="30">
+                    <div class="flex justify-between text-xs">
+                        <span>0%</span>
+                        <span id="source-weight-value">30%</span>
+                        <span>100%</span>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script type="module" src="/static/js/pages/biometric-fusion.js"></script>
+{% endblock %}

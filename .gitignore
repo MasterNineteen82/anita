@@ -1,0 +1,43 @@
+# Python Virtual Environments
+venv/
+.venv/
+
+# Node.js Dependencies
+node_modules/
+
+# VS Code settings
+.vscode/
+*.code-workspace
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*.so
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs and output
+*.log
+logs/
+output/
+debugging/
+console.log
+*.pid
+
+# Environment and security
+.env
+
+# Compiled/built files
+.dist/
+.archive/
+*.pyc
+
+# Test results
+*.coverage
+.cache/
+.coverage.*
+
+# Safety CLI or pip-audit configs
+.safety-project.ini

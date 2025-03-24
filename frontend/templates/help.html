@@ -1,0 +1,132 @@
+<!-- filepath: k:\anita\poc\frontend\templates\help.html -->
+{% extends "base.html" %}
+{% from "components/card.html" import render_card %}
+{% from "components/page_header.html" import render_page_header %}
+
+{% block title %}Help | ANITA{% endblock %}
+{% block page_id %}help{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Page Header -->
+    {{ render_page_header(
+        title="Help Center",
+        description="Find answers and support for using the ANITA platform",
+        icon="question-circle"
+    ) }}
+
+    <!-- Search Section -->
+    <div class="w-full bg-gray-800 rounded-lg p-4">
+        <div class="relative">
+            <input type="text" id="help-search" placeholder="Search for help topics..." 
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg py-3 pl-4 pr-10 text-white">
+            <button class="absolute right-2 top-2 bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg">
+                <i class="fas fa-search mr-1"></i> Search
+            </button>
+        </div>
+    </div>
+
+    <!-- Help Categories -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {% call render_card(title="Getting Started", icon="rocket", id="getting-started-card", footer_buttons=[
+            {"id": "explore-btn", "icon": "arrow-right", "text": "Explore", "primary": true}
+        ]) %}
+            <div class="space-y-2">
+                <p class="text-gray-300">Learn the basics to get up and running quickly</p>
+                <ul class="text-gray-400 space-y-1 pl-5 list-disc">
+                    <li>System overview</li>
+                    <li>Installation guide</li>
+                    <li>First-time setup</li>
+                    <li>Basic operations</li>
+                </ul>
+            </div>
+        {% endcall %}
+        
+        {% call render_card(title="Advanced Features", icon="cogs", id="advanced-features-card", footer_buttons=[
+            {"id": "learn-more-btn", "icon": "book", "text": "Learn More", "primary": true}
+        ]) %}
+            <div class="space-y-2">
+                <p class="text-gray-300">Discover powerful tools to enhance your workflow</p>
+                <ul class="text-gray-400 space-y-1 pl-5 list-disc">
+                    <li>API integration</li>
+                    <li>Custom configurations</li>
+                    <li>Advanced security features</li>
+                    <li>Performance optimization</li>
+                </ul>
+            </div>
+        {% endcall %}
+        
+        {% call render_card(title="Troubleshooting", icon="tools", id="troubleshooting-card", footer_buttons=[
+            {"id": "solutions-btn", "icon": "check-circle", "text": "View Solutions", "primary": true}
+        ]) %}
+            <div class="space-y-2">
+                <p class="text-gray-300">Find solutions to common problems</p>
+                <ul class="text-gray-400 space-y-1 pl-5 list-disc">
+                    <li>Connection issues</li>
+                    <li>Authentication errors</li>
+                    <li>Performance troubleshooting</li>
+                    <li>Error code reference</li>
+                </ul>
+            </div>
+        {% endcall %}
+    </div>
+
+    <!-- FAQ Section -->
+    <div class="grid grid-cols-1 gap-6">
+        {% call render_card(title="Frequently Asked Questions", icon="question", id="faq-card") %}
+            <div class="space-y-4">
+                <div class="border-b border-gray-700 pb-4">
+                    <button class="flex justify-between items-center w-full text-left font-medium" data-accordion-target="faq1">
+                        <span>How do I create my first project?</span>
+                        <i class="fas fa-chevron-down text-gray-400 transition-transform"></i>
+                    </button>
+                    <div id="faq1" class="mt-2 text-gray-400">
+                        Navigate to the Dashboard and click on the "New Project" button. Follow the guided setup to configure your project settings.
+                    </div>
+                </div>
+                
+                <div class="border-b border-gray-700 pb-4">
+                    <button class="flex justify-between items-center w-full text-left font-medium" data-accordion-target="faq2">
+                        <span>How do I share my work with others?</span>
+                        <i class="fas fa-chevron-down text-gray-400 transition-transform"></i>
+                    </button>
+                    <div id="faq2" class="mt-2 text-gray-400 hidden">
+                        Use the "Share" button on any project to invite collaborators via email or generate a shareable link with custom permissions.
+                    </div>
+                </div>
+                
+                <div class="border-b border-gray-700 pb-4">
+                    <button class="flex justify-between items-center w-full text-left font-medium" data-accordion-target="faq3">
+                        <span>How do I configure API credentials?</span>
+                        <i class="fas fa-chevron-down text-gray-400 transition-transform"></i>
+                    </button>
+                    <div id="faq3" class="mt-2 text-gray-400 hidden">
+                        Go to the API Manager section, select "Credentials" and follow the instructions to generate and manage your API keys securely.
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+
+    <!-- Contact Support Section -->
+    <div class="grid grid-cols-1 gap-6">
+        {% call render_card(title="Still Need Help?", icon="headset", id="contact-support-card") %}
+            <div class="text-center space-y-4">
+                <p class="text-lg text-gray-300">Our support team is ready to assist you</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <a href="mailto:support@example.com" class="bg-blue-600 hover:bg-blue-500 text-white py-3 px-4 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-envelope mr-2"></i> Email Support
+                    </a>
+                    <a href="#" class="bg-green-600 hover:bg-green-500 text-white py-3 px-4 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-comments mr-2"></i> Live Chat
+                    </a>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script src="/static/js/pages/help.js"></script>
+{% endblock %}

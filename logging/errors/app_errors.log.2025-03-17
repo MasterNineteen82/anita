@@ -1,0 +1,111 @@
+2025-03-17 02:07:38 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:08:38 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:09:38 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:09:39 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:10:39 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:11:39 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:12:39 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:13:39 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:14:39 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:15:39 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:16:39 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:17:39 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:18:39 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:19:40 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:20:37 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:21:37 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:22:37 - ERROR - app:105 - Error monitoring devices: 'SmartcardManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 96, in monitor_devices
+    smartcard_status = smartcard_manager.get_status()  # Implement this method
+AttributeError: 'SmartcardManager' object has no attribute 'get_status'. Did you mean: 'card_status'?
+2025-03-17 02:22:38 - ERROR - app:105 - Error monitoring devices: 'NFCManager' object has no attribute 'get_status'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 100, in monitor_devices
+    nfc_status = nfc_manager.get_status()  # Implement this method
+AttributeError: 'NFCManager' object has no attribute 'get_status'
+2025-03-17 11:28:36 - CRITICAL - app:203 - Failed to start server: 'int' object has no attribute 'lower'
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 200, in <module>
+    log_level=config.LOG_LEVEL.lower()
+AttributeError: 'int' object has no attribute 'lower'
+2025-03-17 18:01:44 - CRITICAL - app:217 - Failed to start server: Level not an integer or a valid string: <property object at 0x000001424AEBFB50>
+Traceback (most recent call last):
+  File "K:\anita\poc\app.py", line 209, in <module>
+    uvicorn.run(
+  File "K:\anita\poc\venv\lib\site-packages\uvicorn\main.py", line 516, in run
+    config = Config(
+  File "K:\anita\poc\venv\lib\site-packages\uvicorn\config.py", line 274, in __init__
+    self.configure_logging()
+  File "K:\anita\poc\venv\lib\site-packages\uvicorn\config.py", line 389, in configure_logging
+    logging.getLogger("uvicorn.error").setLevel(log_level)
+  File "C:\Users\email\AppData\Local\Programs\Python\Python310\lib\logging\__init__.py", line 1452, in setLevel
+    self.level = _checkLevel(level)
+  File "C:\Users\email\AppData\Local\Programs\Python\Python310\lib\logging\__init__.py", line 201, in _checkLevel
+    raise TypeError("Level not an integer or a valid string: %r"
+TypeError: Level not an integer or a valid string: <property object at 0x000001424AEBFB50>
+2025-03-17 21:26:19 - ERROR - app:102 - High priority splash error: [Errno 2] No such file or directory: 'K:\\anita\\poc\\splash.html'
