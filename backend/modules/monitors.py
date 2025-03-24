@@ -1,17 +1,20 @@
 import asyncio
-import logging
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Dict, List, Set, Optional, Any, Callable, Awaitable, TypeVar, Generic
+from typing import Dict, List, Set, Optional, Any, TypeVar, Generic, Awaitable
 
 from fastapi import FastAPI
-from pydantic import BaseModel
+# Remove unused imports:
+# from pydantic import BaseModel
+# import logging  (since we use setup_logging)
 
-from backend.ws.manager import manager  # Updated
-from backend.ws.events import create_event, DeviceStatus  # Updated
+from backend.ws.manager import manager
+from backend.ws.events import create_event, DeviceStatus
+from backend.logging.logging_config import setup_logging
 
-logger = logging.getLogger(__name__)
+# Set up logging
+logger = setup_logging()
 
 T = TypeVar('T')  # Type for the monitor data
 
@@ -92,7 +95,11 @@ class Monitor(ABC, Generic[T]):
 
     async def broadcast_update(self, event_type: str, **kwargs) -> None:
         """Broadcast an update to the monitor's room."""
-        event = create_event(event_type, **kwargs)
+        # Create a clean copy of kwargs to avoid duplicate keys
+        clean_kwargs = kwargs.copy()
+        
+        # Create event with cleaned kwargs
+        event = create_event(event_type, **clean_kwargs)
         
         if self.room_name:
             await manager.broadcast_to_room(self.room_name, event)
@@ -400,25 +407,37 @@ class HardwareMonitor(Monitor[Dict[str, Dict[str, Any]]]):
             if device_id not in self.previous_states or \
                self.previous_states[device_id].get("status") != device_info.get("status"):
                 
-                # Broadcast device status change
+                # FIX: Remove status from device_info before passing it
+                status = device_info.get("status")
+                device_info_copy = device_info.copy()
+                if "status" in device_info_copy:
+                    del device_info_copy["status"]
+                
+                # Now broadcast with the fixed parameters
                 await self.broadcast_update(
                     "device.status",
                     device_id=device_id,
-                    status=device_info.get("status"),
-                    **device_info
+                    status=status,
+                    **device_info_copy
                 )
                 
-                logger.info(f"Device {device_id} status changed to {device_info.get('status')}")
+                logger.info(f"Device {device_id} status changed to {status}")
         
-        # Check for disconnected devices
+        # Same fix for the disconnected devices section
         for device_id in list(self.previous_states.keys()):
             if device_id not in current_states:
                 # Device was disconnected
+                previous_info = self.previous_states[device_id].copy()
+                device_type = previous_info.get("type", "unknown")
+                if "status" in previous_info:
+                    del previous_info["status"]
+                    
                 await self.broadcast_update(
                     "device.status",
                     device_id=device_id,
                     status="disconnected",
-                    type=self.previous_states[device_id].get("type", "unknown")
+                    type=device_type,
+                    **previous_info
                 )
                 
                 logger.info(f"Device {device_id} disconnected")
@@ -454,3 +473,9 @@ def setup_monitoring(app: FastAPI):
         await monitoring_manager.stop_all()
     
     return monitoring_manager
+
+# Example usage
+if __name__ == "__main__":
+    # Fix the example to include the required event_type parameter
+    monitor = Monitor("example_monitor")  # Also need to pass a name
+    monitor.broadcast_update("example.update", status="active")

@@ -1,4 +1,3 @@
-<!-- filepath: k:\anita\poc\frontend\templates\mifare.html -->
 {% extends "base.html" %}
 {% from "components/card.html" import render_card %}
 {% from "components/page_header.html" import render_page_header %}
@@ -30,8 +29,8 @@
                         <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Reader Status</h3>
                         <div class="p-3 bg-gray-700 bg-opacity-50 rounded">
                             <div class="flex items-center">
-                                <div id="reader-status-indicator" class="w-3 h-3 bg-gray-500 rounded-full mr-2"></div>
-                                <span id="reader-status" class="font-medium">Disconnected</span>
+                                <div id="reader-status-indicator" class="w-3 h-3 bg-gray-500 rounded-full mr-2" aria-hidden="true"></div>
+                                <span id="reader-status" class="font-medium" aria-live="polite">Disconnected</span>
                             </div>
                         </div>
                     </div>
@@ -55,8 +54,8 @@
         {% call render_card(title="Card Status", icon="heartbeat", id="card-status-card") %}
             <div class="space-y-4">
                 <div class="flex items-center">
-                    <div id="card-status-indicator" class="w-3 h-3 bg-gray-500 rounded-full mr-2"></div>
-                    <span id="mifare-status" class="font-medium">No Card</span>
+                    <div id="card-status-indicator" class="w-3 h-3 bg-gray-500 rounded-full mr-2" aria-hidden="true"></div>
+                    <span id="mifare-status" class="font-medium" aria-live="polite">No Card</span>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="p-3 bg-gray-700 bg-opacity-50 rounded">
@@ -81,8 +80,8 @@
             <div class="space-y-4">
                 <div class="space-y-3">
                     <div>
-                        <span class="text-xs text-gray-400">SELECT SECTOR</span>
-                        <select id="sector-select" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
+                        <label for="sector-select" class="text-xs text-gray-400">SELECT SECTOR</label>
+                        <select id="sector-select" title="Select a sector" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
                             <option value="">No card detected</option>
                         </select>
                     </div>
@@ -98,8 +97,8 @@
                         </div>
                     </div>
                     <div>
-                        <span class="text-xs text-gray-400">AUTHENTICATION KEY (HEX)</span>
-                        <input type="text" id="sector-key" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm mt-1" value="FFFFFFFFFFFF">
+                        <label for="sector-key" class="text-xs text-gray-400">AUTHENTICATION KEY (HEX)</label>
+                        <input type="text" id="sector-key" title="Enter authentication key in hexadecimal" placeholder="Enter key in hex format" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm mt-1" value="FFFFFFFFFFFF">
                     </div>
                 </div>
             </div>
@@ -112,14 +111,14 @@
         ]) %}
             <div class="space-y-4">
                 <div>
-                    <span class="text-xs text-gray-400">SELECT BLOCK</span>
-                    <select id="block-select" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
+                    <label for="block-select" class="text-xs text-gray-400">SELECT BLOCK</label>
+                    <select id="block-select" title="Select a block" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
                         <option value="">Authenticate sector first</option>
                     </select>
                 </div>
                 <div>
-                    <span class="text-xs text-gray-400">BLOCK DATA (HEX)</span>
-                    <input type="text" id="block-data" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" placeholder="Authenticate and select block first">
+                    <label for="block-data" class="text-xs text-gray-400">BLOCK DATA (HEX)</label>
+                    <input type="text" id="block-data" title="Block data in hexadecimal" placeholder="Authenticate and select block first" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
                 </div>
             </div>
         {% endcall %}
@@ -159,24 +158,24 @@
         ]) %}
             <div class="space-y-4">
                 <div>
-                    <span class="text-xs text-gray-400">VALUE BLOCK</span>
-                    <select id="value-block-select" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
+                    <label for="value-block-select" class="text-xs text-gray-400">VALUE BLOCK</label>
+                    <select id="value-block-select" title="Select a value block" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
                         <option value="">Authenticate sector first</option>
                     </select>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <span class="text-xs text-gray-400">CURRENT VALUE</span>
-                        <input type="text" id="current-value" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" readonly>
+                        <label for="current-value" class="text-xs text-gray-400">CURRENT VALUE</label>
+                        <input type="text" id="current-value" title="Current value" placeholder="Current value" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" readonly>
                     </div>
                     <div>
-                        <span class="text-xs text-gray-400">CHANGE BY</span>
-                        <input type="number" id="value-change" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" value="1">
+                        <label for="value-change" class="text-xs text-gray-400">CHANGE BY</label>
+                        <input type="number" id="value-change" title="Change value by" placeholder="Enter amount to change" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" value="1">
                     </div>
                 </div>
                 <div>
                     <span class="text-xs text-gray-400">RESULT</span>
-                    <div id="value-result" class="p-2 bg-gray-800 rounded font-mono text-sm h-10 overflow-auto"></div>
+                    <div id="value-result" class="p-2 bg-gray-800 rounded font-mono text-sm h-10 overflow-auto" aria-live="polite"></div>
                 </div>
             </div>
         {% endcall %}
@@ -189,22 +188,22 @@
                 {{ render_alert(
                     type="warning",
                     title="Warning",
-                    content="DESFire operations require a compatible card",
+                    message="DESFire operations require a compatible card",
                     icon="exclamation-triangle"
                 ) }}
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <span class="text-xs text-gray-400">APP ID (HEX)</span>
-                        <input type="text" id="desfire-app-id" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" value="000000">
+                        <label for="desfire-app-id" class="text-xs text-gray-400">APP ID (HEX)</label>
+                        <input type="text" id="desfire-app-id" title="Application ID in hexadecimal" placeholder="Enter App ID in hex" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" value="000000">
                     </div>
                     <div>
-                        <span class="text-xs text-gray-400">KEY NO</span>
-                        <input type="number" id="desfire-key-no" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" value="0" min="0" max="13">
+                        <label for="desfire-key-no" class="text-xs text-gray-400">KEY NO</label>
+                        <input type="number" id="desfire-key-no" title="Key number" placeholder="Enter key number" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" value="0" min="0" max="13">
                     </div>
                 </div>
                 <div>
-                    <span class="text-xs text-gray-400">AUTH KEY (HEX)</span>
-                    <input type="text" id="desfire-key" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" value="0000000000000000">
+                    <label for="desfire-key" class="text-xs text-gray-400">AUTH KEY (HEX)</label>
+                    <input type="text" id="desfire-key" title="Authentication key in hexadecimal" placeholder="Enter authentication key in hex" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" value="0000000000000000">
                 </div>
             </div>
         {% endcall %}
@@ -218,10 +217,10 @@
                     <div class="text-center text-xs text-gray-400">No data</div>
                 </div>
                 <div class="text-xs text-gray-400">
-                    <span class="inline-block w-3 h-3 bg-green-700 rounded-sm mr-1"></span> Data
-                    <span class="inline-block w-3 h-3 bg-yellow-700 rounded-sm ml-3 mr-1"></span> Value
-                    <span class="inline-block w-3 h-3 bg-red-700 rounded-sm ml-3 mr-1"></span> Trailer
-                    <span class="inline-block w-3 h-3 bg-gray-700 rounded-sm ml-3 mr-1"></span> Unknown
+                    <span class="inline-block w-3 h-3 bg-green-700 rounded-sm mr-1" aria-hidden="true"></span> Data
+                    <span class="inline-block w-3 h-3 bg-yellow-700 rounded-sm ml-3 mr-1" aria-hidden="true"></span> Value
+                    <span class="inline-block w-3 h-3 bg-red-700 rounded-sm ml-3 mr-1" aria-hidden="true"></span> Trailer
+                    <span class="inline-block w-3 h-3 bg-gray-700 rounded-sm ml-3 mr-1" aria-hidden="true"></span> Unknown
                 </div>
             </div>
         {% endcall %}

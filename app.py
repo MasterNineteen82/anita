@@ -1,14 +1,14 @@
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi import APIRouter
-from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import os
 import uvicorn
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime
 import glob
-from backend.ws.manager import manager
+
 
 # Add the project root to sys.path
 import sys
@@ -19,9 +19,8 @@ from backend.modules.monitors import setup_monitoring, monitoring_manager
 from backend.routes.api import device_routes, smartcard_routes, nfc_routes, mifare_routes, biometric_routes
 from backend.routes.api import card_routes, system_routes, uwb_routes, auth_routes, ble_routes
 from backend.routes.api import cache_routes, hardware_routes, mqtt_routes, rfid_routes, security_routes
-from backend.routes.api.auth_routes import router as auth_router
 from backend.routes.api.monitoring_router import router as monitoring_router
-from backend.logging.logging_config import setup_logging
+from backend.logging.logging_config import setup_logging, print_colorful_traceback
 import importlib
 import pkgutil
 import inspect
@@ -258,7 +257,8 @@ for router_name, router in known_routers.items():
 # Root endpoint
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    logger.info("Root endpoint accessed")
+    return "Hello, World!"
 
 # Logs page
 @app.get("/logs", response_class=HTMLResponse)
@@ -318,12 +318,13 @@ async def config_page(request: Request):
 
 # API documentation page
 @app.get("/docs-custom", response_class=HTMLResponse)
-async def api_docs(request: Request):
+async def api_docs_page(request: Request):
     return templates.TemplateResponse("api_explorer.html", {"request": request})
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    print_colorful_traceback(sys.exc_info())
     if "TemplateNotFound" in str(exc) or "jinja2" in str(exc).lower():
         return templates.TemplateResponse(
             "error.html", 

@@ -3,15 +3,18 @@ from typing import Optional, Dict, Any, List
 
 # API Models
 class SuccessResponse(BaseModel):
-    status: str = Field(..., example="ok")
-    message: Optional[str] = Field(None, example="System operational")
+    success: bool
+    message: str
+    data: Optional[Dict[str, Any]] = None
 
 class ErrorResponse(BaseModel):
-    detail: str = Field(..., example="An error occurred")
+    success: bool = False
+    error: str
+    details: Optional[Dict[str, Any]] = None
 
 class StatusResponse(BaseModel):
-    status: str = Field(..., example="ok")
-    message: Optional[str] = Field(None, example="System operational")
+    status: str
+    message: str
 
 class ReaderResponse(BaseModel):
     reader_name: str = Field(..., example="My Reader")
@@ -188,7 +191,7 @@ class RFIDConfigRequest(BaseModel):
 
 # BLE Models
 class BLEDeviceInfo(BaseModel):
-    name: Optional[str] = None
+    name: str
     address: str
     rssi: Optional[int] = None
 

@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+"""
+Script Name: repo_manager.py
+Purpose: Git repository management for ANITA project
+Date: March 24, 2025
+"""
+
 import os
 import subprocess
 import sys
@@ -5,30 +12,46 @@ import time
 import datetime
 import logging
 import webbrowser
+import platform
+import argparse
+from pathlib import Path
 
 # Configuration
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))  # Parent directory
-LOG_FILE = os.path.join(SCRIPT_DIR, 'gitupdate.log')
-GITHUB_REPO_URL = "https://github.com/yourusername/your-repo"  # CHANGE THIS
+REPO_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, '../..'))  # Parent directory of automation_scripts
+
+# Set log file in central logs directory
+LOG_DIR = os.path.join(REPO_DIR, 'logs', 'active')
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, 'repo_manager.log')
+
+GITHUB_REPO_URL = "https://github.com/MasterNineteen82/anita.git"
 BRANCH = 'main'
+CREDENTIAL_HELPER = 'cache' if platform.system() != 'Windows' else 'wincred'
 
-# Set up logging
-logging.basicConfig(
-    filename=LOG_FILE, 
-    level=logging.INFO, 
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    encoding='utf-8'
-)
-
-# Add console handler to see logs while running
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
-logging.getLogger().addHandler(console_handler)
+# Set up logging with fallback
+try:
+    # Try to use the project's logging config
+    sys.path.insert(0, REPO_DIR)
+    from backend.logging.logging_config import setup_logging
+    logger = setup_logging()
+except ImportError:
+    # Fallback to basic logging if the import fails
+    os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(LOG_FILE),
+            logging.StreamHandler()
+        ]
+    )
+    logger = logging.getLogger(__name__)
+    logger.info("Using fallback logging configuration")
 
 def log_message(message, level=logging.INFO):
     """Log a message both to file and console"""
-    logging.log(level, message)
+    logger.log(level, message)
     # Ensure it's printed immediately
     print(message)
 
@@ -60,6 +83,26 @@ def run_command(command, show_output=True):
         log_message(f"Exception running command: {str(e)}", logging.ERROR)
         return False, str(e)
 
+def check_for_conflicts():
+    """Check for git merge conflicts"""
+    success, output = run_command("git diff --name-only --diff-filter=U", show_output=False)
+    if output:
+        log_message("⚠️ Merge conflicts detected in these files:", logging.WARNING)
+        for file in output.split("\n"):
+            if file.strip():
+                log_message(f"  - {file}", logging.WARNING)
+        return True
+    return False
+
+def setup_credential_helper():
+    """Configure git credential helper for smoother authentication"""
+    log_message("Setting up credential helper...")
+    success, _ = run_command(f"git config --global credential.helper {CREDENTIAL_HELPER}")
+    if success:
+        log_message("Credential helper configured. Your credentials will be cached for future use.")
+    else:
+        log_message("Failed to set up credential helper.", logging.WARNING)
+
 def is_git_repo():
     """Check if the directory is a Git repository"""
     success, _ = run_command("git rev-parse --is-inside-work-tree", show_output=False)
@@ -79,22 +122,27 @@ def init_git_repo():
     # Configure user details if needed
     config_user()
     
+    # Set up credential helper for smoother authentication
+    setup_credential_helper()
+    
     return True
 
 def config_user():
     """Configure Git user details if not already set"""
     # Check if user details are already configured
-    success, name = run_command("git config --get user.name", show_output=False)
-    if not success or not name:
-        name = input("Enter your Git username: ")
-        run_command(f'git config --global user.name "{name}"')
-        
-    success, email = run_command("git config --get user.email", show_output=False)
-    if not success or not email:
-        email = input("Enter your Git email: ")
-        run_command(f'git config --global user.email "{email}"')
-        
-    log_message("Git user configured.")
+    success, output = run_command("git config --get user.name", show_output=False)
+    if not success or not output:
+        # Name not configured, ask for it
+        name = input("Enter your name for Git commits: ")
+        if name:
+            run_command(f'git config --global user.name "{name}"')
+    
+    success, output = run_command("git config --get user.email", show_output=False)
+    if not success or not output:
+        # Email not configured, ask for it
+        email = input("Enter your email for Git commits: ")
+        if email:
+            run_command(f'git config --global user.email "{email}"')
 
 def setup_remote(use_github_desktop=True):
     """Set up remote repository"""
@@ -167,7 +215,7 @@ def setup_with_command_line():
     log_message("Remote repository added successfully.")
     return True
 
-def update_repo():
+def update_repo(use_github_desktop=True, skip_prompt=False):
     """Update the Git repository"""
     log_message("\n" + "="*50)
     log_message("Starting Git update process...")
@@ -178,7 +226,11 @@ def update_repo():
         log_message("This directory is not a Git repository.", logging.WARNING)
         
         # Ask to initialize
-        response = input("Do you want to initialize a Git repository here? (y/n): ")
+        if skip_prompt:
+            response = 'y'
+        else:
+            response = input("Do you want to initialize a Git repository here? (y/n): ")
+        
         if response.lower() != 'y':
             log_message("Aborting update.")
             return False
@@ -188,7 +240,7 @@ def update_repo():
             return False
             
         # Set up remote
-        if not setup_remote():
+        if not setup_remote(use_github_desktop):
             log_message("Remote setup incomplete. You can run this script again later.", logging.WARNING)
             return False
     
@@ -228,8 +280,7 @@ def update_repo():
             log_message("Authentication failed. Please set up credentials.", logging.ERROR)
             
             # Offer GitHub Desktop option
-            response = input("Do you want to use GitHub Desktop for authentication? (y/n): ")
-            if response.lower() == 'y':
+            if use_github_desktop or (not skip_prompt and input("Do you want to use GitHub Desktop for authentication? (y/n): ").lower() == 'y'):
                 webbrowser.open(f"github-desktop://openRepository/{REPO_DIR}")
                 log_message("GitHub Desktop opening. Please complete authentication there.")
                 input("Press Enter when authentication is complete...")
@@ -246,6 +297,12 @@ def update_repo():
             log_message(f"Pull failed: {pull_output}", logging.ERROR)
             return False
     
+    # Check for merge conflicts after pull
+    if check_for_conflicts():
+        log_message("Please resolve conflicts before continuing.", logging.ERROR)
+        log_message("After resolving conflicts, commit changes and run this script again.")
+        return False
+    
     # Push changes if we made a commit
     if status_output:
         log_message("\nPushing changes to remote...")
@@ -256,8 +313,7 @@ def update_repo():
                 log_message("Authentication failed for push. Please set up credentials.", logging.ERROR)
                 
                 # Offer GitHub Desktop option
-                response = input("Do you want to use GitHub Desktop for authentication? (y/n): ")
-                if response.lower() == 'y':
+                if use_github_desktop or (not skip_prompt and input("Do you want to use GitHub Desktop for authentication? (y/n): ").lower() == 'y'):
                     webbrowser.open(f"github-desktop://openRepository/{REPO_DIR}")
                     log_message("GitHub Desktop opening. Please complete authentication there.")
                     input("Press Enter when authentication is complete...")
@@ -277,19 +333,54 @@ def update_repo():
     log_message("\n✅ Git update completed successfully!")
     return True
 
+def update_repository(repo_path, use_github_desktop=True, skip_prompt=False):
+    """Main function to update repository"""
+    try:
+        logger.info(f"Updating repository at {repo_path}")
+        return update_repo(use_github_desktop, skip_prompt)
+    except Exception as e:
+        logger.error(f"Failed to update repository: {e}", exc_info=True)
+        return False
+
+def main():
+    """Main entry point with command-line interface"""
+    global BRANCH, GITHUB_REPO_URL  # Keep this at the beginning of the function
+    
+    parser = argparse.ArgumentParser(description="Git Repository Manager for ANITA")
+    parser.add_argument("--use-desktop", action="store_true", help="Use GitHub Desktop for authentication")
+    parser.add_argument("--no-desktop", action="store_true", help="Don't use GitHub Desktop")
+    parser.add_argument("--branch", default=BRANCH, help=f"Branch to use (default: {BRANCH})")
+    parser.add_argument("--repo-url", default=GITHUB_REPO_URL, help="Repository URL")
+    parser.add_argument("--non-interactive", action="store_true", help="Run without user prompts (use defaults)")
+    parser.add_argument("--version", action="version", version="Git Repository Manager v1.0")
+    args = parser.parse_args()
+    
+    # Update globals based on args (remove the global declaration from here)
+    if args.branch:
+        BRANCH = args.branch
+    if args.repo_url:
+        GITHUB_REPO_URL = args.repo_url
+    
+    # Determine GitHub Desktop preference
+    use_github_desktop = args.use_desktop or not args.no_desktop
+        
+    try:
+        log_message("Git Repository Manager v1.0")
+        log_message(f"Repository directory: {REPO_DIR}")
+        log_message(f"Log file: {LOG_FILE}")
+        log_message(f"Branch: {BRANCH}")
+        log_message("-" * 50)
+        
+        update_repository(REPO_DIR, use_github_desktop, args.non_interactive)
+    except KeyboardInterrupt:
+        log_message("\nOperation cancelled by user.", logging.WARNING)
+    except Exception as e:
+        log_message(f"Unexpected error: {str(e)}", logging.ERROR)
+        logger.exception("Unhandled exception")
+    finally:
+        if not args.non_interactive:
+            print("\nPress Enter to close this window...")
+            input()
+
 if __name__ == "__main__":
-    print(f"Git Auto-Update Tool")
-    print(f"Repository directory: {REPO_DIR}")
-    print(f"Log file: {LOG_FILE}")
-    print("-" * 50)
-    
-    success = update_repo()
-    
-    if success:
-        print("\n✅ Update completed successfully!")
-    else:
-        print("\n❌ Update failed. See log for details.")
-    
-    # Always keep window open at the end
-    print("\nPress Enter to close this window...")
-    input()
+    main()

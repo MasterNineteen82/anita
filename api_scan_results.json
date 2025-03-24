@@ -1,0 +1,226 @@
+{
+  "base_url": "http://127.0.0.1:8000/",
+  "scan_time": "2025-03-24 23:22:55",
+  "results": [
+    {
+      "endpoint": "",
+      "url": "http://127.0.0.1:8000/",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11807F0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "register",
+      "url": "http://127.0.0.1:8000/register",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /register (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB1143E20>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "health",
+      "url": "http://127.0.0.1:8000/health",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /health (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB1143160>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "users",
+      "url": "http://127.0.0.1:8000/users",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /users (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11838E0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "auth",
+      "url": "http://127.0.0.1:8000/auth",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /auth (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11A47F0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "v1",
+      "url": "http://127.0.0.1:8000/v1",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /v1 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11A5390>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "logout",
+      "url": "http://127.0.0.1:8000/logout",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /logout (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11A5F90>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "redoc",
+      "url": "http://127.0.0.1:8000/redoc",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /redoc (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11A7520>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "status",
+      "url": "http://127.0.0.1:8000/status",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /status (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11A7190>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "api/available_logs",
+      "url": "http://127.0.0.1:8000/api/available_logs",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/available_logs (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11A78B0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "docs",
+      "url": "http://127.0.0.1:8000/docs",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /docs (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11D12A0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "v2",
+      "url": "http://127.0.0.1:8000/v2",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /v2 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11D0F70>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "api",
+      "url": "http://127.0.0.1:8000/api",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11D0DC0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "api/nfc/status",
+      "url": "http://127.0.0.1:8000/api/nfc/status",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/nfc/status (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11D14E0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "admin",
+      "url": "http://127.0.0.1:8000/admin",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /admin (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11D2830>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "swagger",
+      "url": "http://127.0.0.1:8000/swagger",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /swagger (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11D1810>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "login",
+      "url": "http://127.0.0.1:8000/login",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /login (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11D24A0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "api/smartcard/status",
+      "url": "http://127.0.0.1:8000/api/smartcard/status",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/smartcard/status (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11D1B40>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "metrics",
+      "url": "http://127.0.0.1:8000/metrics",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /metrics (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11D2140>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    },
+    {
+      "endpoint": "api/logs",
+      "url": "http://127.0.0.1:8000/api/logs",
+      "method": "GET",
+      "status_code": null,
+      "response_time": null,
+      "content_type": null,
+      "content_length": null,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /api/logs (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021AB11D1E40>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "success": false
+    }
+  ]
+}

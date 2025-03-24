@@ -1,15 +1,13 @@
 import json
-import re
 from pathlib import Path
-import glob
 import datetime
 
-# Updated log paths based on our new structure
-BASE_LOG_DIR = Path("logging")
-APP_LOG_PATH = BASE_LOG_DIR / "app"
-API_LOG_PATH = BASE_LOG_DIR / "api" 
-FRONTEND_LOG_PATH = BASE_LOG_DIR / "frontend"
-ERROR_LOG_PATH = BASE_LOG_DIR / "errors"
+# Update these paths to use the new structure
+BASE_LOG_DIR = Path("logs")
+APP_LOG_PATH = BASE_LOG_DIR / "active"  # All app logs are now in active
+API_LOG_PATH = BASE_LOG_DIR / "active"  # API logs also in active
+ERROR_LOG_PATH = BASE_LOG_DIR  # Error logs directly in logs folder
+FRONTEND_LOG_PATH = BASE_LOG_DIR / "active"  # Frontend logs also in active
 
 def get_latest_file(directory, pattern):
     """Get the latest file in a directory matching the pattern"""
@@ -47,7 +45,7 @@ def analyze_app_logs():
                         
                     issues.append(issue)
     except Exception as e:
-        issues.append({"error": f"Error reading app log", "suggestion": str(e)})
+        issues.append({"error": "Error reading app log", "suggestion": str(e)})
         
     return issues
 
@@ -85,7 +83,7 @@ def analyze_frontend_logs():
             except json.JSONDecodeError:
                 issues.append({"error": "Invalid JSON in frontend log", "suggestion": f"Check if {latest_frontend_log} contains valid JSON."})
     except Exception as e:
-        issues.append({"error": f"Error reading frontend log", "suggestion": str(e)})
+        issues.append({"error": "Error reading frontend log", "suggestion": str(e)})
         
     return issues
 
@@ -115,7 +113,7 @@ def analyze_api_logs():
                         
                     issues.append(issue)
     except Exception as e:
-        issues.append({"error": f"Error reading API log", "suggestion": str(e)})
+        issues.append({"error": "Error reading API log", "suggestion": str(e)})
         
     return issues
 
@@ -178,7 +176,8 @@ if __name__ == "__main__":
     
     # Generate timestamp for the report file
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    report_file = Path("logging/reports") / f"debug_report_{timestamp}.json"
+    # Update path to use new directory structure
+    report_file = Path("logs/reports") / f"debug_report_{timestamp}.json"
     
     # Ensure the reports directory exists
     report_file.parent.mkdir(parents=True, exist_ok=True)

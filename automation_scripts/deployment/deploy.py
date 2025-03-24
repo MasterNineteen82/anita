@@ -195,8 +195,9 @@ if __name__ == '__main__':
         win32serviceutil.HandleCommandLine(SmartCardService)
 """
     
+    service_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'services', 'win_service.py')
     try:
-        with open('win_service.py', 'w') as f:
+        with open(service_path, 'w') as f:
             f.write(service_content)
         logger.info("Created Windows service script: win_service.py")
         return 'win_service.py'

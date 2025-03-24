@@ -8,7 +8,8 @@ from datetime import datetime
 
 # Set up logging to both file and console
 def setup_logging():
-    log_dir = os.path.join(os.path.dirname(__file__), 'logs')
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+    log_dir = os.path.join(project_root, 'logs', 'active')
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
@@ -99,7 +100,7 @@ def debug_imports():
 
     logger.info("\n10. Attempt to Import Using importlib:")
     spec = importlib.util.find_spec("backend.ws.manager")
-    if spec:
+    if (spec):
         logger.info("  - Module spec found!")
         logger.info(f"  - Origin: {spec.origin}")
         module = importlib.util.module_from_spec(spec)

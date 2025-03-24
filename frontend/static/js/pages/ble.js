@@ -26,63 +26,153 @@ document.addEventListener('DOMContentLoaded', () => {
     let websocket = null;
     let subscribedCharacteristics = new Set();
 
-    // Initialize WebSocket connection
+    // WebSocket connection
+    let socket;
+
     function connectWebSocket() {
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${wsProtocol}//${window.location.host}/api/ble/ws/ble`;
-        websocket = new WebSocket(wsUrl);
-
-        websocket.onopen = () => {
-            console.log("WebSocket connected for BLE notifications");
-            logMessage("WebSocket connected for BLE notifications", "success");
-        };
-
-        websocket.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            handleWebSocketMessage(message);
-        };
-
-        websocket.onclose = () => {
-            console.log("WebSocket disconnected");
-            logMessage("WebSocket disconnected", "warning");
-            // Attempt to reconnect after a delay
-            setTimeout(connectWebSocket, 5000);
-        };
-
-        websocket.onerror = (error) => {
-            console.error("WebSocket error:", error);
-            logMessage("WebSocket error occurred", "error");
-        };
+        try {
+            socket = new WebSocket(`ws://${window.location.host}/api/ble/ws/ble`);
+            
+            socket.onopen = () => {
+                logMessage('WebSocket connected', 'success');
+                console.log('WebSocket connected');
+            };
+            
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleWebSocketMessage(data);
+                } catch (error) {
+                    console.error('Error parsing WebSocket message:', error);
+                    logMessage(`Error parsing WebSocket message: ${error.message}`, 'error');
+                }
+            };
+            
+            socket.onclose = () => {
+                logMessage('WebSocket disconnected', 'info');
+                console.log('WebSocket disconnected');
+                // Try to reconnect after a delay
+                setTimeout(connectWebSocket, 5000);
+            };
+            
+            socket.onerror = (error) => {
+                logMessage(`WebSocket error: ${error.message}`, 'error');
+                console.error('WebSocket error:', error);
+            };
+        } catch (error) {
+            console.error('Error connecting to WebSocket:', error);
+            logMessage(`Error connecting to WebSocket: ${error.message}`, 'error');
+        }
     }
 
-    // Handle incoming WebSocket messages
-    function handleWebSocketMessage(message) {
-        const { type, payload } = message;
-        switch (type) {
-            case "ble.characteristic":
-                const { characteristic, value } = payload;
-                notificationsContainer.innerHTML = `
-                    <div class="bg-gray-700 p-3 rounded">
-                        <div class="font-medium text-white">Notification from ${characteristic}</div>
-                        <div class="text-sm text-gray-300">Value: ${value}</div>
-                    </div>
-                `;
-                logMessage(`Received notification for ${characteristic}: ${value}`, "success");
+    function handleWebSocketMessage(data) {
+        console.log('WebSocket message received:', data);
+        
+        switch (data.type) {
+            case 'ble.characteristic':
+                handleCharacteristicNotification(data);
                 break;
-            case "ble.characteristic_subscription":
-                const { char_uuid, status } = payload;
-                logMessage(`Characteristic ${char_uuid} ${status}`, status === "subscribed" ? "success" : "info");
-                if (status === "subscribed") {
-                    subscribedCharacteristics.add(char_uuid);
-                } else {
-                    subscribedCharacteristics.delete(char_uuid);
-                }
+            case 'ble.characteristic_subscription':
+                handleSubscriptionStatus(data);
                 break;
-            case "error":
-                logMessage(`WebSocket error: ${payload.message}`, "error");
+            case 'error':
+                logMessage(`WebSocket Error: ${data.message}`, 'error');
                 break;
             default:
-                console.log("Unhandled WebSocket message:", message);
+                console.log('Unknown WebSocket message type:', data.type);
+        }
+    }
+
+    function handleCharacteristicNotification(data) {
+        // Display the notification in the UI
+        const { characteristic, value, value_hex } = data;
+        
+        // Create notification element
+        const notificationEl = document.createElement('div');
+        notificationEl.className = 'notification-item bg-gray-700 p-2 rounded mb-2';
+        notificationEl.innerHTML = `
+            <div class="flex justify-between items-center">
+                <span class="text-xs font-mono text-cyan">${characteristic}</span>
+                <span class="text-xs text-gray-400">${new Date().toLocaleTimeString()}</span>
+            </div>
+            <div class="mt-1 text-sm font-mono break-all">${value_hex}</div>
+        `;
+        
+        // Add to notifications container
+        if (notificationsContainer) {
+            notificationsContainer.prepend(notificationEl);
+            
+            // Limit number of displayed notifications to prevent UI clutter
+            if (notificationsContainer.children.length > 10) {
+                notificationsContainer.removeChild(notificationsContainer.lastChild);
+            }
+        }
+        
+        // Also log to console
+        logMessage(`Notification from ${characteristic}: ${value_hex}`, 'info');
+    }
+
+    function handleSubscriptionStatus(data) {
+        const { char_uuid, status } = data;
+        logMessage(`Characteristic ${char_uuid} ${status}`, status === 'subscribed' ? 'success' : 'info');
+        
+        // Update UI to show subscription status
+        updateSubscriptionStatus(char_uuid, status === 'subscribed');
+    }
+
+    // Toggle notifications for a characteristic
+    async function toggleNotification(charUuid, button) {
+        try {
+            const isSubscribed = button.dataset.subscribed === 'true';
+            
+            if (isSubscribed) {
+                // Unsubscribe
+                socket.send(JSON.stringify({
+                    action: 'unsubscribe_from_characteristic',
+                    data: { char_uuid: charUuid }
+                }));
+            } else {
+                // Subscribe
+                socket.send(JSON.stringify({
+                    action: 'subscribe_to_characteristic',
+                    data: { char_uuid: charUuid }
+                }));
+            }
+            
+            // The UI update will happen when the server confirms the subscription
+        } catch (error) {
+            console.error('Error toggling notification:', error);
+            logMessage(`Error toggling notification: ${error.message}`, 'error');
+        }
+    }
+
+    // Update subscription status in UI
+    function updateSubscriptionStatus(charUuid, isSubscribed) {
+        const button = document.querySelector(`[data-char-uuid="${charUuid}"]`);
+        if (button) {
+            button.dataset.subscribed = isSubscribed.toString();
+            button.innerHTML = isSubscribed 
+                ? '<i class="fas fa-bell-slash"></i>' 
+                : '<i class="fas fa-bell"></i>';
+            button.title = isSubscribed ? 'Unsubscribe from notifications' : 'Subscribe to notifications';
+        }
+    }
+
+    // Unsubscribe from a characteristic
+    async function unsubscribeFromCharacteristic(charUuid) {
+        try {
+            logMessage(`Unsubscribing from characteristic ${charUuid}...`, 'info');
+            socket.send(JSON.stringify({
+                action: 'unsubscribe_from_characteristic',
+                data: { char_uuid: charUuid }
+            }));
+            // Remove from our subscribed set
+            subscribedCharacteristics.delete(charUuid);
+            return true;
+        } catch (error) {
+            console.error('Unsubscribe error:', error);
+            logMessage(`Failed to unsubscribe from characteristic: ${error.message}`, 'error');
+            throw error;
         }
     }
 
@@ -475,48 +565,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Write error:', error);
             logMessage(`Failed to write characteristic: ${error.message}`, 'error');
         }
-    }
-
-    // Toggle notifications for a characteristic
-    async function toggleNotification(charUuid, button) {
-        if (subscribedCharacteristics.has(charUuid)) {
-            await unsubscribeFromCharacteristic(charUuid);
-            button.textContent = 'Subscribe';
-            button.classList.remove('bg-red-600', 'hover:bg-red-700');
-            button.classList.add('bg-green-600', 'hover:bg-green-700');
-            notificationsContainer.innerHTML = '<div class="text-gray-500">Unsubscribed from characteristic</div>';
-        } else {
-            await subscribeToCharacteristic(charUuid);
-            button.textContent = 'Unsubscribe';
-            button.classList.remove('bg-green-600', 'hover:bg-green-700');
-            button.classList.add('bg-red-600', 'hover:bg-red-700');
-        }
-    }
-
-    // Subscribe to characteristic notifications via WebSocket
-    async function subscribeToCharacteristic(charUuid) {
-        if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-            logMessage("WebSocket not connected, cannot subscribe", "error");
-            return;
-        }
-        const message = {
-            type: "subscribe_to_characteristic",
-            payload: { char_uuid: charUuid }
-        };
-        websocket.send(JSON.stringify(message));
-    }
-
-    // Unsubscribe from characteristic notifications via WebSocket
-    async function unsubscribeFromCharacteristic(charUuid) {
-        if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-            logMessage("WebSocket not connected, cannot unsubscribe", "error");
-            return;
-        }
-        const message = {
-            type: "unsubscribe_from_characteristic",
-            payload: { char_uuid: charUuid }
-        };
-        websocket.send(JSON.stringify(message));
     }
 
     // Clear log

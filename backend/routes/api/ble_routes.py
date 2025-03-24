@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Body, WebSocket
+from fastapi import APIRouter, HTTPException, Body, WebSocket, WebSocketDisconnect, Depends
 from typing import Dict, Any, List, Optional
 import logging
 from backend.modules.ble_manager import BLEManager
@@ -7,9 +7,11 @@ from backend.models import ErrorResponse, SuccessResponse, StatusResponse, BLEDe
 from backend.modules.monitors import monitoring_manager
 from backend.modules.monitoring import BLEDeviceMonitor
 from ..utils import handle_errors
-from backend.ws.manager import manager  # Should already be updated
-from backend.ws.factory import websocket_factory  # Should already be updated
-from backend.ws.events import create_event  # Should already be updated
+from backend.ws.manager import manager
+from backend.ws.factory import websocket_factory
+from backend.ws.events import create_event
+from backend.auth import get_current_user
+from bleak import BleakScanner
 
 router = APIRouter(
     prefix="/api/ble",
@@ -102,17 +104,19 @@ websocket_factory.register_handler("ble_socket", "unsubscribe_from_characteristi
 @router.get("/scan", response_model=List[BLEDeviceInfo])
 async def scan_for_devices(scan_time: int = 5):
     try:
+        logger.info("📱 Starting BLE device scan...")
         devices = await ble_manager.scan_devices(scan_time)
-        logger.info(f"Found {len(devices)} BLE devices")
+        logger.info(f"🔍 Found {len(devices)} BLE devices")
         return [
             {
                 "name": device.name or "Unknown Device",
                 "address": device.address,
-                "rssi": device.rssi
+                # Use advertisement_data.rssi instead of device.rssi (deprecated)
+                "rssi": device.advertisement_data.rssi if hasattr(device, 'advertisement_data') else None
             } for device in devices
         ]
     except Exception as e:
-        logger.error(f"Error scanning BLE devices: {e}", exc_info=True)
+        logger.error(f"Failed to scan BLE devices: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
 
 @router.post("/connect/{address}", response_model=StatusResponse)

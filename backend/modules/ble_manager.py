@@ -2,7 +2,7 @@
 import asyncio
 from bleak import BleakScanner, BleakClient
 import logging
-from typing import Callable, Optional
+from typing import Callable, Optional, Dict
 
 class BLEManager:
     def __init__(self, logger=None):
@@ -10,12 +10,15 @@ class BLEManager:
         self.device = None
         self.logger = logger or logging.getLogger(__name__)
         self.notification_callbacks = {}
-
+        self.services_cache = {}
+        
     async def scan_devices(self, scan_time=5):
         self.logger.info(f"Scanning for devices for {scan_time} seconds...")
         devices = await BleakScanner.discover(timeout=scan_time)
         for i, device in enumerate(devices):
-            self.logger.info(f"{i}: {device.name or 'Unknown'} [{device.address}]")
+            # Use advertisement_data.rssi instead of device.rssi (deprecated)
+            rssi = device.advertisement_data.rssi if hasattr(device, 'advertisement_data') else "Unknown"
+            self.logger.info(f"{i}: {device.name or 'Unknown'} [{device.address}] RSSI: {rssi}")
         return devices
 
     async def connect_device(self, address):
@@ -113,30 +116,33 @@ class BLEManager:
             raise Exception(f"Characteristic discovery failed: {str(e)}")
 
     async def start_notify(self, char_uuid: str, callback: Callable[[str, bytes], None]) -> bool:
+        """Start notifications for a characteristic."""
         if not self.client or not self.client.is_connected:
             self.logger.warning("Not connected to any device.")
             return False
+            
         try:
-            # Define the notification handler
-            async def notification_handler(char_uuid: str, value: bytes):
-                self.logger.info(f"Received notification for {char_uuid}: {value.hex()}")
-                callback(char_uuid, value)
-
-            await self.client.start_notify(char_uuid, lambda _, data: notification_handler(char_uuid, data))
-            self.notification_callbacks[char_uuid] = callback
+            def callback_wrapper(sender, data):
+                asyncio.create_task(callback(char_uuid, data))
+                
+            await self.client.start_notify(char_uuid, callback_wrapper)
+            self.notification_callbacks[char_uuid] = callback_wrapper
             self.logger.info(f"Started notifications for {char_uuid}")
             return True
         except Exception as e:
             self.logger.error(f"Failed to start notifications for {char_uuid}: {e}")
             return False
-
+            
     async def stop_notify(self, char_uuid: str) -> bool:
+        """Stop notifications for a characteristic."""
         if not self.client or not self.client.is_connected:
             self.logger.warning("Not connected to any device.")
             return False
+            
         try:
             await self.client.stop_notify(char_uuid)
-            self.notification_callbacks.pop(char_uuid, None)
+            if char_uuid in self.notification_callbacks:
+                del self.notification_callbacks[char_uuid]
             self.logger.info(f"Stopped notifications for {char_uuid}")
             return True
         except Exception as e:

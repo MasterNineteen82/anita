@@ -1,96 +1,54 @@
-import logging
-from typing import Dict, Any, Optional
-import json
-import time
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
+import jwt
+from fastapi import HTTPException, status
+from backend.logging.logging_config import get_api_logger
 
-logger = logging.getLogger(__name__)
+logger = get_api_logger("auth")
 
 class AuthManager:
-    """
-    Manager class for authentication operations.
-    """
+    """Authentication manager class for handling JWT tokens and user authentication"""
     
-    @staticmethod
-    async def authenticate(username: str, password: str) -> Dict[str, Any]:
-        """
-        Authenticate a user with username and password.
-        
-        Args:
-            username: The username to authenticate
-            password: The password to authenticate
-            
-        Returns:
-            Dict containing authentication results
-        """
-        # Simple demo authentication
-        if username == "demo" and password == "password":
-            return {
-                "status": "success",
-                "data": {
-                    "token": f"demo_token_{int(time.time())}",
-                    "user": {
-                        "id": "user_001",
-                        "username": username,
-                        "role": "admin"
-                    }
-                }
-            }
-        else:
-            logger.warning(f"Failed authentication attempt for user: {username}")
-            return {
-                "status": "error",
-                "message": "Invalid username or password"
-            }
+    def __init__(self, secret_key: str, algorithm: str = "HS256", token_expire_minutes: int = 30):
+        self.secret_key = secret_key
+        self.algorithm = algorithm
+        self.token_expire_minutes = token_expire_minutes
+        logger.info("🔐 AuthManager initialized")
     
-    @staticmethod
-    async def validate_token(token: str) -> Dict[str, Any]:
-        """
-        Validate an authentication token.
+    def create_access_token(self, data: Dict[str, Any]) -> str:
+        """Create a new JWT access token"""
+        to_encode = data.copy()
+        expire = datetime.utcnow() + timedelta(minutes=self.token_expire_minutes)
+        to_encode.update({"exp": expire})
         
-        Args:
-            token: The token to validate
-            
-        Returns:
-            Dict containing token validation results
-        """
-        # Demo token validation
-        if token and token.startswith("demo_token_"):
-            return {
-                "status": "success",
-                "data": {
-                    "valid": True,
-                    "user": {
-                        "id": "user_001",
-                        "username": "demo",
-                        "role": "admin"
-                    }
-                }
-            }
-        else:
-            return {
-                "status": "error",
-                "message": "Invalid token"
-            }
+        try:
+            encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+            logger.debug(f"🔑 Created token for user {data.get('sub', 'unknown')}")
+            return encoded_jwt
+        except Exception as e:
+            logger.error(f"❌ Failed to create token: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Could not create access token"
+            )
     
-    @staticmethod
-    async def register_user(username: str, password: str, email: str = None) -> Dict[str, Any]:
-        """
-        Register a new user.
-        
-        Args:
-            username: The username for the new user
-            password: The password for the new user
-            email: Optional email for the user
-            
-        Returns:
-            Dict containing registration results
-        """
-        return {
-            "status": "success",
-            "data": {
-                "user_id": f"user_{int(time.time())}",
-                "username": username,
-                "email": email,
-                "message": "User registered successfully"
-            }
-        }
+    def verify_token(self, token: str) -> Dict[str, Any]:
+        """Verify a JWT token and return its payload"""
+        try:
+            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            logger.debug(f"✅ Token verified for user {payload.get('sub', 'unknown')}")
+            return payload
+        except jwt.ExpiredSignatureError:
+            logger.warning("⏰ Token has expired")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has expired",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        except jwt.InvalidTokenError:
+            logger.warning("❌ Invalid token")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
