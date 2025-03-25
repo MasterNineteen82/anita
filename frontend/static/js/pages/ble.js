@@ -182,8 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const timestamp = new Date().toLocaleTimeString();
         const logEntry = document.createElement('div');
         logEntry.className = `log-entry ${type === 'error' ? 'text-red-400' : 
-                                          type === 'success' ? 'text-green-400' : 
-                                          type === 'warning' ? 'text-yellow-400' : 'text-gray-400'}`;
+                                            type === 'success' ? 'text-green-400' : 
+                                            type === 'warning' ? 'text-yellow-400' : 'text-gray-400'}`;
         logEntry.innerHTML = `[${timestamp}] ${message}`;
         logContainer.appendChild(logEntry);
         logContainer.scrollTop = logContainer.scrollHeight;
@@ -210,19 +210,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="flex items-center">
                     <div class="flex-shrink-0 mr-3">
                         ${status === 'connected' ? '<i class="fab fa-bluetooth-b text-green-500"></i>' : 
-                          status === 'connecting' ? '<i class="fab fa-bluetooth-b text-yellow-500 animate-pulse"></i>' :
-                          status === 'scanning' ? '<i class="fas fa-search text-blue-500 animate-pulse"></i>' :
-                          status === 'error' ? '<i class="fab fa-bluetooth-b text-red-500"></i>' :
-                          '<i class="fab fa-bluetooth-b text-gray-500"></i>'}
+                            status === 'connecting' ? '<i class="fab fa-bluetooth-b text-yellow-500 animate-pulse"></i>' :
+                            status === 'scanning' ? '<i class="fas fa-search text-blue-500 animate-pulse"></i>' :
+                            status === 'error' ? '<i class="fab fa-bluetooth-b text-red-500"></i>' :
+                            '<i class="fab fa-bluetooth-b text-gray-500"></i>'}
                     </div>
                     <div class="flex-1">
                         <div class="flex items-center">
                             <span class="text-sm font-medium mr-2">BLE Status:</span>
                             <span class="text-sm px-2 py-0.5 rounded-full 
                                 ${status === 'connected' ? 'bg-green-100 text-green-800' : 
-                                  status === 'connecting' || status === 'scanning' ? 'bg-yellow-100 text-yellow-800' :
-                                  status === 'error' ? 'bg-red-100 text-red-800' : 
-                                  'bg-gray-100 text-gray-800'}">
+                                    status === 'connecting' || status === 'scanning' ? 'bg-yellow-100 text-yellow-800' :
+                                    status === 'error' ? 'bg-red-100 text-red-800' : 
+                                    'bg-gray-100 text-gray-800'}">
                                 ${statusText}
                             </span>
                         </div>
@@ -238,107 +238,107 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!scanStatus) return;
         scanStatus.innerHTML = `
             <span class="w-3 h-3 rounded-full ${status === 'scanning' ? 'bg-blue-500 animate-pulse' : 
-                                                  status === 'active' ? 'bg-green-500' : 'bg-gray-500'} mr-2"></span>
+                                                    status === 'active' ? 'bg-green-500' : 'bg-gray-500'} mr-2"></span>
             <span class="text-gray-400">${message}</span>
         `;
     }
 
     // Scan for BLE devices
     async function scanDevices() {
-        try {
-            console.log("Starting BLE scan...");
-            logMessage('Initiating device scan...', 'info');
-            setLoading(true, 'Scanning for devices...');
-            updateStatus('scanning', 'Scanning for BLE devices...');
-            updateScanStatus('scanning', 'Scanning');
+    try {
+        console.log("Starting BLE scan...");
+        logMessage('Initiating device scan...', 'info');
+        setLoading(true, 'Scanning for devices...');
+        updateStatus('scanning', 'Scanning for BLE devices...');
+        updateScanStatus('scanning', 'Scanning');
 
-            deviceList.innerHTML = '<div class="text-gray-500 animate-pulse">Scanning for devices...</div>';
+        deviceList.innerHTML = '<div class="text-gray-500 animate-pulse">Scanning for devices...</div>';
 
-            const response = await fetch('/api/ble/scan', { method: 'GET' });
-            if (!response.ok) throw new Error(`Scan failed: ${response.statusText}`);
+        const response = await fetch('/api/ble/scan', { method: 'GET' });
+        if (!response.ok) throw new Error(`Scan failed: ${response.statusText}`);
 
-            const devices = await response.json();
-            console.log('Devices found:', devices);
+        const devices = await response.json();
+        console.log('Devices found:', devices);
 
-            deviceList.innerHTML = '';
-            if (!Array.isArray(devices) || devices.length === 0) {
-                deviceList.innerHTML = '<div class="text-gray-500">No devices found</div>';
-                logMessage('No BLE devices detected', 'warning');
-                updateScanStatus('active', 'No devices found');
-                return;
-            }
-
-            logMessage(`Discovered ${devices.length} BLE device${devices.length > 1 ? 's' : ''}`, 'success');
-            updateScanStatus('active', 'Scan complete');
-
-            devices.forEach(device => {
-                const deviceEl = document.createElement('div');
-                deviceEl.className = 'bg-gray-700 p-3 rounded mb-2 flex justify-between items-center hover:bg-gray-600 transition-colors';
-                deviceEl.innerHTML = `
-                    <div>
-                        <div class="font-medium text-white">${device.name || 'Unknown Device'}</div>
-                        <div class="text-xs text-gray-400">${device.address}</div>
-                        ${device.rssi ? `<div class="text-xs text-gray-400">RSSI: ${device.rssi} dBm</div>` : ''}
-                    </div>
-                    <button class="connect-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors"
-                            data-address="${device.address}" data-name="${device.name || 'Unknown Device'}">
-                        Connect
-                    </button>
-                `;
-                deviceList.appendChild(deviceEl);
-            });
-
-            document.querySelectorAll('.connect-btn').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const address = e.target.dataset.address;
-                    const name = e.target.dataset.name;
-                    connectToDevice(address, name);
-                });
-            });
-
-        } catch (error) {
-            console.error('Scan error:', error);
-            logMessage(`Scan failed: ${error.message}`, 'error');
-            deviceList.innerHTML = `<div class="text-red-500">Error: ${error.message}</div>`;
-            updateStatus('error', `Scan failed: ${error.message}`);
-            updateScanStatus('active', 'Scan failed');
-        } finally {
-            setLoading(false);
+        deviceList.innerHTML = '';
+        if (!Array.isArray(devices) || devices.length === 0) {
+            deviceList.innerHTML = '<div class="text-gray-500">No devices found</div>';
+            logMessage('No BLE devices detected', 'warning');
+            updateScanStatus('active', 'No devices found');
+            return;
         }
-    }
 
-    // Connect to a BLE device
-    async function connectToDevice(address, name) {
-        try {
-            logMessage(`Attempting to connect to ${name} (${address})...`, 'info');
-            setLoading(true, `Connecting to ${name}...`);
-            updateStatus('connecting', `Connecting to ${name}...`);
+        logMessage(`Discovered ${devices.length} BLE device${devices.length > 1 ? 's' : ''}`, 'success');
+        updateScanStatus('active', 'Scan complete');
 
-            const response = await fetch(`/api/ble/connect/${address}`, { method: 'POST' });
-            if (!response.ok) throw new Error(`Connection failed: ${response.statusText}`);
-
-            connectedDevice = { address, name };
-            logMessage(`Successfully connected to ${name}`, 'success');
-            updateStatus('connected', `Connected to ${name}`);
-
-            disconnectBtn.classList.remove('hidden');
-            document.getElementById('device-info-content').innerHTML = `
-                <div class="flex flex-col space-y-2">
-                    <div class="font-semibold text-white">${name}</div>
-                    <div class="text-sm text-gray-400">Address: ${address}</div>
+        devices.forEach(device => {
+            const deviceEl = document.createElement('div');
+            deviceEl.className = 'bg-gray-700 p-3 rounded mb-2 flex justify-between items-center hover:bg-gray-600 transition-colors';
+            deviceEl.innerHTML = `
+                <div>
+                    <div class="font-medium text-white">${device.name || 'Unknown Device'}</div>
+                    <div class="text-xs text-gray-400">${device.address}</div>
+                    ${device.rssi ? `<div class="text-xs text-gray-400">RSSI: ${device.rssi} dBm</div>` : ''}
                 </div>
+                <button class="connect-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors"
+                        data-address="${device.address}" data-name="${device.name || 'Unknown Device'}">
+                    Connect
+                </button>
             `;
+            deviceList.appendChild(deviceEl);
+        });
 
-            await getServices();
+        document.querySelectorAll('.connect-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const address = e.target.dataset.address;
+                const name = e.target.dataset.name;
+                connectToDevice(address, name);
+            });
+        });
 
-        } catch (error) {
-            console.error('Connection error:', error);
-            logMessage(`Connection failed: ${error.message}`, 'error');
-            updateStatus('error', `Connection failed: ${error.message}`);
-        } finally {
-            setLoading(false);
-        }
+    } catch (error) {
+        console.error('Scan error:', error);
+        logMessage(`Scan failed: ${error.message}`, 'error');
+        deviceList.innerHTML = `<div class="text-red-500">Error: ${error.message}</div>`;
+        updateStatus('error', `Scan failed: ${error.message}`);
+        updateScanStatus('active', 'Scan failed');
+    } finally {
+        setLoading(false);
     }
+}
+
+// Connect to a BLE device
+async function connectToDevice(address, name) {
+    try {
+        logMessage(`Attempting to connect to ${name} (${address})...`, 'info');
+        setLoading(true, `Connecting to ${name}...`);
+        updateStatus('connecting', `Connecting to ${name}...`);
+
+        const response = await fetch(`/api/ble/connect/${address}`, { method: 'POST' });
+        if (!response.ok) throw new Error(`Connection failed: ${response.statusText}`);
+
+        connectedDevice = { address, name };
+        logMessage(`Successfully connected to ${name}`, 'success');
+        updateStatus('connected', `Connected to ${name}`);
+
+        disconnectBtn.classList.remove('hidden');
+        document.getElementById('device-info-content').innerHTML = `
+            <div class="flex flex-col space-y-2">
+                <div class="font-semibold text-white">${name}</div>
+                <div class="text-sm text-gray-400">Address: ${address}</div>
+            </div>
+        `;
+
+        await getServices();
+
+    } catch (error) {
+        console.error('Connection error:', error);
+        logMessage(`Connection failed: ${error.message}`, 'error');
+        updateStatus('error', `Connection failed: ${error.message}`);
+    } finally {
+        setLoading(false);
+    }
+}
 
     // Disconnect from device
     async function disconnectFromDevice() {
@@ -534,84 +534,84 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Read characteristic value
-    async function readCharacteristic(charUuid) {
-        try {
-            logMessage(`Reading characteristic ${charUuid}...`, 'info');
-            const response = await fetch(`/api/ble/read/${charUuid}`);
-            if (!response.ok) throw new Error(`Read failed: ${await response.text()}`);
-            const data = await response.json();
-            logMessage(`Read value from ${charUuid}: ${data.value}`, 'success');
-            const valueEl = document.getElementById(`value-${charUuid.replace(/[^a-z0-9]/gi, '')}`);
-            if (valueEl) valueEl.textContent = `Value: ${data.value}`;
-        } catch (error) {
-            console.error('Read error:', error);
-            logMessage(`Failed to read characteristic: ${error.message}`, 'error');
+        // Read characteristic value
+        async function readCharacteristic(charUuid) {
+            try {
+                logMessage(`Reading characteristic ${charUuid}...`, 'info');
+                const response = await fetch(`/api/ble/read/${charUuid}`);
+                if (!response.ok) throw new Error(`Read failed: ${await response.text()}`);
+                const data = await response.json();
+                logMessage(`Read value from ${charUuid}: ${data.value}`, 'success');
+                const valueEl = document.getElementById(`value-${charUuid.replace(/[^a-z0-9]/gi, '')}`);
+                if (valueEl) valueEl.textContent = `Value: ${data.value}`;
+            } catch (error) {
+                console.error('Read error:', error);
+                logMessage(`Failed to read characteristic: ${error.message}`, 'error');
+            }
         }
-    }
-
-    // Write characteristic value
-    async function writeCharacteristic(charUuid, value) {
-        try {
-            logMessage(`Writing to characteristic ${charUuid}...`, 'info');
-            const response = await fetch(`/api/ble/write/${charUuid}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(value)
+    
+        // Write characteristic value
+        async function writeCharacteristic(charUuid, value) {
+            try {
+                logMessage(`Writing to characteristic ${charUuid}...`, 'info');
+                const response = await fetch(`/api/ble/write/${charUuid}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(value)
+                });
+                if (!response.ok) throw new Error(`Write failed: ${await response.text()}`);
+                logMessage(`Successfully wrote ${value} to ${charUuid}`, 'success');
+            } catch (error) {
+                console.error('Write error:', error);
+                logMessage(`Failed to write characteristic: ${error.message}`, 'error');
+            }
+        }
+    
+        // Clear log
+        function clearLog() {
+            if (logContainer) logContainer.innerHTML = '';
+        }
+    
+        // Toggle debug panel
+        function toggleDebugPanel() {
+            if (debugPanel) debugPanel.classList.toggle('hidden');
+        }
+    
+        // Send debug request
+        async function sendDebugRequest() {
+            if (!debugEndpointSelect || !debugResponseContainer) return;
+            const endpoint = debugEndpointSelect.value;
+            try {
+                const response = await fetch(endpoint);
+                const data = await response.json();
+                debugResponseContainer.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                debugResponseContainer.textContent = `Error: ${error.message}`;
+            }
+        }
+    
+        // Event listeners
+        if (scanBtn) {
+            scanBtn.addEventListener('click', () => {
+                console.log("Scan button clicked");
+                scanDevices();
             });
-            if (!response.ok) throw new Error(`Write failed: ${await response.text()}`);
-            logMessage(`Successfully wrote ${value} to ${charUuid}`, 'success');
-        } catch (error) {
-            console.error('Write error:', error);
-            logMessage(`Failed to write characteristic: ${error.message}`, 'error');
+        } else {
+            console.error("Scan button not found!");
         }
-    }
-
-    // Clear log
-    function clearLog() {
-        if (logContainer) logContainer.innerHTML = '';
-    }
-
-    // Toggle debug panel
-    function toggleDebugPanel() {
-        if (debugPanel) debugPanel.classList.toggle('hidden');
-    }
-
-    // Send debug request
-    async function sendDebugRequest() {
-        if (!debugEndpointSelect || !debugResponseContainer) return;
-        const endpoint = debugEndpointSelect.value;
-        try {
-            const response = await fetch(endpoint);
-            const data = await response.json();
-            debugResponseContainer.textContent = JSON.stringify(data, null, 2);
-        } catch (error) {
-            debugResponseContainer.textContent = `Error: ${error.message}`;
-        }
-    }
-
-    // Event listeners
-    if (scanBtn) {
-        scanBtn.addEventListener('click', () => {
-            console.log("Scan button clicked");
-            scanDevices();
-        });
-    } else {
-        console.error("Scan button not found!");
-    }
-
-    if (disconnectBtn) disconnectBtn.addEventListener('click', disconnectFromDevice);
-    if (clearLogBtn) clearLogBtn.addEventListener('click', clearLog);
-    if (showDebugBtn) showDebugBtn.addEventListener('click', toggleDebugPanel);
-    if (debugToggleBtn) debugToggleBtn.addEventListener('click', toggleDebugPanel);
-    if (debugSendBtn) debugSendBtn.addEventListener('click', sendDebugRequest);
-
-    // Initial setup
-    updateStatus('disconnected', 'Not connected to any device');
-    updateScanStatus('active', 'Inactive');
-    logMessage('BLE Manager initialized', 'success');
-    console.log("BLE Manager initialization complete");
-
-    // Connect to WebSocket
-    connectWebSocket();
-});
+    
+        if (disconnectBtn) disconnectBtn.addEventListener('click', disconnectFromDevice);
+        if (clearLogBtn) clearLogBtn.addEventListener('click', clearLog);
+        if (showDebugBtn) showDebugBtn.addEventListener('click', toggleDebugPanel);
+        if (debugToggleBtn) debugToggleBtn.addEventListener('click', toggleDebugPanel);
+        if (debugSendBtn) debugSendBtn.addEventListener('click', sendDebugRequest);
+    
+        // Initial setup
+        updateStatus('disconnected', 'Not connected to any device');
+        updateScanStatus('active', 'Inactive');
+        logMessage('BLE Manager initialized', 'success');
+        console.log("BLE Manager initialization complete");
+    
+        // Connect to WebSocket
+        connectWebSocket();
+    });

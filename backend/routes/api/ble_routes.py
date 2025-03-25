@@ -15,6 +15,7 @@ from backend.domain.services.ble_service import BleService
 from backend.core.dependencies import get_ble_service
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
+import asyncio
 
 class BLEDeviceInfo(BaseModel):
     name: Optional[str]
@@ -25,11 +26,27 @@ class BLEDeviceInfo(BaseModel):
 class BleServiceAdapter:
     def __init__(self, service: BleService):
         self.service = service
-        self.device = None  # or some default value
+        self.device_address = None  # Store device address instead of device object
+
+    async def update_device_address(self):
+        """
+        Updates the device address in the adapter.  This is necessary because the ble_service
+        connects to the device, and this adapter needs to know what device is connected.
+        """
+        try:
+            if self.service.client and self.service.client.is_connected:
+                self.device_address = self.service.client.address
+            else:
+                self.device_address = None
+        except Exception as e:
+            logger.error(f"Error updating device address: {e}")
+            self.device_address = None
 
 # Define dependency function to inject BleServiceAdapter
 def get_ble_adapter(ble_service: BleService = Depends(get_ble_service)):
-    return BleServiceAdapter(ble_service)
+    adapter = BleServiceAdapter(ble_service)
+    asyncio.create_task(adapter.update_device_address())  # Initialize device address
+    return adapter
 
 router = APIRouter(
     prefix="/api/ble",
@@ -63,11 +80,11 @@ async def subscribe_to_characteristic(websocket: WebSocket, payload: dict,
         client_id = manager.get_client_id(websocket)
         
         # Check if the device is connected before subscribing
-        if not ble_adapter.device:
+        if not ble_adapter.device_address:
             await manager.send_error(websocket, "No device connected")
             return
         
-        success = await ble_adapter.service.start_notify(char_uuid, lambda char_uuid, value: broadcast_notification(char_uuid, value, client_id, ble_adapter))
+        success = await ble_adapter.service.start_notify(char_uuid, lambda char_uuid, value: asyncio.create_task(broadcast_notification(char_uuid, value, client_id, ble_adapter)))
         if success:
             await manager.send_message(websocket, create_event(
                 "ble.characteristic_subscription",
@@ -91,7 +108,7 @@ async def unsubscribe_from_characteristic(websocket: WebSocket, payload: dict,
 
     try:
         # Check if the device is connected before unsubscribing
-        if not ble_adapter.device:
+        if not ble_adapter.device_address:
             await manager.send_error(websocket, "No device connected")
             return
         
@@ -112,20 +129,20 @@ async def broadcast_notification(char_uuid: str, value: bytes, client_id: str, b
     """Broadcast a characteristic notification to subscribed clients."""
     try:
         # Check if the device is connected before broadcasting
-        if not ble_adapter.device:
+        if not ble_adapter.device_address:
             logger.warning("No device connected, cannot broadcast notification")
             return
         
         event = create_event(
             "ble.characteristic",
-            address=ble_adapter.device,
+            address=ble_adapter.device_address,
             service="unknown",  # You can enhance this to include the service UUID
             characteristic=char_uuid,
             value=value.hex(),
             value_hex=value.hex()
         )
         # Broadcast to the "ble_notifications" room, excluding the client that triggered the subscription
-        await manager.broadcast_to_room("ble_notifications", event, exclude=None)
+        await manager.broadcast_to_room("ble_notifications", event, exclude=client_id)
     except Exception as e:
         logger.error(f"Error broadcasting notification for {char_uuid}: {str(e)}")
 
@@ -136,25 +153,37 @@ websocket_factory.register_handler("ble_socket", "unsubscribe_from_characteristi
 # Existing REST endpoints
 @router.get("/scan", response_model=List[BLEDeviceInfo])
 async def scan_for_devices(scan_time: int = 5, ble_service: BleService = Depends(get_ble_service)):
+    """Scans for available BLE devices."""
+    logger.info("📱 Starting BLE device scan...")
     try:
-        logger.info("📱 Starting BLE device scan...")
         devices = await ble_service.scan_devices(scan_time)
         logger.info(f"🔍 Found {len(devices)} BLE devices")
         
-        # Ensure devices is a list of dictionaries
-        device_list = []
+        # Ensure devices is a list before proceeding
+        if not isinstance(devices, list):
+            logger.error("Scan devices did not return a list")
+            raise HTTPException(status_code=500, detail="Scan devices did not return a list")
+
+        ble_devices = []
         for device in devices:
-            device_info = {
-                "name": device.name if hasattr(device, 'name') else "Unknown Device",
-                "address": device.address,
-                "rssi": device.advertisement_data.rssi if hasattr(device, 'advertisement_data') and hasattr(device.advertisement_data, 'rssi') else None
-            }
-            device_list.append(device_info)
-        
-        return device_list
+            # Check if device is a dictionary
+            if isinstance(device, dict):
+                ble_devices.append(BLEDeviceInfo(
+                    name=device.get("name"),
+                    address=device["address"],
+                    rssi=device.get("rssi")
+                ))
+            else:
+                # Handle if device is a Bleak Device object
+                ble_devices.append(BLEDeviceInfo(
+                    name=device.name,
+                    address=device.address,
+                    rssi=device.rssi
+                ))
+        return ble_devices
     except Exception as e:
-        logger.error(f"Failed to scan BLE devices: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
+        logger.error(f"Failed to scan BLE devices: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/connect/{address}", response_model=StatusResponse)
 async def connect_to_device(address: str, 
@@ -169,7 +198,7 @@ async def connect_to_device(address: str,
         
         # Only update device state if connection actually succeeded
         if connection_success:
-            ble_adapter.device = address
+            await ble_adapter.update_device_address()
             logger.info(f"Connected to BLE device at address {address}")
             return {"status": "connected", "message": f"Connected to device at {address}"}
         else:
@@ -184,11 +213,11 @@ async def connect_to_device(address: str,
 async def disconnect_device(ble_adapter: BleServiceAdapter = Depends(get_ble_adapter)):
     try:
         # Check if a device is actually connected
-        if not ble_adapter.device:
+        if not ble_adapter.device_address:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No device connected")
         
         await ble_adapter.service.disconnect_device()
-        ble_adapter.device = None  # Clear the device after disconnection
+        ble_adapter.device_address = None  # Clear the device after disconnection
         logger.info("Disconnected from BLE device")
         return {"status": "disconnected", "message": "Disconnected from device"}
     except HTTPException as http_exc:
@@ -237,7 +266,7 @@ async def write_characteristic(char_uuid: str, data: str = Body(...), ble_adapte
 @router.get("/services", response_model=List[dict])
 async def get_services(ble_adapter: BleServiceAdapter = Depends(get_ble_adapter)):
     try:
-        if not ble_adapter.device:
+        if not ble_adapter.device_address:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No device connected")
         services = await ble_adapter.service.get_services()
         if not services:
@@ -253,7 +282,7 @@ async def get_services(ble_adapter: BleServiceAdapter = Depends(get_ble_adapter)
 @router.get("/services/{service_uuid}/characteristics", response_model=List[dict])
 async def get_characteristics(service_uuid: str, ble_adapter: BleServiceAdapter = Depends(get_ble_adapter)):
     try:
-        if not ble_adapter.device:
+        if not ble_adapter.device_address:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No device connected")
         characteristics = await ble_adapter.service.get_characteristics(service_uuid)
         if not characteristics:

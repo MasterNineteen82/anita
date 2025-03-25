@@ -9,7 +9,7 @@ from ws.manager import manager
 from backend.modules.monitoring import setup_monitoring
 from modules.uwb_manager import setup_uwb_monitoring
 from backend.routes import (
-    auth_router, biometric_router, ble_router, cache_router, card_router,
+    auth_router, biometric_router, cache_router, card_router,
     device_router, hardware_router, mifare_router, mqtt_router, nfc_router,
     rfid_router, security_router, smartcard_router, system_router, uwb_router,
     get_monitoring_router  # Import the getter
@@ -26,7 +26,7 @@ from backend.routes.api.system_routes import router as system_router
 # Import your WebSocket Test Endpoint
 from .api.websockets.test_socket import router as test_websocket_router
 from .api.websockets import test_socket
-
+from backend.modules.ble_manager import BLEManager  # Import BLEManager
 
 # System path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -55,7 +55,6 @@ app.add_middleware(
 known_routers = [
     auth_router,
     biometric_router,
-    ble_router,
     cache_router,
     card_router,
     device_router,
@@ -75,13 +74,16 @@ known_routers = [
 app.include_router(system_router, tags=["System"])
 app.include_router(uwb_router, prefix="/api", tags=["UWB"])
 app.include_router(device_routes.router)
-app.include_router(ble_router.router)
+# app.include_router(ble_router.router) # Remove ble_router.router
 app.include_router(test_socket.router)
 
 app.include_router(test_websocket_router)
 
+# Initialize BLEManager
+ble_manager = BLEManager(logger=logger)
+
 # Set up BLE monitoring
-ble_router.setup_ble_monitoring(app)
+# ble_router.setup_ble_monitoring(app) # Remove ble_router.setup_ble_monitoring(app)
 
 # Set up monitoring systems
 @app.on_event("startup")

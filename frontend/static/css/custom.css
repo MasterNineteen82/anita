@@ -615,3 +615,27 @@ input:focus, select:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #00c3ff, #FF50FF);
 }
+
+/* Body Buttons */
+.body-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.body-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.body-btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.body-btn-secondary {
+  background-color: var(--secondary-color);
+  color: white;
+}

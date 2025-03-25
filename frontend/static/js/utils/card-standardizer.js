@@ -143,4 +143,17 @@ const CardStandardizer = {
   }
 };
 
+document.addEventListener('DOMContentLoaded', () => {
+    const cards = document.querySelectorAll('.dashboard-card.anita-card-processed');
+
+    cards.forEach(card => {
+        const footer = card.querySelector('.border-t');
+        if (footer) {
+            // Remove any buttons from the footer
+            const footerButtons = footer.querySelectorAll('button');
+            footerButtons.forEach(btn => btn.remove());
+        }
+    });
+});
+
 export default CardStandardizer;
