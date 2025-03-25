@@ -9,12 +9,14 @@
     <title>{% block title %}ANITA{% endblock %}</title>
     
     <!-- Font Awesome CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="..." crossorigin="anonymous" referrerpolicy="no-referrer" />
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/css/custom.css">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <link id="theme-style" rel="stylesheet" href="/static/css/custom.css"> <!-- Default theme -->
 
     <!-- Tailwind CSS CDN (for development; consider pre-building in production) -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -32,6 +34,8 @@
     </script>
 
     {% block page_css %}{% endblock %}
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    {% block styles %}{% endblock %}
 </head>
 <body class="flex flex-col min-h-screen">
     <!-- Navbar Component -->
@@ -69,5 +73,6 @@
 
     {% block scripts %}{% endblock %}
     {% block page_scripts %}{% endblock %}
+    <script src="/static/js/theme-switcher.js"></script>
 </body>
 </html>

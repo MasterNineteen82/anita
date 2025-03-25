@@ -3,32 +3,13 @@
 # This script handles the proper startup of all ANITA components
 #######################################################
 
-# Add this at the beginning of your launch_anita.ps1 script
-# Create virtual environment if it doesn't exist
-$venvPath = Join-Path $ProjectRoot "venv"
-if (-not (Test-Path $venvPath)) {
-    Write-Log "Creating virtual environment..." -Level "INFO"
-    & python -m venv $venvPath
-    if ($LASTEXITCODE -ne 0) {
-        Write-Log "Failed to create virtual environment. Make sure Python is installed." -Level "ERROR"
-        exit 1
-    }
-}
-
-# Activate virtual environment
-$activateScript = Join-Path $venvPath "Scripts\Activate.ps1"
-if (Test-Path $activateScript) {
-    Write-Log "Activating virtual environment..." -Level "INFO"
-    . $activateScript
-    # Verify activation worked
-    if (-not $env:VIRTUAL_ENV) {
-        Write-Log "Failed to activate virtual environment" -Level "ERROR"
-        exit 1
-    }
-} else {
-    Write-Log "Virtual environment activation script not found" -Level "ERROR"
-    exit 1
-}
+param (
+    [Parameter(Mandatory=$false)]
+    [string]$Component = "all",
+    
+    [Parameter(Mandatory=$false)]
+    [string]$PythonExecutable
+)
 
 # Configuration
 $ProjectRoot = "K:\anita\poc"
@@ -63,63 +44,61 @@ function Write-Log {
 
 function Test-Command {
     param (
-        [string]$Command
+        [string]$Executable,
+        [string]$Arguments
     )
     
     try {
-        & $Command -ErrorAction Stop | Out-Null
+        # Execute the command with the executable and arguments
+        & $Executable $Arguments -ErrorAction Stop | Out-Null
+        # If the command executes without error, return true
         return $true
     } catch {
+        # If the command fails, return false
+        Write-Log "Command '$Executable $Arguments' failed: $($_.Exception.Message)" -Level "ERROR"
         return $false
     }
 }
 
+# Check if Python executable path is provided
+if (-not $PythonExecutable) {
+    Write-Log "Python executable path not provided. Ensure virtual environment is activated." -Level "ERROR"
+    exit 1
+}
+
+# Now use $PythonExecutable instead of "python"
+Write-Log "Using Python executable: $PythonExecutable" -Level "INFO"
+
 # Check if Python is available
-if (-not (Test-Command "python --version")) {
-    Write-Log "Python not found in PATH. Please install Python 3.8 or higher." -Level "ERROR"
+if (-not (Test-Command "$PythonExecutable" "--version")) {
+    Write-Log "Python not found. Please ensure the provided path is correct." -Level "ERROR"
     exit 1
 }
 
 # Check dependencies
 Write-Log "Checking dependencies..."
-python -c "import fastapi, uvicorn, alembic, pydantic" -ErrorAction SilentlyContinue
-if ($LASTEXITCODE -ne 0) {
-    Write-Log "Missing dependencies. Running dependency installation..." -Level "WARNING"
-    python -m pip install -r "$ProjectRoot\requirements.txt"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Log "Failed to install dependencies. See error above." -Level "ERROR"
+try {
+    & $PythonExecutable -c "import fastapi, uvicorn, alembic, pydantic" -ErrorAction Stop
+} catch {
+    Write-Log "Missing dependencies or Python error. Running dependency installation..." -Level "WARNING"
+    try {
+        & $PythonExecutable -m pip install -r "$ProjectRoot\requirements.txt" -ErrorAction Stop
+    } catch {
+        Write-Log "Failed to install dependencies: $($_.Exception.Message)" -Level "ERROR"
         exit 1
-    }
-}
-
-# Run database migrations if needed
-Write-Log "Checking database migrations..."
-python "$ProjectRoot\backend\db\check_migrations.py"
-if ($LASTEXITCODE -ne 0) {
-    Write-Log "Database migration check failed." -Level "WARNING"
-    $runMigrations = Read-Host "Run database migrations? (y/n)"
-    if ($runMigrations -eq "y") {
-        python "$ProjectRoot\backend\db\run_migrations.py"
-        if ($LASTEXITCODE -ne 0) {
-            Write-Log "Migration failed. See error above." -Level "ERROR"
-            exit 1
-        }
-    } else {
-        Write-Log "Skipping migrations. Application may not work correctly." -Level "WARNING"
     }
 }
 
 # Start the application
 Write-Log "Starting ANITA application..."
 try {
-    # Start background services first
-    Start-Process -FilePath "python" -ArgumentList "$ProjectRoot\backend\services\smartcard_service.py" -NoNewWindow -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 1
-    
     # Launch main application
     Write-Log "Launching main application server..."
-    python "$ProjectRoot\app.py"
+    if (-not (Test-Path "$ProjectRoot\app.py")) {
+        throw "Main application script not found."
+    }
+    & $PythonExecutable "$ProjectRoot\app.py" -ErrorAction Stop
 } catch {
-    Write-Log "Failed to start application: $_" -Level "ERROR"
+    Write-Log "Failed to start application: $($_.Exception.Message)" -Level "ERROR"
     exit 1
 }

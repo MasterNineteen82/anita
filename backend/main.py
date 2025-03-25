@@ -23,6 +23,11 @@ from backend.routes.api.uwb_routes import router as uwb_router
 from backend.routes.api.system_routes import router as system_router
 # Import other routers...
 
+# Import your WebSocket Test Endpoint
+from .api.websockets.test_socket import router as test_websocket_router
+from .api.websockets import test_socket
+
+
 # System path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -71,6 +76,9 @@ app.include_router(system_router, tags=["System"])
 app.include_router(uwb_router, prefix="/api", tags=["UWB"])
 app.include_router(device_routes.router)
 app.include_router(ble_router.router)
+app.include_router(test_socket.router)
+
+app.include_router(test_websocket_router)
 
 # Set up BLE monitoring
 ble_router.setup_ble_monitoring(app)

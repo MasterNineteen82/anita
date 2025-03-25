@@ -330,7 +330,7 @@ def update_repo(use_github_desktop=True, skip_prompt=False):
                 log_message(f"Push failed: {push_output}", logging.ERROR)
                 return False
     
-    log_message("\n✅ Git update completed successfully!")
+    log_message("\n[SUCCESS] Git update completed successfully!")
     return True
 
 def update_repository(repo_path, use_github_desktop=True, skip_prompt=False):

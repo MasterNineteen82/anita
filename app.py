@@ -258,7 +258,7 @@ for router_name, router in known_routers.items():
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     logger.info("Root endpoint accessed")
-    return "Hello, World!"
+    return templates.TemplateResponse("index.html", {"request": request})
 
 # Logs page
 @app.get("/logs", response_class=HTMLResponse)

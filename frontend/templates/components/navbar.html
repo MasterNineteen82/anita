@@ -20,6 +20,8 @@
         ('/smartcard', 'fas fa-credit-card', 'Smart Card'),
         ('/mifare', 'fas fa-id-card', 'MIFARE'),
         ('/nfc', 'fas fa-mobile-alt', 'NFC'),
+        ('/flipper', 'fas fa-wave-square', 'Flipper Zero'),
+        ('/android', 'fab fa-android', 'Android'),
         ('/settings', 'fas fa-cog', 'Settings')
       ] %}
 
@@ -34,6 +36,16 @@
           <span class="nav-tooltip">{{ name }}</span>
         </a>
       {% endfor %}
+
+      <!-- Theme Toggle Button -->
+      <button id="theme-toggle" class="nav-item flex items-center justify-center p-2 rounded-md text-gray-300 hover:text-white hover:bg-gray-700 focus:outline-none transition-all duration-300 ease-in-out" aria-label="Toggle theme">
+        <i id="theme-icon" class="fas fa-moon text-lg text-transparent bg-clip-text bg-gradient-to-r from-cyan to-magenta animate-gradient"></i>
+        <span class="nav-tooltip">Toggle Theme</span>
+      </button>
+
+      <div class="mt-3 md:mt-0 flex items-center gap-2">
+        <span class="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
+      </div>
     </div>
   </div>
 </nav>

@@ -1,0 +1,286 @@
+{
+  "dry_run_date": "2025-03-25T06:54:00.088338",
+  "actions": [
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\backend\\api\\endpoints",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\backend\\api\\endpoints"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\api\\endpoints\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\api\\endpoints\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\backend\\api\\websockets",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\backend\\api\\websockets"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\api\\websockets\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\api\\websockets\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\backend\\api\\middleware",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\backend\\api\\middleware"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\api\\middleware\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\api\\middleware\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\backend\\core\\config",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\backend\\core\\config"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\core\\config\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\core\\config\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\backend\\core\\exceptions",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\backend\\core\\exceptions"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\core\\exceptions\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\core\\exceptions\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\backend\\domain\\models",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\backend\\domain\\models"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\domain\\models\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\domain\\models\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\backend\\domain\\services",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\backend\\domain\\services"
+      },
+      "timestamp": "2025-03-25T06:54:00.066507"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\domain\\services\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\domain\\services\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.067510"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\backend\\infrastructure\\database",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\backend\\infrastructure\\database"
+      },
+      "timestamp": "2025-03-25T06:54:00.067510"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\infrastructure\\database\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\infrastructure\\database\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.067510"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\backend\\infrastructure\\external",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\backend\\infrastructure\\external"
+      },
+      "timestamp": "2025-03-25T06:54:00.067510"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\infrastructure\\external\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\infrastructure\\external\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.067510"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\backend\\infrastructure\\repositories",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\backend\\infrastructure\\repositories"
+      },
+      "timestamp": "2025-03-25T06:54:00.067510"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\infrastructure\\repositories\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\infrastructure\\repositories\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.067510"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\backend\\infrastructure\\security",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\backend\\infrastructure\\security"
+      },
+      "timestamp": "2025-03-25T06:54:00.067510"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\infrastructure\\security\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\infrastructure\\security\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.067510"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\backend\\utils",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\backend\\utils"
+      },
+      "timestamp": "2025-03-25T06:54:00.067510"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\utils\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\utils\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.067510"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\tests\\api",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\tests\\api"
+      },
+      "timestamp": "2025-03-25T06:54:00.067510"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\tests\\api\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\tests\\api\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.086709"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\tests\\domain",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\tests\\domain"
+      },
+      "timestamp": "2025-03-25T06:54:00.087332"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\tests\\domain\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\tests\\domain\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.087332"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\tests\\infrastructure",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\tests\\infrastructure"
+      },
+      "timestamp": "2025-03-25T06:54:00.087332"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\tests\\infrastructure\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\tests\\infrastructure\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.087332"
+    },
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: k:\\anita\\poc\\tests\\core",
+      "details": {
+        "dir_path": "k:\\anita\\poc\\tests\\core"
+      },
+      "timestamp": "2025-03-25T06:54:00.087332"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\tests\\core\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\tests\\core\\__init__.py",
+        "content_preview": "# Auto-generated __init__.py file"
+      },
+      "timestamp": "2025-03-25T06:54:00.087332"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: k:\\anita\\poc\\backend\\__init__.py",
+      "details": {
+        "file_path": "k:\\anita\\poc\\backend\\__init__.py",
+        "content_preview": "# ANITA Backend Package"
+      },
+      "timestamp": "2025-03-25T06:54:00.087332"
+    }
+  ]
+}

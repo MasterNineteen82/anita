@@ -1,0 +1,39 @@
+{
+  "dry_run_date": "2025-03-25T06:52:24.198730",
+  "actions": [
+    {
+      "type": "CREATE_DIR",
+      "description": "Would create directory: backend/api",
+      "details": {
+        "dir_path": "backend/api"
+      },
+      "timestamp": "2025-03-25T06:52:24.198730"
+    },
+    {
+      "type": "CREATE_FILE",
+      "description": "Would create file: backend/api/__init__.py",
+      "details": {
+        "file_path": "backend/api/__init__.py",
+        "content_preview": "# API Package"
+      },
+      "timestamp": "2025-03-25T06:52:24.198730"
+    },
+    {
+      "type": "ANALYZE",
+      "description": "Would analyze file: existing_file.py",
+      "details": {
+        "file_path": "existing_file.py",
+        "analysis": {
+          "imports": [
+            "a",
+            "b"
+          ],
+          "classes": [
+            "MyClass"
+          ]
+        }
+      },
+      "timestamp": "2025-03-25T06:52:24.198730"
+    }
+  ]
+}

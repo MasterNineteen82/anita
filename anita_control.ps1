@@ -191,7 +191,7 @@ function Initialize-PythonEnvironment {
     $activateScript = Join-Path $venvPath "Scripts\Activate.ps1"
     if (Test-Path $activateScript) {
         Write-Log "Activating virtual environment..." -Level "INFO"
-        & $activateScript
+        . $activateScript
         # Verify activation worked
         if ($env:VIRTUAL_ENV) {
             Write-Log "Virtual environment activated: $env:VIRTUAL_ENV" -Level "SUCCESS"
@@ -205,6 +205,17 @@ function Initialize-PythonEnvironment {
                 Write-Log "Installing/updating required packages..." -Level "INFO"
                 python -m pip install -r $requirementsFile | Out-Null
             }
+            
+            # Determine Python executable path within the virtual environment
+            $pythonExecutable = Join-Path $venvPath "Scripts\python.exe"
+            if (-not (Test-Path $pythonExecutable)) {
+                Write-Log "Python executable not found in virtual environment: $pythonExecutable" -Level "ERROR"
+                return $false
+            }
+            
+            # Set Python executable path as an environment variable
+            $env:PYTHON_EXECUTABLE = $pythonExecutable
+            Write-Log "Python executable set to: $pythonExecutable" -Level "INFO"
             
             return $true
         } else {
@@ -228,7 +239,7 @@ switch ($Command) {
         if (Test-ScriptExists $launchScript) {
             if (Initialize-PythonEnvironment) {
                 # Pass the virtual environment info to the launch script
-                & $launchScript -Component $Component -VenvPath (Join-Path $ProjectRoot "venv")
+                & $launchScript -Component $Component -PythonExecutable $env:PYTHON_EXECUTABLE
                 if ($LASTEXITCODE -ne 0) {
                     Write-Log "Launch script failed with exit code $LASTEXITCODE" -Level "ERROR"
                 } else {
