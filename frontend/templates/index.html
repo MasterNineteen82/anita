@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% from "components/card.html" import render_card %}
 {% from "components/page_header.html" import render_page_header %}
+{% from "components/alerts.html" import render_alert %}
+{% from "components/toggle_control.html" import render_toggle %}
 
 {% block title %}Dashboard | ANITA{% endblock %}
 
@@ -20,7 +22,7 @@
     <div class="space-y-3">
       <div class="flex justify-between items-center">
         <p class="text-gray-300" id="system-uptime">Gathering system information...</p>
-        <button id="refresh-dashboard" class="bg-gray-700 hover:bg-gray-600 text-white p-2 rounded">
+        <button id="refresh-dashboard" title="Refresh Dashboard" class="bg-gray-700 hover:bg-gray-600 text-white p-2 rounded">
           <i class="fas fa-sync-alt"></i>
         </button>
       </div>
@@ -108,8 +110,8 @@
         </div>
         
         <div class="flex mb-2 items-center">
-          <span class="text-sm text-gray-300 mr-2">Auto-detection:</span>
-          <label class="inline-flex items-center cursor-pointer">
+          <label for="autodetect-reader" class="inline-flex items-center cursor-pointer">
+            <span class="text-sm text-gray-300 mr-2">Auto-detection:</span>
             <input type="checkbox" id="autodetect-reader" class="sr-only peer">
             <div class="relative w-10 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan"></div>
           </label>
@@ -163,7 +165,7 @@
         
         <div class="flex justify-between items-center text-xs mb-1">
           <span class="text-gray-300">Recent Commands</span>
-          <button id="clear-history" class="text-gray-400 hover:text-white">
+          <button id="clear-history" title="Clear History" class="text-gray-400 hover:text-white">
             <i class="fas fa-trash-alt"></i>
           </button>
         </div>

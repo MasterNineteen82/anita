@@ -51,8 +51,8 @@
             <div class="text-xs text-gray-400">Last seen: 2 mins ago</div>
           </div>
           <div class="flex space-x-2">
-            <button class="text-blue-400 hover:text-blue-300"><i class="fas fa-edit"></i></button>
-            <button class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
+            <button title="Edit" class="text-blue-400 hover:text-blue-300"><i class="fas fa-edit"></i></button>
+            <button title="Delete" class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
           </div>
         </div>
         <div class="py-2 px-3 bg-gray-700 bg-opacity-50 rounded flex justify-between items-center">
@@ -61,8 +61,8 @@
             <div class="text-xs text-gray-400">Last seen: 5 mins ago</div>
           </div>
           <div class="flex space-x-2">
-            <button class="text-blue-400 hover:text-blue-300"><i class="fas fa-edit"></i></button>
-            <button class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
+            <button title="Edit" class="text-blue-400 hover:text-blue-300"><i class="fas fa-edit"></i></button>
+            <button title="Delete" class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
           </div>
         </div>
         <div class="py-2 px-3 bg-gray-700 bg-opacity-50 rounded flex justify-between items-center">
@@ -71,8 +71,8 @@
             <div class="text-xs text-gray-400">Last seen: Just now</div>
           </div>
           <div class="flex space-x-2">
-            <button class="text-blue-400 hover:text-blue-300"><i class="fas fa-edit"></i></button>
-            <button class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
+            <button title="Edit" class="text-blue-400 hover:text-blue-300"><i class="fas fa-edit"></i></button>
+            <button title="Delete" class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
           </div>
         </div>
       </div>
@@ -120,9 +120,9 @@
         <!-- This would be replaced with actual map visualization -->
         <div class="absolute top-0 left-0 w-full h-full border border-gray-700" id="map-container">
           <!-- Sample UWB device dots -->
-          <div class="absolute w-3 h-3 bg-blue-500 rounded-full" style="top: 30%; left: 40%;" title="UWB001"></div>
-          <div class="absolute w-3 h-3 bg-green-500 rounded-full" style="top: 60%; left: 70%;" title="UWB002"></div>
-          <div class="absolute w-3 h-3 bg-yellow-500 rounded-full" style="top: 40%; left: 20%;" title="UWB003"></div>
+          <div class="absolute w-3 h-3 bg-blue-500 rounded-full uwb-dot-1" title="UWB001"></div>
+          <div class="absolute w-3 h-3 bg-green-500 rounded-full uwb-dot-2" title="UWB002"></div>
+          <div class="absolute w-3 h-3 bg-yellow-500 rounded-full uwb-dot-3" title="UWB003"></div>
           <!-- Coordinate grid lines would be drawn here -->
         </div>
         <div class="text-gray-400 z-10">
@@ -134,7 +134,7 @@
         <div>
           <label class="text-sm text-gray-400">Auto Update</label>
           <label class="switch ml-2">
-            <input type="checkbox" id="auto-update-map">
+            <input type="checkbox" id="auto-update-map" aria-label="Auto Update Map">
             <span class="slider round"></span>
           </label>
         </div>

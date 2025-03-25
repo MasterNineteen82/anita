@@ -38,7 +38,7 @@
         </div>
         <div class="flex items-center justify-between">
           <div>
-            <select id="scan-mode" class="bg-gray-700 border border-gray-600 text-white rounded py-1 px-2">
+            <select id="scan-mode" title="Scan Mode" class="bg-gray-700 border border-gray-600 text-white rounded py-1 px-2">
               <option value="enroll">Enrollment Mode</option>
               <option value="verify">Verification Mode</option>
               <option value="identify">Identification Mode</option>
@@ -75,7 +75,7 @@
                 <span id="vein-clarity" class="font-medium">92%</span>
               </div>
               <div class="h-2 bg-gray-700 rounded overflow-hidden">
-                <div id="clarity-bar" class="h-full bg-green-500" style="width: 92%"></div>
+                <div id="clarity-bar" class="h-full bg-green-500 clarity-92"></div>
               </div>
               <div class="flex justify-between mt-2">
                 <span class="text-gray-400">Feature Points:</span>
@@ -129,7 +129,7 @@
           <div class="flex-grow">
             <div class="text-sm text-gray-400">Enrollment Progress</div>
             <div class="h-2 bg-gray-700 rounded overflow-hidden mt-1">
-              <div id="enrollment-progress" class="h-full bg-blue-500" style="width: 33%"></div>
+              <div id="enrollment-progress" class="h-full bg-blue-500 progress-33"></div>
             </div>
           </div>
           <div class="flex-shrink-0 ml-3">
@@ -158,7 +158,7 @@
         <div class="flex items-center justify-between pt-2">
           <span class="text-sm text-gray-400">Include Vein Pattern</span>
           <div class="inline-block relative">
-            <input type="checkbox" id="include-vein" checked class="peer sr-only">
+            <input type="checkbox" id="include-vein" title="Include Vein Pattern" checked class="peer sr-only">
             <div class="block w-10 h-6 bg-gray-600 rounded-full peer-checked:bg-blue-600"></div>
             <div class="dot absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4"></div>
           </div>

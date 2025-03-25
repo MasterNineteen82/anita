@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% from "components/card.html" import render_card %}
 {% from "components/page_header.html" import render_page_header %}
+{% from "components/alerts.html" import render_alert %}
+{% from "components/toggle_control.html" import render_toggle %}
 
 {% block title %}Logs | ANITA{% endblock %}
 {% block page_id %}system-logs{% endblock %}
@@ -20,7 +22,7 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-400 mb-2">Log Level</label>
-                    <select id="log-level" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
+                    <select id="log-level" title="Log Level" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
                         <option value="all">All Levels</option>
                         <option value="info">Info</option>
                         <option value="warning">Warning</option>
@@ -30,7 +32,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-400 mb-2">Time Period</label>
-                    <select id="time-period" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
+                    <select id="time-period" title="Time Period" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
                         <option value="1h">Last Hour</option>
                         <option value="24h" selected>Last 24 Hours</option>
                         <option value="7d">Last 7 Days</option>
@@ -120,10 +122,10 @@
                     Showing <span id="log-count">0</span> entries
                 </div>
                 <div class="flex space-x-2">
-                    <button id="prev-page" class="bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded disabled:opacity-50">
+                    <button id="prev-page" title="Previous Page" class="bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded disabled:opacity-50">
                         <i class="fas fa-chevron-left"></i>
                     </button>
-                    <button id="next-page" class="bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded disabled:opacity-50">
+                    <button id="next-page" title="Next Page" class="bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded disabled:opacity-50">
                         <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>

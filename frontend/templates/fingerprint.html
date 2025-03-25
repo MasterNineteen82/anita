@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% from "components/card.html" import render_card %}
 {% from "components/page_header.html" import render_page_header %}
+{% from "components/alerts.html" import render_alert %}
+{% from "components/toggle_control.html" import render_toggle %}
 
 {% block title %}Fingerprint Manager | ANITA{% endblock %}
 {% block page_id %}fingerprint-manager{% endblock %}
@@ -34,7 +36,7 @@
                 </div>
                 <div class="flex items-center justify-between">
                     <div>
-                        <select id="scan-mode" class="bg-gray-700 border border-gray-600 text-white rounded py-1 px-2">
+                        <select id="scan-mode" title="Scan Mode" class="bg-gray-700 border border-gray-600 text-white rounded py-1 px-2">
                             <option value="enroll">Enrollment Mode</option>
                             <option value="verify">Verification Mode</option>
                             <option value="identify">Identification Mode</option>
@@ -69,7 +71,7 @@
                                 <span id="quality-score" class="font-medium">89%</span>
                             </div>
                             <div class="h-2 bg-gray-700 rounded overflow-hidden">
-                                <div id="quality-bar" class="h-full bg-green-500" style="width: 89%"></div>
+                                <div id="quality-bar" class="h-full bg-green-500 quality-width"></div>
                             </div>
                             <div class="flex justify-between mt-2">
                                 <span class="text-gray-400">Minutiae Points:</span>
@@ -131,7 +133,7 @@
                     <div class="flex-grow">
                         <div class="text-sm text-gray-400">Enrollment Progress</div>
                         <div class="h-2 bg-gray-700 rounded overflow-hidden mt-1">
-                            <div id="enrollment-progress" class="h-full bg-blue-500" style="width: 33%"></div>
+                            <div id="enrollment-progress" class="h-full bg-blue-500 enrollment-width"></div>
                         </div>
                     </div>
                     <div class="flex-shrink-0 ml-3">
@@ -160,7 +162,7 @@
                 <div class="flex items-center justify-between pt-2">
                     <span class="text-sm text-gray-400">Advanced Security Mode</span>
                     <div class="inline-block relative">
-                        <input type="checkbox" id="advanced-security" class="peer sr-only">
+                        <input type="checkbox" id="advanced-security" title="Enable Advanced Security" class="peer sr-only">
                         <div class="block w-10 h-6 bg-gray-600 rounded-full peer-checked:bg-blue-600"></div>
                         <div class="dot absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-4"></div>
                     </div>

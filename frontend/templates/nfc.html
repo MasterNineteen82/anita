@@ -1,9 +1,9 @@
-<!-- filepath: k:\anita\poc\frontend\templates\nfc.html -->
 {% extends "base.html" %}
 {% from "components/card.html" import render_card %}
 {% from "components/page_header.html" import render_page_header %}
 {% from "components/alerts.html" import render_alert %}
 {% from "components/toggle_control.html" import render_toggle %}
+{% from "components/reader_panel.html" import render_reader_panel %}
 
 {% block title %}NFC Manager | ANITA{% endblock %}
 
@@ -190,7 +190,7 @@
         ]) %}
             <div class="space-y-4">
                 <div>
-                    <span class="text-xs text-gray-400">POLLING INTERVAL</span>
+                    <label for="polling-interval" class="text-xs text-gray-400">POLLING INTERVAL</label>
                     <input type="range" id="polling-interval" min="100" max="2000" step="100" value="500" class="w-full mt-2">
                     <div class="flex justify-between text-xs text-gray-400">
                         <span>100ms</span>

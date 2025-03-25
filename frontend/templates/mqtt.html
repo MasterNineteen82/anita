@@ -1,7 +1,7 @@
-<!-- filepath: k:\anita\poc\frontend\templates\mqtt.html -->
 {% extends "base.html" %}
 {% from "components/card.html" import render_card %}
 {% from "components/page_header.html" import render_page_header %}
+{% from "components/alerts.html" import render_alert %}
 {% from "components/toggle_control.html" import render_toggle %}
 
 {% block title %}MQTT Manager | ANITA{% endblock %}
@@ -32,7 +32,7 @@
                     </div>
                     <div>
                         <span class="text-xs text-gray-400">PORT</span>
-                        <input type="number" id="broker-port" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" value="1883">
+                        <input type="number" id="broker-port" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" value="1883" placeholder="Port Number">
                     </div>
                 </div>
                 <div>
@@ -42,11 +42,11 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <span class="text-xs text-gray-400">USERNAME (OPTIONAL)</span>
-                        <input type="text" id="username" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
+                        <input type="text" id="username" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" placeholder="Enter username">
                     </div>
                     <div>
                         <span class="text-xs text-gray-400">PASSWORD (OPTIONAL)</span>
-                        <input type="password" id="password" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
+                        <input type="password" id="password" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" placeholder="Enter password">
                     </div>
                 </div>
                 <div class="flex items-center">
@@ -95,7 +95,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <span class="text-xs text-gray-400">QOS</span>
-                        <select id="pub-qos" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
+                        <select title="QoS Level" id="pub-qos" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
                             <option value="0">0 - At most once</option>
                             <option value="1" selected>1 - At least once</option>
                             <option value="2">2 - Exactly once</option>
@@ -124,7 +124,7 @@
                     </div>
                     <div>
                         <span class="text-xs text-gray-400">QOS</span>
-                        <select id="sub-qos" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
+                        <select title="QoS Level" id="sub-qos" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm">
                             <option value="0">0</option>
                             <option value="1" selected>1</option>
                             <option value="2">2</option>
@@ -158,7 +158,7 @@
                         <input type="text" id="filter-log" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white text-sm" placeholder="Filter messages...">
                     </div>
                     <div>
-                        <select id="filter-type" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-2 text-white text-sm">
+                        <select title="Filter Type" id="filter-type" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-2 text-white text-sm">
                             <option value="all">All</option>
                             <option value="incoming">Incoming</option>
                             <option value="outgoing">Outgoing</option>

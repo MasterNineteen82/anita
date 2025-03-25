@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% from "components/card.html" import render_card %}
 {% from "components/page_header.html" import render_page_header %}
+{% from "components/alerts.html" import render_alert %}
+{% from "components/toggle_control.html" import render_toggle %}
+{% from "components/reader_panel.html" import render_reader_panel %}
 
 {% block title %}Card Manager | ANITA{% endblock %}
 {% block page_id %}card-manager{% endblock %}
@@ -124,6 +127,7 @@
             <!-- Card Data Content -->
             <div class="space-y-3">
                 <div class="flex gap-2">
+                     <label for="data-view-mode" class="block text-sm text-gray-400 mb-1">Data View Mode</label>
                     <div class="flex-grow">
                         <select id="data-view-mode" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-1 px-2">
                             <option value="hex">Hexadecimal View</option>
@@ -131,7 +135,7 @@
                             <option value="structured">Structured View</option>
                         </select>
                     </div>
-                    <button id="refresh-data-btn" class="bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded">
+                    <button id="refresh-data-btn" title="Refresh Data" class="bg-gray-700 hover:bg-gray-600 text-white py-1 px-3 rounded">
                         <i class="fas fa-sync"></i>
                     </button>
                 </div>

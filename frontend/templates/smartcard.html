@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% from "components/card.html" import render_card %}
 {% from "components/page_header.html" import render_page_header %}
+{% from "components/alerts.html" import render_alert %}
+{% from "components/toggle_control.html" import render_toggle %}
 {% from "components/reader_panel.html" import render_reader_panel %}
 
 {% block title %}Smart Card Manager | ANITA{% endblock %}
@@ -40,7 +42,7 @@
     ]) %}
       <div class="space-y-4">
         <div class="flex space-x-2">
-          <select id="apdu-presets" class="bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3">
+          <select id="apdu-presets" title="APDU Presets" class="bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3">
             <option value="">-- Select Preset --</option>
             <option value="00A4040000">SELECT (default)</option>
             <option value="00B0000000">READ BINARY</option>
@@ -52,7 +54,7 @@
           </button>
         </div>
         <input type="text" id="apdu-command" placeholder="Enter APDU command (hex)" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3">
-        <textarea id="apdu-response" rows="4" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3" readonly></textarea>
+        <textarea id="apdu-response" rows="4" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded py-2 px-3" readonly title="APDU Response"></textarea>
       </div>
     {% endcall %}
 

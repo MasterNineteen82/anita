@@ -7,8 +7,8 @@
     </span>
     {% if actions and variant != 'header' %}
     <div class="flex items-center gap-2">
-      <button class="card-footer-btn text-gray-400 hover:text-white"><i class="fas fa-chevron-down"></i></button>
-      <button class="card-footer-btn text-gray-400 hover:text-white cursor-move"><i class="fas fa-grip-lines"></i></button>
+      <button type="button" aria-label="Toggle card content" class="card-footer-btn text-gray-400 hover:text-white"><i class="fas fa-chevron-down"></i></button>
+      <button type="button" aria-label="Move card" class="card-footer-btn text-gray-400 hover:text-white cursor-move"><i class="fas fa-grip-lines"></i></button>
     </div>
     {% endif %}
   </div>
@@ -21,6 +21,7 @@
     <div class="px-4 py-3 card-footer-actions">
       {% for btn in footer_buttons %}
         <button 
+          type="button"
           id="{{ btn.id }}" 
           class="card-footer-btn {% if btn.primary %}card-footer-btn-primary{% else %}card-footer-btn-secondary{% endif %}"
           {% if btn.disabled %}disabled{% endif %}
