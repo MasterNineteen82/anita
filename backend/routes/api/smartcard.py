@@ -7,7 +7,8 @@ from functools import wraps
 from backend.modules.smartcard_manager import SmartcardManager
 from backend.logging.logging_config import get_api_logger
 from backend.models import StatusResponse, ErrorResponse, LogRequest, Settings
-from ..utils import handle_errors, validate_json
+from ..utils import handle_errors
+from backend.utils.utils import validate_json
 
 # Create logger and router
 logger = get_api_logger()
@@ -23,7 +24,7 @@ async def api_smartcard_atr(reader: int = 0):
 
 @router.post("/smartcard/transmit")
 @handle_errors
-@validate_json('apdu')
+@validate_json(schema={"required": ["apdu"]})
 async def api_smartcard_transmit(request: Request):
     """Transmit an APDU command to a smartcard."""
     data = await request.json()
@@ -38,8 +39,7 @@ async def api_smartcard_transmit(request: Request):
 async def api_detect_smartcard():
     """Detect smartcard presence."""
     logger.debug("Detecting smartcard presence")
-    manager = SmartcardManager()
-    result = manager.card_status()
+    result = SmartcardManager.card_status()
     return {"status": "success", "data": result}
 
 @router.get("/smartcard/card_status")
@@ -70,3 +70,15 @@ async def api_get_readers():
     except Exception as e:
         logger.error(f"Error getting readers: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
+
+@router.post("/apdu")
+@validate_json(schema={"required": ["apdu"]})  # Provide a schema
+@handle_errors
+async def send_apdu(request: Request):
+    """Send an APDU command to the smart card."""
+    data = await request.json()
+    apdu = data.get('apdu')
+    if not apdu:
+        raise HTTPException(status_code=400, detail="APDU command is required")
+    response = await SmartcardManager.send_apdu(apdu)
+    return {"response": response}

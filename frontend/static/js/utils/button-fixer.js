@@ -12,11 +12,27 @@ export default class ButtonFixer {
   // Applies a consistent click-effect to buttons
   static applyClickEffect(button) {
     button.addEventListener('click', (e) => {
-      e.currentTarget.classList.add('animate-click');
+      if (e.currentTarget) {
+        e.currentTarget.classList.add('animate-click');
 
-      setTimeout(() => {
-        e.currentTarget.classList.remove('animate-click');
-      }, 200);
+        setTimeout(() => {
+          e.currentTarget.classList.remove('animate-click');
+        }, 200);
+      }
     });
   }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        const elements = document.querySelectorAll('.btn, .badge');
+        if (elements) {
+            elements.forEach(element => {
+                if (element) {
+                    element.classList.add('rounded-md');
+                    // Other operations...
+                }
+            });
+        }
+    }, 100);
+});

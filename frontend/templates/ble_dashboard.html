@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% from "components/card.html" import render_card %}
+{% from "components/page_header.html" import render_page_header %}
+{% from "components/alerts.html" import render_alert, render_ble_status_alert %}
+{% from "components/toggle_control.html" import render_toggle %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Device List -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="text-xl font-bold">BLE Devices</h2>
+        <div class="flex space-x-2">
+          <button id="scan-button" class="btn btn-primary">
+            <i class="fas fa-search"></i> Scan
+          </button>
+          <div class="dropdown">
+            <button type="button" class="btn btn-secondary dropdown-toggle" title="Settings">
+              <i class="fas fa-cog"></i>
+            </button>
+            <div class="dropdown-menu">
+              <a href="#" id="clear-history">Clear History</a>
+              <a href="#" id="toggle-auto-reconnect">Auto Reconnect</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="devices-container" class="space-y-2 max-h-96 overflow-y-auto">
+          <!-- Devices will be listed here -->
+          <div class="text-gray-500">No devices found</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Device Details -->
+    <div class="card lg:col-span-2">
+      <div class="card-header">
+        <h2 class="text-xl font-bold" id="device-name">Device Details</h2>
+        <div class="flex items-center space-x-2">
+          <span id="connection-status" class="badge badge-inactive">Disconnected</span>
+          <span id="battery-container" class="hidden">
+            <i id="battery-icon" class="fas fa-battery-half"></i>
+            <span id="battery-level">--</span>
+          </span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="device-details-container">
+          <div class="tabs">
+            <button class="tab-button active" data-tab="info">Information</button>
+            <button class="tab-button" data-tab="services">Services</button>
+            <button class="tab-button" data-tab="characteristics">Characteristics</button>
+            <button class="tab-button" data-tab="log">Activity Log</button>
+          </div>
+          
+          <div class="tab-content active" id="tab-info">
+            <div id="device-info-container" class="mt-4">
+              <div class="text-gray-500">Connect to a device to see information</div>
+            </div>
+          </div>
+          
+          <div class="tab-content" id="tab-services">
+            <div id="services-container" class="mt-4">
+              <div class="text-gray-500">Connect to a device to view services</div>
+            </div>
+          </div>
+          
+          <div class="tab-content" id="tab-characteristics">
+            <div id="characteristics-container" class="mt-4">
+              <div class="text-gray-500">Select a service to view characteristics</div>
+            </div>
+          </div>
+          
+          <div class="tab-content" id="tab-log">
+            <div id="log-container" class="mt-4 bg-gray-800 p-4 rounded h-64 overflow-y-auto">
+              <div class="text-gray-300 font-mono text-xs" id="log-entries">
+                <!-- Log entries will appear here -->
+              </div>
+            </div>
+            <button id="clear-log" class="btn btn-secondary mt-2">Clear Log</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-dashboard.js') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-advanced.js') }}"></script>
+{% endblock %}

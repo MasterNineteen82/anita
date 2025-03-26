@@ -3,8 +3,6 @@ import time
 import logging
 from typing import Callable, Any, Dict, Optional
 
-# /k:/anita/poc/backend/caching/cache_manager.py
-
 logger = logging.getLogger(__name__)
 
 

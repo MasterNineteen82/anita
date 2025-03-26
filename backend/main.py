@@ -1,39 +1,26 @@
+import asyncio
 import logging
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 import os
 import sys
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import uvicorn
-from ws.manager import manager
-from backend.modules.monitoring import setup_monitoring
-from modules.uwb_manager import setup_uwb_monitoring
-from backend.routes import (
-    auth_router, biometric_router, cache_router, card_router,
-    device_router, hardware_router, mifare_router, mqtt_router, nfc_router,
-    rfid_router, security_router, smartcard_router, system_router, uwb_router,
-    get_monitoring_router  # Import the getter
+from backend.routes.api import (
+    auth_routes, biometric_routes, cache_routes, card_routes, device_routes,
+    hardware_routes, mifare_routes, mqtt_routes, nfc_routes, rfid_routes,
+    security_routes, smartcard_routes, system_routes, uwb_routes, ble_routes
 )
-from backend.ws.manager import manager, WebSocketHandler
-# from modules.uwb.handlers import register_uwb_handlers
-from .routes import device_routes
+from backend.routes.api.monitoring_router import router as monitoring_router
+from backend.logging.logging_config import setup_logging
+from backend.modules.monitors import setup_monitoring, monitoring_manager
+from backend.ws.manager import manager
+from backend.core.exception_handlers import global_exception_handler
 
-# Import your route modules
-from backend.routes.api.uwb_routes import router as uwb_router
-from backend.routes.api.system_routes import router as system_router
-# Import other routers...
-
-# Import your WebSocket Test Endpoint
-from .api.websockets.test_socket import router as test_websocket_router
-from .api.websockets import test_socket
-from backend.modules.ble_manager import BLEManager  # Import BLEManager
-
-# System path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Setup logging
+logger = setup_logging()
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -41,98 +28,73 @@ app = FastAPI(
     description="API for managing various device interfaces",
     version="1.0.0"
 )
+app.add_exception_handler(Exception, global_exception_handler)
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Set to specific origins in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# List of known routers
-known_routers = [
-    auth_router,
-    biometric_router,
-    cache_router,
-    card_router,
-    device_router,
-    hardware_router,
-    mifare_router,
-    mqtt_router,
-    nfc_router,
-    rfid_router,
-    security_router,
-    smartcard_router,
-    system_router,
-    uwb_router,
-    get_monitoring_router(),  # Call the getter to get the router object
-]
+# Mount static files
+base_dir = os.path.dirname(os.path.abspath(__file__))
+app.mount("/static", StaticFiles(directory=os.path.join(base_dir, "frontend", "static")), name="static")
 
-# Include routers with appropriate prefixes
-app.include_router(system_router, tags=["System"])
-app.include_router(uwb_router, prefix="/api", tags=["UWB"])
-app.include_router(device_routes.router)
-# app.include_router(ble_router.router) # Remove ble_router.router
-app.include_router(test_socket.router)
+# Setup templates
+templates = Jinja2Templates(directory=os.path.join(base_dir, "frontend", "templates"))
 
-app.include_router(test_websocket_router)
+# Include routers
+routers = {
+    "auth": auth_routes.router,
+    "biometric": biometric_routes.router,
+    "cache": cache_routes.router,
+    "card": card_routes.router,
+    "device": device_routes.router,
+    "hardware": hardware_routes.router,
+    "mifare": mifare_routes.router,
+    "mqtt": mqtt_routes.router,
+    "nfc": nfc_routes.router,
+    "rfid": rfid_routes.router,
+    "security": security_routes.router,
+    "smartcard": smartcard_routes.router,
+    "system": system_routes.router,
+    "uwb": uwb_routes.router,
+    "ble": ble_routes.router,
+    "monitoring": monitoring_router
+}
+for name, router in routers.items():
+    app.include_router(router, prefix="/api" if not router.prefix else "", tags=[name.capitalize()])
 
-# Initialize BLEManager
-ble_manager = BLEManager(logger=logger)
+# Add WebSocket endpoints
+app.add_websocket_route("/ws/ble", ble_routes.ble_endpoint.endpoint, name="ble_websocket")
 
-# Set up BLE monitoring
-# ble_router.setup_ble_monitoring(app) # Remove ble_router.setup_ble_monitoring(app)
+# Setup monitoring
+setup_monitoring(app)
 
-# Set up monitoring systems
 @app.on_event("startup")
 async def startup_event():
-    # Set up system monitoring
-    setup_monitoring(app)
-    
-    # Set up UWB monitoring
-    await setup_uwb_monitoring()
-    
-    # Register handlers
-    # register_uwb_handlers()
-    
-    logger.info("Application startup complete")
+    await monitoring_manager.start_monitor("ble_device_monitor", room_name="ble_notifications")
+    logger.info("Application startup complete, BLE monitor started")
 
-# UWB WebSocket endpoint
-@app.websocket("/ws/uwb")
-async def uwb_websocket(websocket: WebSocket):
-    client_id = await manager.connect(websocket)
-    
-    try:
-        # Join UWB room
-        await manager.join_room(websocket, "uwb")
-        logger.info(f"Client {client_id} connected to UWB WebSocket")
-        
-        # Handle incoming messages
-        async for message in websocket.iter_json():
-            await manager.handle_message(websocket, message)
-            
-    except WebSocketDisconnect:
-        logger.info(f"Client {client_id} disconnected from UWB WebSocket")
-    except Exception as e:
-        logger.error(f"Error in UWB WebSocket: {str(e)}")
-    finally:
-        # Always disconnect properly
-        await manager.disconnect(websocket)
-
-# Root route
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    return HTMLResponse(content="<h1>Device Management API</h1><p>API documentation available at <a href='/docs'>/docs</a></p>")
-
-# Add shutdown event to clean up resources
 @app.on_event("shutdown")
 async def shutdown_event():
-    from .modules.device_manager import DeviceManager
-    DeviceManager.shutdown_executor()
+    await monitoring_manager.stop_monitor("ble_device_monitor")
+    logger.info("Application shutdown complete")
 
-# Run the application
+# Frontend routes
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/ble", response_class=HTMLResponse)
+async def ble_page(request: Request):
+    return templates.TemplateResponse("ble.html", {"request": request})
+
+# Add other frontend routes as needed (e.g., /smartcard, /nfc, etc.)
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)

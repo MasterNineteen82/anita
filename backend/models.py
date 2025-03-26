@@ -219,3 +219,17 @@ class BLECharacteristicsResponse(BaseModel):
 class BLEValueResponse(BaseModel):
     value: str  # Hex-encoded value
     raw_value: Optional[str] = None  # For human-readable representation if available
+    
+class SmartcardReaderResponse(BaseModel):  # Add this
+    status: str
+    card_present: bool
+    atr: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+    
+class SmartcardCommand(BaseModel):  # Add this
+    command: str
+    data: Optional[List[int]] = None
+
+class SmartcardResponse(BaseModel):
+    status: str
+    message: str

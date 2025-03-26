@@ -2,9 +2,16 @@ import binascii
 import base64
 import logging
 import json
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, Tuple
+from functools import wraps
 from Cryptodome.Cipher import AES, DES, DES3
 from Cryptodome.Util.Padding import pad, unpad
+from fastapi import Request, HTTPException
+from fastapi.responses import JSONResponse
+from jsonschema import validate, ValidationError, SchemaError  # Import JSON Schema validator
+
+# Configure logging (if not already configured)
+logger = logging.getLogger(__name__)
 
 class DataConverter:
     """
@@ -12,7 +19,7 @@ class DataConverter:
     """
 
     @staticmethod
-    def convert(input_data: str, conversion_type: str) -> Dict[str, str]:
+    def convert(input_data: str, conversion_type: str) -> Dict[str, Any]:
         """
         Converts the input data to the specified conversion type.
 
@@ -28,35 +35,53 @@ class DataConverter:
         """
         try:
             if not isinstance(input_data, str):
-                raise ValueError("Input data must be a string.")
+                raise TypeError("Input data must be a string.")
+
+            if not input_data:
+                return {'status': 'warning', 'message': 'Input data is empty.'}
 
             if conversion_type == 'hex-to-ascii':
                 # Convert hex string to ASCII
-                ascii_string = binascii.unhexlify(input_data).decode('ascii', errors='ignore')
-                return {'status': 'success', 'result': ascii_string}
+                try:
+                    ascii_string = binascii.unhexlify(input_data).decode('ascii', errors='ignore')
+                    return {'status': 'success', 'result': ascii_string}
+                except binascii.Error as e:
+                    return {'status': 'error', 'message': f"Invalid hex input: {e}"}
+                except UnicodeDecodeError as e:
+                    return {'status': 'error', 'message': f"Unicode decode error: {e}"}
+
             elif conversion_type == 'ascii-to-hex':
                 # Convert ASCII string to hex
-                hex_string = binascii.hexlify(input_data.encode('ascii')).decode('utf-8').upper()
-                return {'status': 'success', 'result': hex_string}
+                try:
+                    hex_string = binascii.hexlify(input_data.encode('ascii')).decode('utf-8').upper()
+                    return {'status': 'success', 'result': hex_string}
+                except UnicodeEncodeError as e:
+                    return {'status': 'error', 'message': f"ASCII encode error: {e}"}
+
             elif conversion_type == 'hex-to-base64':
                 # Convert hex string to base64
-                base64_string = base64.b64encode(binascii.unhexlify(input_data)).decode('utf-8')
-                return {'status': 'success', 'result': base64_string}
+                try:
+                    base64_string = base64.b64encode(binascii.unhexlify(input_data)).decode('utf-8')
+                    return {'status': 'success', 'result': base64_string}
+                except binascii.Error as e:
+                    return {'status': 'error', 'message': f"Invalid hex input: {e}"}
+
             elif conversion_type == 'base64-to-hex':
                 # Convert base64 string to hex
-                hex_string = binascii.hexlify(base64.b64decode(input_data)).decode('utf-8').upper()
-                return {'status': 'success', 'result': hex_string}
+                try:
+                    hex_string = binascii.hexlify(base64.b64decode(input_data)).decode('utf-8').upper()
+                    return {'status': 'success', 'result': hex_string}
+                except base64.binascii.Error as e:  # Correct exception type
+                    return {'status': 'error', 'message': f"Invalid base64 input: {e}"}
+
             else:
                 return {'status': 'error', 'message': 'Unsupported conversion type'}
 
-        except binascii.Error as e:
-            return {'status': 'error', 'message': f"Invalid hex input: {e}"}
-        except UnicodeDecodeError as e:
-            return {'status': 'error', 'message': f"Unicode decode error: {e}"}
-        except ValueError as e:
+        except TypeError as e:
             return {'status': 'error', 'message': str(e)}
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            logger.exception("An unexpected error occurred during data conversion.")
+            return {'status': 'error', 'message': f"An unexpected error occurred: {e}"}
 
 
 class Cryptography:
@@ -65,7 +90,7 @@ class Cryptography:
     """
 
     @staticmethod
-    def perform_crypto(crypto_type: str, key: str, iv: str, data: str) -> Dict[str, str]:
+    def perform_crypto(crypto_type: str, key: str, iv: str, data: str) -> Dict[str, Any]:
         """
         Performs the specified cryptographic operation.
 
@@ -85,13 +110,16 @@ class Cryptography:
         if not all([crypto_type, key, data]):  # iv can be optional
             return {'status': 'error', 'message': "Missing required parameters: type, key, or data"}
 
+        if not isinstance(key, str) or not isinstance(data, str):
+            return {'status': 'error', 'message': "Key and data must be strings."}
+
+        if iv and not isinstance(iv, str):
+            return {'status': 'error', 'message': "IV must be a string."}
+
         try:
             key_bytes = binascii.unhexlify(key.replace(' ', ''))
             data_bytes = binascii.unhexlify(data.replace(' ', ''))
-            if iv:
-                iv_bytes = binascii.unhexlify(iv.replace(' ', ''))
-            else:
-                iv_bytes = b'\0' * 8  # Default IV for DES/3DES
+            iv_bytes = binascii.unhexlify(iv.replace(' ', '')) if iv else b'\0' * 8  # Default IV for DES/3DES
 
         except binascii.Error as e:
             return {'status': 'error', 'message': f"Invalid hex input: {e}"}
@@ -125,18 +153,24 @@ class Cryptography:
             # Encryption/Decryption
             if 'encrypt' in crypto_type:
                 padded_data = pad(data_bytes, block_size)
-                result = cipher.encrypt(padded_data)
-            else:  # decrypt
-                result = cipher.decrypt(data_bytes)
                 try:
+                    result = cipher.encrypt(padded_data)
+                except ValueError as e:
+                    return {'status': 'error', 'message': f"Encryption error: {e}"}
+            else:  # decrypt
+                try:
+                    result = cipher.decrypt(data_bytes)
                     result = unpad(result, block_size)
-                except ValueError:
-                    return {'status': 'error', 'message': "Incorrect padding"}
+                except ValueError as e:
+                    return {'status': 'error', 'message': "Incorrect padding or invalid data"}
+                except Exception as e:
+                    return {'status': 'error', 'message': f"Decryption error: {e}"}
 
             return {'status': 'success', 'result': binascii.hexlify(result).decode().upper()}
 
         except Exception as e:
-            return {'status': 'error', 'message': str(e)}
+            logger.exception("An unexpected error occurred during cryptographic operation.")
+            return {'status': 'error', 'message': f"An unexpected error occurred: {e}"}
 
 class Singleton(type):
     _instances = {}
@@ -146,28 +180,54 @@ class Singleton(type):
         return cls._instances[cls]
 
 def handle_errors(func: Callable) -> Callable:
+    """
+    Decorator that wraps API endpoints to handle exceptions uniformly.
+    """
+    @wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return await func(*args, **kwargs)
+        except HTTPException:
+            raise  # Re-raise HTTPExceptions for FastAPI to handle
         except Exception as e:
-            # Log the error
-            logging.error(f"Error in {func.__name__}: {e}")
-            # Re-raise the exception
-            raise
+            logger.exception(f"Error in {func.__name__}")  # Log the full exception
+            return JSONResponse(
+                status_code=500,
+                content={"status": "error", "message": f"Internal server error: {e}"}
+            )
     return wrapper
 
-def validate_json(json_data: str) -> bool:
+def validate_json(schema: dict) -> Callable:
     """
-    Validates if the provided string is a valid JSON.
+    Validates the JSON data in a request body against a specified schema using jsonschema.
 
     Args:
-        json_data (str): The string to validate.
+        schema (dict): A dictionary defining the JSON schema.
 
     Returns:
-        bool: True if the string is a valid JSON, False otherwise.
+        A decorator that can be applied to a FastAPI route.
     """
-    try:
-        json.loads(json_data)
-        return True
-    except (TypeError, ValueError):
-        return False
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            request: Request = kwargs.get('request')  # Type hint for request
+            if not request:
+                raise ValueError("Request object not found in arguments")
+
+            try:
+                data: Any = await request.json()  # Type hint for data
+            except (TypeError, ValueError) as e:
+                return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON format"})
+
+            try:
+                validate(instance=data, schema=schema)
+            except ValidationError as e:
+                return JSONResponse(status_code=400, content={"status": "error", "message": f"Validation error: {e.message}"})
+            except SchemaError as e:
+                logger.error(f"Invalid JSON schema: {e}")
+                return JSONResponse(status_code=500, content={"status": "error", "message": "Invalid JSON schema"})
+                
+            # Pass the data along to the function
+            return await func(*args, **kwargs)
+        return wrapper  # Changed from 'return decorator' to 'return wrapper'
+    return decorator

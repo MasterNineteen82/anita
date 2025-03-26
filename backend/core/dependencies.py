@@ -1,16 +1,10 @@
 from typing import Optional
 from fastapi import Depends
 
-# Import services
-from backend.domain.services.ble_service import BleService
-
-# Import repositories
-from backend.infrastructure.repositories.ble_repository import BleRepository
-
-# Create repository instances
-_ble_repository = BleRepository()
+# Update this file to use the correct import path
+from backend.modules.ble_manager import BLEManager as BleService
 
 # Service dependencies
 def get_ble_service() -> BleService:
-    """Get the BLE service instance with dependencies."""
-    return BleService(repository=_ble_repository)
+    """Dependency function to provide BleService instance."""
+    return BleService()
