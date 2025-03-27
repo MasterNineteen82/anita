@@ -58,3 +58,36 @@ class CharacteristicValue(BaseModel):
     uuid: str = Field(..., description="Characteristic UUID")
     value: str = Field(..., description="Raw value as hex string")
     decoded: Any = Field(None, description="Decoded value if known format")
+
+class ConnectionResponse(BaseModel):
+    status: str
+    address: str
+    connection_time: float
+
+class ConnectionParams(BaseModel):
+    timeout: int = Field(default=10, description="Connection timeout in seconds")
+    autoReconnect: bool = Field(default=True, description="Whether to auto-reconnect")
+    retryCount: int = Field(default=2, description="Number of connection retries")
+    
+class BLEDeviceState(BaseModel):
+    """Current state of a BLE device."""
+    address: str = Field(..., description="Device address")
+    name: Optional[str] = Field(None, description="Device name")
+    connected: bool = Field(..., description="Whether the device is currently connected")
+    rssi: Optional[int] = Field(None, description="Current signal strength in dBm")
+    bonded: Optional[bool] = Field(None, description="Whether the device is bonded")
+    services: List[ServiceInfo] = Field(default_factory=list, description="Available services")
+    characteristics: List[CharacteristicInfo] = Field(default_factory=list, description="Available characteristics")
+    last_updated: Optional[str] = Field(None, description="Timestamp of last state update")
+    
+class BLEDeviceConnection(BaseModel):
+    """Model representing a BLE device connection response."""
+    address: str
+    status: str = "connected"  # "connected", "already_connected", "connected_after_recovery"
+    services: Dict[str, Any] = {}
+    mtu: int = 23
+    message: str = ""
+
+class BLEDeviceStorage(BaseModel):
+    """BLE device storage."""
+    devices: Dict[str, BLEDeviceState] = Field(default_factory=dict, description="Stored device states")

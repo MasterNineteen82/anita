@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from backend.ws.manager import manager
 from backend.ws.events import create_event, DeviceStatus
 from backend.logging.logging_config import setup_logging
-from backend.modules.ble_manager import BLEManager  # Import for BLEDeviceMonitor
+from backend.modules.ble.ble_manager import BLEManager  # Import for BLEDeviceMonitor
 
 # Set up logging
 logger = setup_logging()

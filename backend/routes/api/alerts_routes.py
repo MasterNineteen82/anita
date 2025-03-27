@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Any
 import logging
 from datetime import datetime
 from backend.logging.logging_config import get_api_logger
-from backend.modules.ble_manager import BLEManager
+from backend.modules.ble.ble_manager import BLEManager
 from ..utils import handle_errors
 
 # filepath: k:\anita\poc\backend\routes\api\alerts_routes.py

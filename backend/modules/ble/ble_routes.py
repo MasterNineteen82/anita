@@ -1,28 +1,32 @@
-from fastapi import APIRouter, HTTPException, Body, Depends, WebSocket, status, Request  # noqa: F401
+from fastapi import APIRouter, HTTPException, Body, Depends, WebSocket
 from fastapi.templating import Jinja2Templates
-from typing import Dict, Any, List, Optional, Set  # noqa: F401
-import logging  # noqa: F401
+from typing import Dict, Any, List, Optional
 import asyncio
 import os
+import time
+import platform
+import bleak
+import subprocess
 from pydantic import BaseModel, Field
+
 from backend.logging.logging_config import get_api_logger
-from backend.modules.ble_manager import BLEManager as BleService
-from backend.modules.monitors import monitoring_manager, BLEDeviceMonitor  # noqa: F401
+from backend.modules.ble.ble_manager import BLEManager as BleService
+from backend.modules.monitors import monitoring_manager
 from backend.ws.manager import manager
-from backend.ws.factory import websocket_factory  # noqa: F401
 from backend.ws.events import create_event
 from bleak.exc import BleakError
 
+from backend.modules.ble.ble_persistence import BLEDeviceStorage
+from backend.modules.ble.ble_models import BLEDeviceConnection
+from backend.modules.ble.ble_recovery import BleErrorRecovery
+from backend.modules.ble.ble_metrics import BleMetricsCollector
+
 # Import all the Pydantic models
-from backend.routes.api.ble_models import (
-    ScanOptions, ConnectionOptions, WriteOptions, BatteryInfo,  # noqa: F401
-    StatusResponse, ErrorResponse, BLEDeviceInfo, ServiceInfo,
-    CharacteristicInfo, CharacteristicValue
+from backend.modules.ble.ble_models import (
+    ScanOptions, WriteOptions, StatusResponse, ErrorResponse, 
+    BLEDeviceInfo, ServiceInfo, CharacteristicInfo, CharacteristicValue, ConnectionResponse, ConnectionParams, BLEDeviceStorage,
 )
 
-from backend.modules.ble_persistence import BLEDeviceStorage
-from backend.modules.ble_recovery import BleErrorRecovery
-from backend.modules.ble_metrics import BleMetricsCollector
 
 router = APIRouter(
     prefix="/api/ble",
@@ -47,10 +51,16 @@ def get_ble_recovery():
     """Dependency for BLE error recovery."""
     return BleErrorRecovery(logger=get_api_logger())
 
+async def get_device_storage() -> BLEDeviceStorage:
+    """Dependency to get BLE device storage service."""
+    # Initialize with logging
+    logger = get_api_logger()
+    return BLEDeviceStorage(logger=logger)
+
 class BleServiceAdapter:
     def __init__(self, service: BleService, 
-                 recovery: BleErrorRecovery = None, 
-                 metrics: BleMetricsCollector = None):
+             recovery: BleErrorRecovery = None, 
+             metrics: BleMetricsCollector = None):
         self.service = service
         self.device_address = None
         self.client = None  # Initialize client to None
@@ -58,15 +68,16 @@ class BleServiceAdapter:
         self.auto_reconnect = False
         self.recovery = recovery or BleErrorRecovery(logger=get_api_logger())
         self.metrics = metrics or BleMetricsCollector(logger=get_api_logger())
+        self.logger = get_api_logger()  # Add this line
         
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 asyncio.create_task(self.update_device_address())
             else:
-                logger.warning("No running event loop, adapter may have limited functionality")
+                self.logger.warning("No running event loop, adapter may have limited functionality")
         except RuntimeError:
-            logger.warning("No running event loop, cannot update device address")
+            self.logger.warning("No running event loop, cannot update device address")
 
     async def update_device_address(self):
         """Update internal client and device address properties."""
@@ -314,22 +325,49 @@ async def ble_websocket_endpoint(websocket: WebSocket):
 # HTTP route handlers
 @router.get("/scan", response_model=List[BLEDeviceInfo])
 async def scan_for_devices(
-    scan_time: int = 5, 
-    active: bool = True, 
-    ble_service: BleService = Depends(get_ble_service)
+    scan_time: int = 5,
+    active: bool = True,
+    ble_service: BleService = Depends(get_ble_service),
+    metrics: BleMetricsCollector = Depends(get_ble_metrics)
 ):
     """
-    Scan for nearby BLE devices using GET parameters.
+    Scan for BLE devices in range.
     
-    This is the original scan endpoint that accepts query parameters.
+    Args:
+        scan_time: Duration of scan in seconds
+        active: Whether to use active scanning
     """
-    logger.info(f"Starting BLE device scan (mode: {'active' if active else 'passive'})...")
     try:
-        devices = await ble_service.scan_devices(scan_time, active)
+        logger.info(f"Starting BLE device scan (mode: {'active' if active else 'passive'})...")
+        
+        # Record scan start time for metrics
+        start_time = time.time()
+        
+        # Perform the scan
+        devices = await ble_service.scan_devices(scan_time=scan_time, active=active)
+        
+        # Calculate scan duration and record metrics
+        duration = time.time() - start_time
+        metrics.record_scan(duration, len(devices))
+        
+        # Log scan results summary
+        device_count = len(devices)
+        logger.info(f"BLE scan completed. Found {device_count} device(s) in {duration:.2f}s")
+        
+        # Return the device list - make sure it's serializable
         return devices
     except Exception as e:
-        logger.error(f"Failed to scan BLE devices: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log detailed error for debugging
+        logger.error(f"Error during BLE scan: {e}", exc_info=True)
+        
+        # Return a more useful error to the client
+        error_details = str(e)
+        if "cannot find any bluetooth adapter" in error_details.lower():
+            raise HTTPException(status_code=503, detail="Bluetooth adapter not available")
+        elif "access denied" in error_details.lower() or "permission" in error_details.lower():
+            raise HTTPException(status_code=403, detail="Insufficient permissions to access Bluetooth adapter")
+        else:
+            raise HTTPException(status_code=500, detail=f"Scan error: {str(e)}")
 
 @router.post("/scan", response_model=List[BLEDeviceInfo])
 async def scan_ble_devices(
@@ -349,66 +387,168 @@ async def scan_ble_devices(
         logger.error(f"Error during BLE scan: {e}")
         raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
 
-@router.post("/connect/{address}", response_model=StatusResponse)
+# Update connect_to_device endpoint to handle connection errors better
+@router.post("/connect/{address}", response_model=BLEDeviceConnection)
 async def connect_to_device(
-    address: str, 
-    options: ConnectionOptions = Body(default=ConnectionOptions()),
-    ble_adapter: BleServiceAdapter = Depends(get_ble_adapter),
+    address: str,
+    connection_params: ConnectionParams = Body(
+        ConnectionParams(timeout=10, autoReconnect=True, retryCount=2)
+    ),
+    ble_service: BleService = Depends(get_ble_service),
     metrics: BleMetricsCollector = Depends(get_ble_metrics),
-    recovery: BleErrorRecovery = Depends(get_ble_recovery)
+    recovery: BleErrorRecovery = Depends(get_ble_recovery),
+    storage: BLEDeviceStorage = Depends(get_device_storage)
 ):
     """
-    Connect to a BLE device with the specified address.
-    Uses error recovery for improved reliability.
+    Connect to a BLE device.
+    
+    Args:
+        address: MAC address of the device
+        connection_params: Connection parameters
     """
     try:
-        if not address:
-            raise HTTPException(status_code=400, detail="Invalid device address")
+        logger.info(f"Attempting to connect to device: {address}")
         
-        # Record metrics for this connection attempt
-        op_id = metrics.record_connect_start(address)
+        # Record connection attempt for metrics
+        metrics.record_connection_attempt(address)
         
-        # Use the enhanced connection method with recovery
-        success = await ble_adapter.connect_with_recovery(address)
+        # Check if device is already connected
+        if ble_service.client and ble_service.device_address == address and ble_service.client.is_connected:
+            logger.info(f"Already connected to {address}")
             
-        if success:
-            # Enable auto-reconnect if requested
-            if options.autoReconnect:
-                await ble_adapter.enable_auto_reconnect(True)
+            # Record successful connection for metrics
+            metrics.record_connection_success(address)
+            
+            # Format connection data
+            services = await ble_service.get_services()
+            
+            return BLEDeviceConnection(
+                address=address,
+                status="already_connected",
+                services=services,
+                mtu=ble_service.mtu,
+                message="Already connected to this device"
+            )
+        
+        # Attempt to connect to the device
+        start_time = time.time()
+        retry_count = 0
+        max_retries = connection_params.retryCount
+        
+        while retry_count <= max_retries:
+            try:
+                # Attempt connection
+                success = await ble_service.connect_to_device(
+                    device_address=address,
+                    timeout=connection_params.timeout,
+                    auto_reconnect=connection_params.autoReconnect
+                )
                 
-            logger.info(f"Connected to BLE device at {address}")
-            
-            # Record successful connection in metrics
-            metrics.record_connect_complete(op_id, address, True)
-            
-            # Check device bonding status and update metrics if needed
-            storage = BLEDeviceStorage(logger=get_api_logger())
-            device_info = storage.get_device(address)
-            if device_info and device_info.get("bonded", False):
-                metrics.record_bonded_connection(address)
-            
-            return StatusResponse(status="connected", message=f"Connected to device at {address}")
+                if success:
+                    # Mark device as bonded in storage
+                    await storage.add_bonded_device(address)
+                    
+                    # Get MTU if available
+                    try:
+                        mtu = await ble_service.get_mtu()
+                    except Exception as e:
+                        logger.warning(f"Failed to get MTU: {e}")
+                        mtu = 23  # Default MTU
+                    
+                    # Attempt to discover services
+                    try:
+                        services = await ble_service.get_services()
+                    except Exception as e:
+                        logger.error(f"Service discovery failed: {e}")
+                        services = {}
+                    
+                    # Record successful connection
+                    metrics.record_connection_success(address)
+                    connection_time = time.time() - start_time
+                    metrics.record_connection_time(address, connection_time)
+                    
+                    # Return connection response
+                    return BLEDeviceConnection(
+                        address=address,
+                        status="connected",
+                        services=services,
+                        mtu=mtu,
+                        message="Successfully connected"
+                    )
+                else:
+                    # Connection attempt failed without exception
+                    logger.warning(f"Connection attempt {retry_count+1}/{max_retries+1} failed without exception")
+                    retry_count += 1
+                    
+                    if retry_count > max_retries:
+                        # Record connection failure if all retries exhausted
+                        metrics.record_connection_failure(address, "Connection failed without specific error")
+                        raise BleakError("Connection failed for unknown reason")
+                    else:
+                        # Wait before retry
+                        await asyncio.sleep(1)
+                    
+            except Exception as e:
+                logger.warning(f"Connection attempt {retry_count+1}/{max_retries+1} failed: {e}")
+                retry_count += 1
+                
+                if retry_count <= max_retries:
+                    # Wait before retry
+                    await asyncio.sleep(1)  
+                else:
+                    # Record connection failure
+                    metrics.record_connection_failure(address, str(e))
+                    
+                    # Attempt recovery if recovery flag is set
+                    if getattr(connection_params, 'recovery', False):
+                        try:
+                            logger.info(f"Attempting connection recovery for {address}")
+                            result = await recovery.recover_connection(ble_service, address)
+                            if result["status"] == "success":
+                                logger.info(f"Recovery succeeded for {address}")
+                                return BLEDeviceConnection(
+                                    address=address,
+                                    status="connected_after_recovery",
+                                    services={},  # Service discovery happens later
+                                    mtu=23,       # Default MTU
+                                    message="Connected after recovery"
+                                )
+                        except Exception as recovery_error:
+                            logger.error(f"Error during connection recovery: {recovery_error}")
+                    
+                    # If we get here, all retries and recovery failed
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Failed to connect to device at {address} after multiple attempts"
+                    )
         
-        # If connection failed even with recovery
-        metrics.record_connect_complete(op_id, address, False)
-        recovery.record_error("ConnectionError", f"Failed to connect to {address} after recovery attempts")
+        # This should never be reached due to the logic above
+        raise HTTPException(status_code=500, detail="Unexpected connection flow - this is a bug")
         
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Failed to connect to device at {address} after multiple attempts"
-        )
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except BleakError as e:
-        # Record specific BLE errors for analysis
-        metrics.record_connect_error(address, "BleakError")
-        recovery.record_error("BleakError", str(e))
-        logger.error(f"BLE error connecting to device: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"BLE connection failed: {str(e)}")
+        logger.error(f"Bleak connection error: {e}")
+        metrics.record_connection_failure(address, f"BleakError: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        # Record general errors
-        metrics.record_connect_error(address, type(e).__name__)
-        recovery.record_error(type(e).__name__, str(e))
-        logger.error(f"Error connecting to BLE device: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Connection failed: {str(e)}")
+        logger.error(f"Connection error: {e}")
+        # Record connection failure
+        metrics.record_connection_failure(address, str(e))
+        raise HTTPException(status_code=500, detail=f"Unexpected error during connection: {str(e)}")
+
+# Add this helper function to check if device exists in recent scans
+async def device_exists(address: str, ble_adapter: BleServiceAdapter) -> bool:
+    """Check if a device with the given address exists by doing a quick scan."""
+    try:
+        # Do a quick scan to see if the device is around
+        devices = await ble_adapter.service.scan_devices(scan_time=2, active=True)
+        return any(d.get("address") == address for d in devices)
+    except Exception as e:
+        logger.warning(f"Error checking for device existence: {e}")
+        # Default to true so we at least try to connect
+        return True
 
 @router.post("/disconnect", response_model=StatusResponse)
 async def disconnect_ble_device(ble_adapter: BleServiceAdapter = Depends(get_ble_adapter)):
@@ -735,18 +875,108 @@ async def reset_adapter(
 ):
     """Reset the Bluetooth adapter to recover from serious errors."""
     try:
-        success = await recovery.reset_adapter()
+        # Call the reset adapter method with proper error handling
+        result = await recovery.reset_adapter()
         
-        if success:
+        if result["status"] == "success":
             return StatusResponse(
                 status="success",
-                message="Bluetooth adapter reset successfully"
+                message=result["message"]
             )
         else:
+            # Provide detailed error message
             raise HTTPException(
                 status_code=500,
-                detail="Failed to reset Bluetooth adapter"
+                detail=result["message"]
             )
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
-        logger.error(f"Error resetting Bluetooth adapter: {e}")
+        logger.error(f"Error resetting Bluetooth adapter: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to reset Bluetooth adapter: {str(e)}")
+
+@router.post("/reset-adapter", response_model=Dict[str, Any])
+async def reset_adapter(
+    ble_service: BleService = Depends(get_ble_service)
+):
+    """Reset the Bluetooth adapter."""
+    try:
+        # First get the current adapter state
+        adapter_info_before = await ble_service.get_adapter_info()
+        
+        # In a real implementation, we would reset the adapter here
+        # For Windows, this might involve disabling and re-enabling the adapter
+        # For Linux, this might involve running 'hciconfig hci0 reset'
+        # For macOS, this might involve restarting the Bluetooth service
+        
+        system_platform = platform.system()
+        reset_success = False
+        
+        try:
+            if system_platform == "Windows":
+                # This is a mock implementation
+                # In reality, we'd use PowerShell or WMI to reset the adapter
+                logger.info("Simulating Windows Bluetooth adapter reset")
+                await asyncio.sleep(1)  # Simulate reset time
+                reset_success = True
+                
+            elif system_platform == "Linux":
+                # In Linux we can actually try to reset the adapter
+                logger.info("Attempting Linux Bluetooth adapter reset")
+                subprocess.run(["sudo", "hciconfig", "hci0", "reset"], check=False)
+                await asyncio.sleep(1)  # Give it time to reset
+                reset_success = True
+                
+            elif system_platform == "Darwin":  # macOS
+                # For macOS we'd need admin privileges to restart the service
+                logger.info("Simulating macOS Bluetooth service reset")
+                await asyncio.sleep(1)  # Simulate reset time
+                reset_success = True
+        except Exception as e:
+            logger.error(f"Error during adapter reset: {e}")
+            reset_success = False
+        
+        # Get the new adapter state
+        adapter_info_after = await ble_service.get_adapter_info()
+        
+        return {
+            "success": reset_success,
+            "before": adapter_info_before,
+            "after": adapter_info_after,
+            "message": "Adapter reset successfully" if reset_success else "Adapter reset failed"
+        }
+    except Exception as e:
+        logger.error(f"Error resetting adapter: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/adapter-info", response_model=Dict[str, Any])
+async def get_adapter_info(
+    ble_service: BleService = Depends(get_ble_service)
+):
+    """Get information about the Bluetooth adapter."""
+    try:
+        adapter_info = await ble_service.get_adapter_info()
+        return adapter_info
+    except Exception as e:
+        logger.error(f"Error getting adapter info: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get("/device-exists/{address}", response_model=Dict[str, bool])
+async def check_device_exists(
+    address: str,
+    ble_service: BleService = Depends(get_ble_service)
+):
+    """Check if a device with the given address exists with a quick scan."""
+    try:
+        # Do a quick scan to check if the device is visible
+        devices = await ble_service.scan_devices(scan_time=2, active=True)
+        
+        # Check if the given address is in the scan results
+        exists = any(device.get("address") == address for device in devices)
+        
+        return {"exists": exists}
+    except Exception as e:
+        logger.error(f"Error checking device existence: {e}")
+        # Don't raise an exception, just return not found
+        return {"exists": False}

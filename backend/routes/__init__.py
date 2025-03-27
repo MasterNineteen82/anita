@@ -6,7 +6,6 @@ Exposes all API routes for the application.
 # Import all route modules except monitoring_router
 from .api.auth_routes import router as auth_router
 from .api.biometric_routes import router as biometric_router
-from .api.ble_routes import router as ble_router
 from .api.cache_routes import router as cache_router
 from .api.card_routes import router as card_router
 from .api.device_routes import router as device_router
@@ -29,7 +28,6 @@ def get_monitoring_router():
 __all__ = [
     "auth_router",
     "biometric_router",
-    "ble_router",
     "cache_router",
     "card_router",
     "device_router",

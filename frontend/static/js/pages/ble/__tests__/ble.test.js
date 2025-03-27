@@ -146,9 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
-    
-    // Initialize adapter information
-    initializeAdapterInfo(state);
 });
 
 // Try to reconnect to the last device

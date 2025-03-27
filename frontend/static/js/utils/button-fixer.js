@@ -16,7 +16,10 @@ export default class ButtonFixer {
         e.currentTarget.classList.add('animate-click');
 
         setTimeout(() => {
-          e.currentTarget.classList.remove('animate-click');
+          // Check if element still exists in DOM before removing class
+          if (e.currentTarget && e.currentTarget.classList) {
+            e.currentTarget.classList.remove('animate-click');
+          }
         }, 200);
       }
     });
@@ -24,15 +27,22 @@ export default class ButtonFixer {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Fix all buttons first
+    ButtonFixer.fixAllButtons();
+    
+    // Additional styling after a short delay
     setTimeout(function() {
         const elements = document.querySelectorAll('.btn, .badge');
         if (elements) {
             elements.forEach(element => {
                 if (element) {
                     element.classList.add('rounded-md');
-                    // Other operations...
+                    // Apply click effect to these elements too
+                    ButtonFixer.applyClickEffect(element);
                 }
             });
         }
     }, 100);
 });
+
+

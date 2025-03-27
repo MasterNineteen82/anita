@@ -9,6 +9,8 @@
 
 {% block content %}
 <div class="container mx-auto p-4">
+  {{ render_page_header(title="Bluetooth Low Energy (BLE) Manager", icon="bluetooth") }}
+
   <div class="mb-4">
     <!-- Status Alert -->
     <div id="status-indicator-container">
@@ -39,6 +41,9 @@
             <button id="scan-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm">
               <i class="fas fa-search mr-2"></i>Scan for Devices
             </button>
+            <button id="clear-cache-btn" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm">
+              <i class="fas fa-trash mr-2"></i>Clear Cache
+            </button>
           </div>
         </div>
         
@@ -60,172 +65,177 @@
       </div>
     {% endcall %}
   </div>
-  
-  <!-- Rest of the content remains unchanged -->
-  <div class="grid grid-cols-1 gap-4">
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+    <!-- BLE Services Card -->
     {% call render_card(title="BLE Services", id="ble-services-card", icon="server") %}
       <div id="services-list" class="mt-2">
         <div class="text-gray-500">Connect to a device to view services</div>
       </div>
     {% endcall %}
     
+    <!-- Characteristics Card -->
     {% call render_card(title="Characteristics", id="ble-characteristics-card", icon="microchip") %}
       <div id="characteristics-list" class="mt-2">
         <div class="text-gray-500">Select a service to view characteristics</div>
       </div>
     {% endcall %}
+  </div>
 
-    {% call render_card(title="Notifications", id="ble-notifications-card", icon="bell") %}
-      <div id="notifications-container">
-        <div class="text-gray-500">Subscribe to receive characteristic updates</div>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+    <!-- Advanced BLE Settings Card -->
+    {% call render_card(title="Advanced BLE Settings", id="ble-advanced-settings", icon="sliders-h") %}
+      <div class="space-y-4">
+        <!-- Bonding Controls -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Device Bonding</h3>
+          <div class="flex justify-between items-center">
+            <button id="bond-button" class="btn btn-sm btn-primary disabled:opacity-50" disabled>
+              <i class="fas fa-link mr-1"></i> Bond Device
+            </button>
+            <button id="unbond-button" class="btn btn-sm btn-secondary disabled:opacity-50" disabled>
+              <i class="fas fa-unlink mr-1"></i> Remove Bond
+            </button>
+          </div>
+          
+          <div class="mt-3">
+            <h4 class="text-xs font-semibold text-gray-400 mb-1">Bonded Devices</h4>
+            <div id="bonded-devices-list" class="bg-gray-700 bg-opacity-50 rounded p-2 max-h-24 overflow-y-auto">
+              <div class="text-gray-500 text-sm">No bonded devices</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- MTU Negotiation -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">MTU Settings</h3>
+          <div class="flex items-center space-x-2">
+            <label for="mtu-input" class="sr-only">MTU Value</label>
+            <input type="number" id="mtu-input" min="23" max="517" value="217" 
+                  class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-24"
+                  title="MTU Value (23-517 bytes)" placeholder="MTU value">
+            <button id="mtu-button" class="btn btn-sm btn-primary disabled:opacity-50" disabled>
+              <i class="fas fa-exchange-alt mr-1"></i> Negotiate MTU
+            </button>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">
+            MTU determines the maximum data size per transfer (23-517 bytes)
+          </p>
+        </div>
+        
+        <!-- Connection Parameters -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Connection Parameters</h3>
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <div>
+              <label for="min-interval" class="text-xs text-gray-400">Min Interval (ms)</label>
+              <input type="number" id="min-interval" min="7.5" max="4000" value="7.5" step="1.25"
+                    class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-full"
+                    title="Minimum connection interval in milliseconds" placeholder="Min Interval">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400">Max Interval (ms)</label>
+              <input type="number" id="max-interval" min="7.5" max="4000" value="30" step="1.25"
+                    class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-full"
+                    title="Maximum connection interval in milliseconds" placeholder="Max Interval">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400">Latency</label>
+              <input type="number" id="latency" min="0" max="500" value="0"
+                    class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-full"
+                    title="Connection latency (slave latency) in connection events" placeholder="Latency">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400">Timeout (ms)</label>
+              <input type="number" id="timeout" min="100" max="32000" value="500" step="10"
+                    class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-full"
+                    title="Connection supervision timeout in milliseconds" placeholder="Timeout">
+            </div>
+          </div>
+          <div class="flex justify-between">
+            <button id="set-params-button" class="btn btn-sm btn-primary disabled:opacity-50" disabled>
+              <i class="fas fa-save mr-1"></i> Set Parameters
+            </button>
+            <button id="get-params-button" class="btn btn-sm btn-secondary disabled:opacity-50" disabled>
+              <i class="fas fa-sync mr-1"></i> Get Current
+            </button>
+          </div>
+        </div>
+      </div>
+    {% endcall %}
+
+    <!-- Bluetooth Adapter Info Card -->
+    {% call render_card(title="Bluetooth Adapter Info", id="ble-adapter-info-card", icon="info") %}
+      <div id="adapter-info-content" class="space-y-2">
+        <div class="text-gray-500">Fetching adapter information...</div>
       </div>
     {% endcall %}
   </div>
 
-<!-- Add this card inside the grid layout, perhaps after the device scanner card -->
-
-  {% call render_card(title="Advanced BLE Settings", id="ble-advanced-settings", icon="sliders-h") %}
-    <div class="space-y-4">
-      <!-- Bonding Controls -->
-      <div>
-        <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Device Bonding</h3>
-        <div class="flex justify-between items-center">
-          <button id="bond-button" class="btn btn-sm btn-primary disabled:opacity-50" disabled>
-            <i class="fas fa-link mr-1"></i> Bond Device
-          </button>
-          <button id="unbond-button" class="btn btn-sm btn-secondary disabled:opacity-50" disabled>
-            <i class="fas fa-unlink mr-1"></i> Remove Bond
-          </button>
+  <!-- BLE Performance Metrics Card (Full Width) -->
+  <div class="grid grid-cols-1 gap-4 mb-4">
+    {% call render_card(title="BLE Performance Metrics", id="ble-metrics-card", icon="chart-line") %}
+      <div class="space-y-4">
+        <!-- Connection Statistics -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Connection Statistics</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="bg-gray-700 bg-opacity-50 rounded p-2 text-center">
+              <div id="connection-success-rate" class="text-2xl font-bold text-blue-400">N/A</div>
+              <div class="text-xs text-gray-400">Connection Success Rate</div>
+            </div>
+            <div class="bg-gray-700 bg-opacity-50 rounded p-2 text-center">
+              <div id="avg-connection-time" class="text-2xl font-bold text-green-400">N/A</div>
+              <div class="text-xs text-gray-400">Avg. Connection Time</div>
+            </div>
+            <div class="bg-gray-700 bg-opacity-50 rounded p-2 text-center">
+              <div id="device-count" class="text-2xl font-bold text-purple-400">0</div>
+              <div class="text-xs text-gray-400">Known Devices</div>
+            </div>
+          </div>
         </div>
         
-        <div class="mt-3">
-          <h4 class="text-xs font-semibold text-gray-400 mb-1">Bonded Devices</h4>
-          <div id="bonded-devices-list" class="bg-gray-700 bg-opacity-50 rounded p-2 max-h-24 overflow-y-auto">
-            <div class="text-gray-500 text-sm">No bonded devices</div>
+        <!-- Error Recovery -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Error Recovery</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="bg-gray-700 bg-opacity-50 rounded p-2">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs text-gray-400">Recovery Success Rate</span>
+                <span id="recovery-success-rate" class="text-sm font-medium text-yellow-400">N/A</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-xs text-gray-400">Adapter Resets</span>
+                <span id="adapter-resets" class="text-sm font-medium text-red-400">0</span>
+              </div>
+            </div>
+            <div class="bg-gray-700 bg-opacity-50 rounded p-2">
+              <div class="mb-1">
+                <span class="text-xs text-gray-400">Top Errors</span>
+              </div>
+              <div id="top-errors" class="space-y-1 text-xs">
+                <div class="text-gray-500">No errors recorded</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Adapter Controls -->
+        <div>
+          <div class="flex justify-between items-center">
+            <button id="reset-adapter" class="btn btn-sm btn-danger">
+              <i class="fas fa-power-off mr-1"></i> Reset Adapter
+            </button>
+            <button id="refresh-metrics" class="btn btn-sm btn-secondary">
+              <i class="fas fa-sync mr-1"></i> Refresh Metrics
+            </button>
           </div>
         </div>
       </div>
-      
-      <!-- MTU Negotiation -->
-      <div>
-        <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">MTU Settings</h3>
-        <div class="flex items-center space-x-2">
-          <label for="mtu-input" class="sr-only">MTU Value</label>
-          <input type="number" id="mtu-input" min="23" max="517" value="217" 
-                class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-24"
-                title="MTU Value (23-517 bytes)" placeholder="MTU value">
-          <button id="mtu-button" class="btn btn-sm btn-primary disabled:opacity-50" disabled>
-            <i class="fas fa-exchange-alt mr-1"></i> Negotiate MTU
-          </button>
-        </div>
-        <p class="text-xs text-gray-400 mt-1">
-          MTU determines the maximum data size per transfer (23-517 bytes)
-        </p>
-      </div>
-      
-      <!-- Connection Parameters -->
-      <div>
-        <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Connection Parameters</h3>
-        <div class="grid grid-cols-2 gap-2 mb-2">
-          <div>
-            <label for="min-interval" class="text-xs text-gray-400">Min Interval (ms)</label>
-            <input type="number" id="min-interval" min="7.5" max="4000" value="7.5" step="1.25"
-                  class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-full"
-                  title="Minimum connection interval in milliseconds" placeholder="Min Interval">
-          </div>
-          <div>
-            <label class="text-xs text-gray-400">Max Interval (ms)</label>
-            <input type="number" id="max-interval" min="7.5" max="4000" value="30" step="1.25"
-                  class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-full"
-                  title="Maximum connection interval in milliseconds" placeholder="Max Interval">
-          </div>
-          <div>
-            <label class="text-xs text-gray-400">Latency</label>
-            <input type="number" id="latency" min="0" max="500" value="0"
-                  class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-full"
-                  title="Connection latency (slave latency) in connection events" placeholder="Latency">
-          </div>
-          <div>
-            <label class="text-xs text-gray-400">Timeout (ms)</label>
-            <input type="number" id="timeout" min="100" max="32000" value="500" step="10"
-                  class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-full"
-                  title="Connection supervision timeout in milliseconds" placeholder="Timeout">
-          </div>
-        </div>
-        <div class="flex justify-between">
-          <button id="set-params-button" class="btn btn-sm btn-primary disabled:opacity-50" disabled>
-            <i class="fas fa-save mr-1"></i> Set Parameters
-          </button>
-          <button id="get-params-button" class="btn btn-sm btn-secondary disabled:opacity-50" disabled>
-            <i class="fas fa-sync mr-1"></i> Get Current
-          </button>
-        </div>
-      </div>
-    </div>
-  {% endcall %}
-
-  <!-- Add this card after the Advanced BLE Settings card and before the Operations Log card -->
-
-{% call render_card(title="BLE Performance Metrics", id="ble-metrics-card", icon="chart-line") %}
-<div class="space-y-4">
-  <!-- Connection Statistics -->
-  <div>
-    <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Connection Statistics</h3>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-      <div class="bg-gray-700 bg-opacity-50 rounded p-2 text-center">
-        <div id="connection-success-rate" class="text-2xl font-bold text-blue-400">N/A</div>
-        <div class="text-xs text-gray-400">Connection Success Rate</div>
-      </div>
-      <div class="bg-gray-700 bg-opacity-50 rounded p-2 text-center">
-        <div id="avg-connection-time" class="text-2xl font-bold text-green-400">N/A</div>
-        <div class="text-xs text-gray-400">Avg. Connection Time</div>
-      </div>
-      <div class="bg-gray-700 bg-opacity-50 rounded p-2 text-center">
-        <div id="device-count" class="text-2xl font-bold text-purple-400">0</div>
-        <div class="text-xs text-gray-400">Known Devices</div>
-      </div>
-    </div>
+    {% endcall %}
   </div>
-  
-  <!-- Error Recovery -->
-  <div>
-    <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Error Recovery</h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <div class="bg-gray-700 bg-opacity-50 rounded p-2">
-        <div class="flex justify-between items-center mb-1">
-          <span class="text-xs text-gray-400">Recovery Success Rate</span>
-          <span id="recovery-success-rate" class="text-sm font-medium text-yellow-400">N/A</span>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="text-xs text-gray-400">Adapter Resets</span>
-          <span id="adapter-resets" class="text-sm font-medium text-red-400">0</span>
-        </div>
-      </div>
-      <div class="bg-gray-700 bg-opacity-50 rounded p-2">
-        <div class="mb-1">
-          <span class="text-xs text-gray-400">Top Errors</span>
-        </div>
-        <div id="top-errors" class="space-y-1 text-xs">
-          <div class="text-gray-500">No errors recorded</div>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Adapter Controls -->
-  <div>
-    <div class="flex justify-between items-center">
-      <button id="reset-adapter" class="btn btn-sm btn-danger">
-        <i class="fas fa-power-off mr-1"></i> Reset Adapter
-      </button>
-      <button id="refresh-metrics" class="btn btn-sm btn-secondary">
-        <i class="fas fa-sync mr-1"></i> Refresh Metrics
-      </button>
-    </div>
-  </div>
-</div>
-{% endcall %}
 
+  <!-- BLE Operations Log Card (Full Width) -->
   <div class="grid grid-cols-1 gap-4 mt-4">
     {% call render_card(title="BLE Operations Log", id="ble-log-card", icon="terminal") %}
       <div class="h-64 overflow-y-auto bg-gray-900 p-2 rounded">

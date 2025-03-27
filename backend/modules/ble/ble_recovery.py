@@ -14,7 +14,7 @@ class BleErrorRecovery:
     
     def __init__(self, logger=None):
         self.logger = logger or logging.getLogger(__name__)
-        self.platform_type = self._detect_platform()
+        self.platform = platform.system().lower()
         self.recovery_attempts = 0
         self.successful_recoveries = 0
         self.adapter_resets = 0
@@ -104,160 +104,177 @@ class BleErrorRecovery:
         self.logger.warning(f"All recovery attempts failed for {device_address}")
         return False
     
-    async def reset_adapter(self) -> bool:
+    async def reset_adapter(self):
         """
-        Reset the Bluetooth adapter to recover from serious errors.
-        Platform-specific implementations.
-        
+        Reset the Bluetooth adapter with better error handling
         Returns:
-            bool: Whether reset was successful
+            bool: Success status
         """
+        self.logger.info("Attempting to reset Bluetooth adapter...")
         self.adapter_resets += 1
-        self.logger.info(f"Resetting Bluetooth adapter (platform: {self.platform_type})")
         
         try:
-            if self.platform_type == "windows":
-                return await self._reset_adapter_windows()
-            elif self.platform_type == "linux":
-                return await self._reset_adapter_linux()
-            elif self.platform_type == "macos":
-                return await self._reset_adapter_macos()
+            # Determine which platform-specific reset method to call
+            platform_type = self._detect_platform()
+            
+            if platform_type == "windows":
+                result = await self._reset_windows_adapter()
+            elif platform_type == "linux":
+                result = await self._reset_linux_adapter()
+            elif platform_type == "macos":
+                result = await self._reset_mac_adapter()
             else:
-                self.logger.warning(f"No adapter reset implementation for {self.platform_type}")
+                self.logger.error(f"Unsupported platform for adapter reset: {platform_type}")
                 return False
-        except Exception as e:
-            self.logger.error(f"Error resetting adapter: {e}")
+            
+            success = result.get("status") == "success"
+            if success:
+                self.logger.info("Adapter reset successful")
+            else:
+                self.logger.error(f"Adapter reset failed: {result.get('message', 'Unknown error')}")
+            
+            return success
+        
+        except Exception as error:
+            self.logger.error(f"Error resetting adapter: {error}")
             return False
     
-    async def _reset_adapter_windows(self) -> bool:
-        """Reset Bluetooth adapter on Windows."""
+    async def _reset_windows_adapter(self):
+        """Windows-specific adapter reset."""
+        self.logger.info("Attempting to reset Windows Bluetooth adapter")
+        
         try:
-            # Use PowerShell to disable and re-enable Bluetooth adapter
-            disable_cmd = "powershell -Command \"& {Get-PnpDevice -Class Bluetooth | Where-Object {$_.Status -eq 'OK'} | Disable-PnpDevice -Confirm:$false}\""
-            enable_cmd = "powershell -Command \"& {Get-PnpDevice -Class Bluetooth | Where-Object {$_.Status -eq 'Error'} | Enable-PnpDevice -Confirm:$false}\""
+            # Method 1: Use PowerShell to disable and re-enable the Bluetooth radio
+            import subprocess
             
-            # Disable adapter
+            # Find the Bluetooth adapter
+            self.logger.info("Finding Bluetooth adapter...")
+            find_cmd = "Get-PnpDevice | Where-Object {$_.Class -eq 'Bluetooth'} | Select-Object Status,DeviceID,FriendlyName | ConvertTo-Json"
+            ps_process = subprocess.run(["powershell", "-Command", find_cmd], capture_output=True, text=True)
+            
+            if ps_process.returncode != 0:
+                raise Exception(f"Failed to find Bluetooth devices: {ps_process.stderr}")
+            
+            # Parse output
+            if not ps_process.stdout.strip():
+                return {"status": "error", "message": "No Bluetooth adapters found"}
+            
+            # Simple case - try toggling all Bluetooth devices
             self.logger.info("Disabling Bluetooth adapter")
-            process = await asyncio.create_subprocess_shell(
-                disable_cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await process.communicate()
+            disable_cmd = "Get-PnpDevice | Where-Object {$_.Class -eq 'Bluetooth'} | Disable-PnpDevice -Confirm:$false"
+            disable_process = subprocess.run(["powershell", "-Command", disable_cmd], capture_output=True, text=True)
             
-            if process.returncode != 0:
-                self.logger.error(f"Error disabling adapter: {stderr.decode()}")
-                return False
-            
-            # Wait before re-enabling
+            # Wait a moment
             await asyncio.sleep(2)
             
-            # Enable adapter
-            self.logger.info("Re-enabling Bluetooth adapter")
-            process = await asyncio.create_subprocess_shell(
-                enable_cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await process.communicate()
+            self.logger.info("Enabling Bluetooth adapter")
+            enable_cmd = "Get-PnpDevice | Where-Object {$_.Class -eq 'Bluetooth'} | Enable-PnpDevice -Confirm:$false"
+            enable_process = subprocess.run(["powershell", "-Command", enable_cmd], capture_output=True, text=True)
             
-            if process.returncode != 0:
-                self.logger.error(f"Error enabling adapter: {stderr.decode()}")
-                return False
+            if disable_process.returncode != 0 or enable_process.returncode != 0:
+                self.logger.warning("Powershell method failed, trying sc service restart")
+                
+                # Fallback method: Restart Bluetooth service
+                service_cmd = "Restart-Service bthserv -Force"
+                service_process = subprocess.run(["powershell", "-Command", service_cmd], capture_output=True, text=True)
+                
+                if service_process.returncode != 0:
+                    raise Exception(f"Failed to restart Bluetooth service: {service_process.stderr}")
             
-            # Wait for adapter to initialize
+            # Allow some time for the adapter to initialize
             await asyncio.sleep(3)
+            return {"status": "success", "message": "Bluetooth adapter reset complete"}
             
-            self.logger.info("Bluetooth adapter reset successfully")
-            return True
         except Exception as e:
             self.logger.error(f"Error during Windows Bluetooth reset: {e}")
-            return False
-    
-    async def _reset_adapter_linux(self) -> bool:
-        """Reset Bluetooth adapter on Linux."""
+            return {"status": "error", "message": str(e)}
+
+    async def _reset_linux_adapter(self):
+        """Linux-specific adapter reset."""
         try:
-            # Use rfkill to block and unblock Bluetooth
-            block_cmd = "sudo rfkill block bluetooth"
-            unblock_cmd = "sudo rfkill unblock bluetooth"
-            restart_cmd = "sudo systemctl restart bluetooth"
+            import subprocess
             
-            # Block Bluetooth
-            self.logger.info("Blocking Bluetooth adapter")
-            process = await asyncio.create_subprocess_shell(
-                block_cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await process.communicate()
+            # Get the interface name
+            result = subprocess.run(["hciconfig"], capture_output=True, text=True)
+            if result.returncode != 0:
+                raise Exception(f"Failed to get Bluetooth interfaces: {result.stderr}")
             
-            # Wait before unblocking
+            # Parse hciconfig output to get interface names
+            interfaces = []
+            for line in result.stdout.splitlines():
+                if ":" in line and "hci" in line:
+                    interfaces.append(line.split(":")[0].strip())
+            
+            if not interfaces:
+                return {"status": "error", "message": "No Bluetooth interfaces found"}
+            
+            # Reset each interface
+            for interface in interfaces:
+                self.logger.info(f"Resetting interface {interface}")
+                
+                # Down the interface
+                down_result = subprocess.run(["sudo", "hciconfig", interface, "down"], capture_output=True, text=True)
+                if down_result.returncode != 0:
+                    self.logger.warning(f"Failed to bring down {interface}: {down_result.stderr}")
+                
+                # Wait a moment
+                await asyncio.sleep(1)
+                
+                # Reset the interface
+                reset_result = subprocess.run(["sudo", "hciconfig", interface, "reset"], capture_output=True, text=True)
+                if reset_result.returncode != 0:
+                    self.logger.warning(f"Failed to reset {interface}: {reset_result.stderr}")
+                
+                # Wait a moment
+                await asyncio.sleep(1)
+                
+                # Up the interface
+                up_result = subprocess.run(["sudo", "hciconfig", interface, "up"], capture_output=True, text=True)
+                if up_result.returncode != 0:
+                    self.logger.warning(f"Failed to bring up {interface}: {up_result.stderr}")
+            
+            # Allow some time for the interfaces to initialize
             await asyncio.sleep(2)
+            return {"status": "success", "message": f"Reset {len(interfaces)} Bluetooth interfaces"}
             
-            # Unblock Bluetooth
-            self.logger.info("Unblocking Bluetooth adapter")
-            process = await asyncio.create_subprocess_shell(
-                unblock_cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await process.communicate()
-            
-            # Restart Bluetooth service
-            self.logger.info("Restarting Bluetooth service")
-            process = await asyncio.create_subprocess_shell(
-                restart_cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await process.communicate()
-            
-            # Wait for adapter to initialize
-            await asyncio.sleep(3)
-            
-            self.logger.info("Bluetooth adapter reset successfully")
-            return True
         except Exception as e:
             self.logger.error(f"Error during Linux Bluetooth reset: {e}")
-            return False
-    
-    async def _reset_adapter_macos(self) -> bool:
-        """Reset Bluetooth adapter on macOS."""
+            return {"status": "error", "message": str(e)}
+
+    async def _reset_mac_adapter(self):
+        """macOS-specific adapter reset."""
         try:
-            # Use macOS command to toggle Bluetooth
-            toggle_off = "osascript -e 'tell application \"System Preferences\" to activate' -e 'tell application \"System Events\" to tell process \"System Preferences\" to click menu item \"Bluetooth\" of menu \"View\" of menu bar 1' -e 'tell application \"System Events\" to tell process \"System Preferences\" to click checkbox 1 of window \"Bluetooth\"'"
-            toggle_on = "osascript -e 'tell application \"System Preferences\" to activate' -e 'tell application \"System Events\" to tell process \"System Preferences\" to click menu item \"Bluetooth\" of menu \"View\" of menu bar 1' -e 'tell application \"System Events\" to tell process \"System Preferences\" to click checkbox 1 of window \"Bluetooth\"'"
+            import subprocess
             
-            # Turn off Bluetooth
-            self.logger.info("Turning off Bluetooth")
-            process = await asyncio.create_subprocess_shell(
-                toggle_off,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            await process.communicate()
+            # On macOS, we can toggle Bluetooth using the blueutil command
+            # Check if blueutil is installed
+            check_result = subprocess.run(["which", "blueutil"], capture_output=True, text=True)
+            if check_result.returncode != 0:
+                return {"status": "error", "message": "blueutil not installed. Install with: brew install blueutil"}
             
-            # Wait before turning back on
+            # Turn Bluetooth off
+            self.logger.info("Turning Bluetooth off")
+            off_result = subprocess.run(["blueutil", "--power", "0"], capture_output=True, text=True)
+            if off_result.returncode != 0:
+                raise Exception(f"Failed to turn off Bluetooth: {off_result.stderr}")
+            
+            # Wait a moment
             await asyncio.sleep(2)
             
-            # Turn on Bluetooth
-            self.logger.info("Turning on Bluetooth")
-            process = await asyncio.create_subprocess_shell(
-                toggle_on,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            await process.communicate()
+            # Turn Bluetooth on
+            self.logger.info("Turning Bluetooth on")
+            on_result = subprocess.run(["blueutil", "--power", "1"], capture_output=True, text=True)
+            if on_result.returncode != 0:
+                raise Exception(f"Failed to turn on Bluetooth: {on_result.stderr}")
             
-            # Wait for adapter to initialize
+            # Allow some time for Bluetooth to initialize
             await asyncio.sleep(3)
+            return {"status": "success", "message": "Bluetooth adapter reset complete"}
             
-            self.logger.info("Bluetooth adapter reset successfully")
-            return True
         except Exception as e:
             self.logger.error(f"Error during macOS Bluetooth reset: {e}")
-            return False
-    
+            return {"status": "error", "message": str(e)}
+
     def get_error_statistics(self) -> Dict[str, Any]:
         """Get statistics about BLE errors and recovery attempts."""
         success_rate = 0

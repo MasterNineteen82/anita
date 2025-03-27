@@ -18,14 +18,15 @@ from starlette.routing import Mount
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from backend.ws.factory import websocket_factory
-from backend.routes.api import ble_routes
+from backend.modules.ble import ble_routes
 from backend.modules.monitors import monitoring_manager
 from backend.routes.api import (
     device_routes, smartcard_routes, nfc_routes, mifare_routes, biometric_routes,
     card_routes, system_routes, uwb_routes, auth_routes, cache_routes,
-    hardware_routes, mqtt_routes, rfid_routes, security_routes
+    hardware_routes, mqtt_routes, rfid_routes, security_routes, monitoring_router
 )
-from backend.routes.api.monitoring_router import router as monitoring_router
+#from backend.modules.ble import ble_routes # Remove this line
+#from backend.routes.api.monitoring_router import router as monitoring_router # Remove this line
 from backend.logging.logging_config import setup_logging, print_colorful_traceback
 from backend.routes import api as api_package
 
@@ -82,13 +83,13 @@ known_routers = {
     "uwb_routes": uwb_routes.router,
     "device_routes": device_routes.router,
     "auth_routes": auth_routes.router,
-    "ble_routes": ble_routes.router,
     "cache_routes": cache_routes.router,
     "hardware_routes": hardware_routes.router,
     "mqtt_routes": mqtt_routes.router,
     "rfid_routes": rfid_routes.router,
     "security_routes": security_routes.router,
-    "monitoring_router": monitoring_router
+    "monitoring_router": monitoring_router.router,
+    "ble_routes": ble_routes.router
 }
 
 for router_name, router in known_routers.items():
