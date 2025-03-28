@@ -3,9 +3,10 @@ import logging
 import os
 import platform
 import struct
-import sys
+import sys # noqa: F401
 import time
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set
+import logging
 
 from bleak import BleakClient, BleakError, BleakScanner
 # Get version safely using metadata or package info
@@ -13,14 +14,16 @@ from bleak import BleakClient, BleakError, BleakScanner
 from importlib.metadata import version
 try:
     __version__ = version("bleak")
-except:
+except ImportError:
     __version__ = "Unknown"
     
 import bleak
-from bleak.backends.characteristic import BleakGATTCharacteristic
+from bleak.backends.characteristic import BleakGATTCharacteristic # noqa: F401
 from bleak.backends.device import BLEDevice
-from bleak.backends.scanner import AdvertisementData
+from bleak.backends.scanner import AdvertisementData # noqa: F401
+from fastapi import HTTPException # noqa: F401
 
+logger = logging.getLogger(__name__)
 class BLEManager:
     def __init__(self, logger=None, bonded_devices_file="bonded_devices.txt"):
         self.logger = logger or logging.getLogger(__name__)
@@ -62,94 +65,65 @@ class BLEManager:
         except Exception as e:
             self.logger.error(f"Failed to save bonded devices: {e}")
 
-    async def scan_devices(self, scan_time: int = 5, active: bool = False) -> List[Dict]:
+    def get_cached_devices(self):
         """
-        Scan for BLE devices using Bleak.
-        
+        Return currently cached devices from the last scan
+        """
+        if hasattr(self, '_cached_devices'):
+            return self._cached_devices
+        return []
+
+    async def scan_devices(self, scan_time=5.0, active=True, name_prefix=None, services=None, allow_duplicates=False):
+        """
+        Scan for BLE devices.
+
         Args:
-            scan_time: Duration of scan in seconds
-            active: Whether to use active scanning
-            
+            scan_time: Duration to scan in seconds.
+            active: Whether to perform active scanning.
+            name_prefix: Filter devices by name prefix.
+            services: List of service UUIDs to filter by.
+            allow_duplicates: Whether to allow duplicate advertisements.
+
         Returns:
-            List of discovered devices with name, address, and RSSI
+            List of discovered devices.
         """
-        self.logger.info(f"Scanning for BLE devices (time: {scan_time}s, active: {active})")
         
         try:
-            # Use Bleak's scanner with the specified parameters
-            devices_data = await BleakScanner.discover(
-                timeout=scan_time,
-                return_adv=active,  # Return advertisement data if active
-            )
+            devices = await BleakScanner.discover(timeout=scan_time)
 
-            # Handle the case where devices is a dictionary (happens with active scanning)
-            if isinstance(devices_data, dict):
-                self.logger.info(f"BleakScanner.discover returned a dictionary with {len(devices_data)} devices")
-                
-                # Format the results for the API
-                result = []
-                
-                # Process each device in the dictionary
-                for addr, device_tuple in devices_data.items():
-                    # Ensure address is properly formatted (no triple digits in segments)
-                    addr = self._normalize_ble_address(addr)
-                    
-                    # Extract device and advertisement data from tuple
-                    if isinstance(device_tuple, tuple) and len(device_tuple) >= 2:
-                        device = device_tuple[0]  # BLEDevice object
-                        adv_data = device_tuple[1]  # AdvertisementData object
-                        
-                        # Create device info dictionary with correct RSSI source
-                        device_info = {
-                            "name": device.name if hasattr(device, "name") and device.name else "Unknown Device",
-                            "address": addr,  # Use the normalized address
-                            # Use advertisement data for RSSI (not deprecated)
-                            "rssi": adv_data.rssi if hasattr(adv_data, "rssi") else -100,
-                            "bonded": addr in self.bonded_devices
-                        }
-                        
-                        # Add advertisement data if available
-                        if active and adv_data:
-                            if hasattr(adv_data, 'manufacturer_data') and adv_data.manufacturer_data:
-                                device_info["manufacturer_data"] = {
-                                    str(k): list(v) for k, v in adv_data.manufacturer_data.items()
-                                }
-                            if hasattr(adv_data, 'service_data') and adv_data.service_data:
-                                device_info["service_data"] = {
-                                    str(k): list(v) for k, v in adv_data.service_data.items()
-                                }
-                            if hasattr(adv_data, 'service_uuids') and adv_data.service_uuids:
-                                device_info["service_uuids"] = adv_data.service_uuids
-                            if hasattr(adv_data, 'local_name') and adv_data.local_name:
-                                # Override the name with the local_name if available
-                                device_info["name"] = adv_data.local_name
-                        
-                        result.append(device_info)
-                    else:
-                        self.logger.warning(f"Unexpected device data format for {addr}: {device_tuple}")
-            else:
-                # Handle list format (old behavior)
-                self.logger.info(f"Processing BleakScanner.discover result type: {type(devices_data)}")
-                result = self._process_device_list(devices_data)
-            
-            # Log the number of devices found
-            self.logger.info(f"Found {len(result)} devices")
-            
-            # Debug: Log the first device's details if available
-            if result and len(result) > 0:
-                self.logger.info(f"First device: {result[0]}")
-                
-            return result
-        
-        except BleakError as e:
-            self.logger.error(f"Bleak scanning error: {e}")
-            raise
+            # Log all discovered devices before filtering
+            try:
+                # Existing scan code
+                logger.info(f"Raw scan results: {[device.address for device in devices]}")
+            except Exception as e:
+                logger.error(f"Scan failed: {str(e)}", exc_info=True)
+
+            results = []
+            seen_addresses = set()
+            for device in devices:
+                if not allow_duplicates and device.address in seen_addresses:
+                    continue
+
+                if name_prefix and (not device.name or not device.name.startswith(name_prefix)):
+                    continue
+
+                seen_addresses.add(device.address)
+                results.append({
+                    "address": device.address.lower(),  # Convert to lowercase
+                    "name": device.name or "Unknown Device",
+                    "rssi": device.rssi
+                })
+
+            # Store the scan results
+            self._cached_devices = devices
+
+            return results
         except Exception as e:
-            self.logger.error(f"Error scanning for devices: {e}", exc_info=True)
-            raise BleakError(f"Scan error: {e}")
+            # Log the error
+            logger.error(f"Scan failed: {str(e)}", exc_info=True)
+            return []
         
-    # Add these helper methods to the BLEManager class
-    
+        
     def _normalize_ble_address(self, address: str) -> str:
         """Normalize a BLE address to ensure correct format."""
         if not address:
@@ -790,10 +764,27 @@ class BLEManager:
         adapter_firmware = "Unknown"
         hci_version = "Unknown"
         
+        # Get Bleak version safely - this fixes the "__version__" attribute error
+        bleak_version = "Unknown"
+        try:
+            # Try multiple ways to get the version
+            if hasattr(bleak, '__version__'):
+                bleak_version = bleak.__version__
+            else:
+                try:
+                    # Try to get version from package metadata
+                    from importlib.metadata import version
+                    bleak_version = version("bleak")
+                except (ImportError, Exception):
+                    # Fallback using the version we defined at the top
+                    if '__version__' in globals():
+                        bleak_version = __version__
+        except Exception as e:
+            self.logger.debug(f"Error determining Bleak version: {e}")
+        
         try:
             if system_platform == "Windows":
-                # WINDOWS-SPECIFIC DETECTION - ENHANCED APPROACH
-                # 1. Get Bluetooth adapter info using multiple PowerShell commands
+                # WINDOWS-SPECIFIC DETECTION - OPTIMIZED APPROACH
                 self.logger.info("Collecting Windows Bluetooth adapter information...")
                 
                 # Method 1: Use Get-NetAdapter cmdlet focused on Bluetooth interfaces
@@ -806,35 +797,48 @@ class BLEManager:
                     } | Select-Object Name, InterfaceDescription, MacAddress, Status | ConvertTo-Json
                     """
                     
-                    result = subprocess.check_output(["powershell", "-Command", ps_cmd], stderr=subprocess.STDOUT)
-                    result_str = result.decode('utf-8', errors='ignore')
-                    
-                    import json
                     try:
-                        adapters = json.loads(result_str)
-                        if not isinstance(adapters, list):
-                            adapters = [adapters]
+                        self.logger.debug("Executing PowerShell command for adapter info")
+                        result = subprocess.check_output(["powershell", "-Command", ps_cmd], 
+                                                        stderr=subprocess.STDOUT, 
+                                                        timeout=3)  # Add timeout for better performance
+                        result_str = result.decode('utf-8', errors='ignore')
                         
-                        for adapter in adapters:
-                            if adapter.get('Status') and 'Up' in adapter.get('Status'):
-                                # Found an active Bluetooth adapter
-                                if adapter.get('MacAddress'):
-                                    adapter_address = adapter.get('MacAddress')
-                                if adapter.get('Name'):
-                                    adapter_name = adapter.get('Name')
-                                if adapter.get('InterfaceDescription'):
-                                    description = adapter.get('InterfaceDescription')
-                                    if "(" in description:
-                                        adapter_vendor = description.split("(")[0].strip()
-                                        if ")" in description:
-                                            model_part = description.split("(")[1].split(")")[0].strip()
-                                            if not "Hard Drive" in model_part:
-                                                adapter_model = model_part
-                                    else:
-                                        adapter_model = description
-                                break
-                    except json.JSONDecodeError:
-                        self.logger.warning("Failed to parse Get-NetAdapter JSON output")
+                        import json
+                        try:
+                            adapters = json.loads(result_str)
+                            if adapters is None:  # Handle empty response
+                                self.logger.debug("No Bluetooth adapters found from Get-NetAdapter")
+                            elif not isinstance(adapters, list):
+                                adapters = [adapters]
+                            
+                            for adapter in adapters:
+                                if adapter and adapter.get('Status') and 'Up' in adapter.get('Status'):
+                                    # Found an active Bluetooth adapter
+                                    if adapter.get('MacAddress'):
+                                        adapter_address = adapter.get('MacAddress')
+                                    if adapter.get('Name'):
+                                        adapter_name = adapter.get('Name')
+                                    if adapter.get('InterfaceDescription'):
+                                        description = adapter.get('InterfaceDescription')
+                                        if "(" in description:
+                                            adapter_vendor = description.split("(")[0].strip()
+                                            if ")" in description:
+                                                model_part = description.split("(")[1].split(")")[0].strip()
+                                                if "Hard Drive" not in model_part:
+                                                    adapter_model = model_part
+                                        else:
+                                            adapter_model = description
+                                    break
+                        
+                        except json.JSONDecodeError as e:
+                            self.logger.warning(f"Failed to parse Get-NetAdapter JSON output: {e}")
+                    
+                    except subprocess.TimeoutExpired:
+                        self.logger.warning("PowerShell command timed out, proceeding with other methods")
+                    except subprocess.CalledProcessError as e:
+                        self.logger.warning(f"Method 1 (Get-NetAdapter) failed with exit code {e.returncode}")
+                
                 except Exception as e:
                     self.logger.warning(f"Method 1 (Get-NetAdapter) failed: {e}")
                 
@@ -846,16 +850,20 @@ class BLEManager:
                         Select-Object FriendlyName, InstanceId, Manufacturer, Status | ConvertTo-Json -Depth 2
                         """
                         
-                        result = subprocess.check_output(["powershell", "-Command", ps_cmd], stderr=subprocess.STDOUT)
+                        result = subprocess.check_output(["powershell", "-Command", ps_cmd], 
+                                                        stderr=subprocess.STDOUT,
+                                                        timeout=3)
                         result_str = result.decode('utf-8', errors='ignore')
                         
                         try:
                             devices = json.loads(result_str)
-                            if not isinstance(devices, list):
+                            if devices is None:  # Handle empty response
+                                self.logger.debug("No Bluetooth devices found from Get-PnpDevice")
+                            elif not isinstance(devices, list):
                                 devices = [devices]
                             
                             for device in devices:
-                                if device.get('Status') == 'OK':
+                                if device and device.get('Status') == 'OK':
                                     if device.get('FriendlyName'):
                                         adapter_name = device.get('FriendlyName')
                                     
@@ -875,11 +883,13 @@ class BLEManager:
                                                 break
                         except json.JSONDecodeError:
                             self.logger.warning("Failed to parse Get-PnpDevice JSON output")
+                    except subprocess.TimeoutExpired:
+                        self.logger.warning("PowerShell command timed out, proceeding with other methods")
                     except Exception as e:
                         self.logger.warning(f"Method 2 (Get-PnpDevice) failed: {e}")
                 
-                # Method 3: Use WinRT API (requires Windows 10 or later)
-                if adapter_name == "Unknown" or adapter_address == "Unknown":
+                # Method 3: Use WinRT API only if previous methods failed (slower but more reliable)
+                if (adapter_name == "Unknown" or adapter_address == "Unknown") and platform.version().split('.')[0] >= '10':
                     try:
                         # This approach works on Windows 10 or later with appropriate dependencies
                         ps_cmd = """
@@ -892,40 +902,49 @@ class BLEManager:
                             $netTask.Result
                         }
                         
-                        [Windows.Devices.Bluetooth.BluetoothAdapter,Windows.Devices.Bluetooth,ContentType=WindowsRuntime] | Out-Null
-                        $adapter = [Windows.Devices.Bluetooth.BluetoothAdapter]::GetDefaultAsync()
-                        $adapter = Await $adapter ([Windows.Devices.Bluetooth.BluetoothAdapter])
-                        
-                        $deviceInfo = [PSCustomObject]@{
-                            Name = $adapter.Name
-                            BluetoothAddress = $adapter.BluetoothAddress.ToString("X")
-                            IsClassicSupported = $adapter.IsClassicSupported
-                            IsLowEnergySupported = $adapter.IsLowEnergySupported
+                        try {
+                            [Windows.Devices.Bluetooth.BluetoothAdapter,Windows.Devices.Bluetooth,ContentType=WindowsRuntime] | Out-Null
+                            $adapter = [Windows.Devices.Bluetooth.BluetoothAdapter]::GetDefaultAsync()
+                            $adapter = Await $adapter ([Windows.Devices.Bluetooth.BluetoothAdapter])
+                            
+                            $deviceInfo = [PSCustomObject]@{
+                                Name = $adapter.Name
+                                BluetoothAddress = $adapter.BluetoothAddress.ToString("X")
+                                IsClassicSupported = $adapter.IsClassicSupported
+                                IsLowEnergySupported = $adapter.IsLowEnergySupported
+                            }
+                            
+                            ConvertTo-Json -InputObject $deviceInfo
+                        } catch {
+                            # Return empty JSON if error occurs
+                            "{}"
                         }
-                        
-                        ConvertTo-Json -InputObject $deviceInfo
                         """
                         
-                        result = subprocess.check_output(["powershell", "-Command", ps_cmd], stderr=subprocess.STDOUT)
+                        result = subprocess.check_output(["powershell", "-Command", ps_cmd], 
+                                                    stderr=subprocess.STDOUT,
+                                                    timeout=5)  # Give this more time as it's more complex
                         result_str = result.decode('utf-8', errors='ignore')
                         
                         try:
                             device_info = json.loads(result_str)
                             
-                            if device_info.get('Name'):
+                            if device_info and device_info.get('Name'):
                                 adapter_name = device_info.get('Name')
                             
-                            if device_info.get('BluetoothAddress'):
+                            if device_info and device_info.get('BluetoothAddress'):
                                 # Format the address with colons
                                 addr = device_info.get('BluetoothAddress')
                                 if len(addr) == 12:  # Expecting a 12-char hex string
                                     adapter_address = ':'.join(addr[i:i+2].upper() for i in range(0, len(addr), 2))
                         except json.JSONDecodeError:
                             self.logger.warning("Failed to parse WinRT API JSON output")
+                    except subprocess.TimeoutExpired:
+                        self.logger.warning("WinRT PowerShell command timed out")
                     except Exception as e:
                         self.logger.debug(f"Method 3 (WinRT API) failed: {e}")
                 
-                # Method 4: Use registry as fallback
+                # Method 4: Use registry as fallback (only if other methods failed)
                 if adapter_name == "Unknown" or adapter_address == "Unknown":
                     try:
                         import winreg
@@ -965,18 +984,21 @@ class BLEManager:
                 import subprocess
                 try:
                     # Basic adapter info using hciconfig
-                    result = subprocess.check_output(["hciconfig"], stderr=subprocess.STDOUT).decode('utf-8', errors='ignore')
-                    for line in result.splitlines():
-                        if "Address:" in line:
-                            adapter_address = line.split("Address:")[1].strip()
-                        if "Name:" in line:
-                            adapter_name = line.split("'")[1].strip() if "'" in line else "Bluetooth Adapter"
-                        if "HCI Version:" in line:
-                            hci_version = line.split("HCI Version:")[1].split("Revision:")[0].strip()
+                    try:
+                        result = subprocess.check_output(["hciconfig"], stderr=subprocess.STDOUT, timeout=2).decode('utf-8', errors='ignore')
+                        for line in result.splitlines():
+                            if "Address:" in line:
+                                adapter_address = line.split("Address:")[1].strip()
+                            if "Name:" in line:
+                                adapter_name = line.split("'")[1].strip() if "'" in line else "Bluetooth Adapter"
+                            if "HCI Version:" in line:
+                                hci_version = line.split("HCI Version:")[1].split("Revision:")[0].strip()
+                    except subprocess.TimeoutExpired:
+                        self.logger.warning("hciconfig command timed out")
                     
                     # Get more detailed information using bluetoothctl
                     try:
-                        ctrl_result = subprocess.check_output(["bluetoothctl", "show"], stderr=subprocess.STDOUT).decode('utf-8', errors='ignore')
+                        ctrl_result = subprocess.check_output(["bluetoothctl", "show"], stderr=subprocess.STDOUT, timeout=2).decode('utf-8', errors='ignore')
                         for line in ctrl_result.splitlines():
                             line = line.strip()
                             if "Controller" in line and "Name:" not in line:
@@ -987,18 +1009,22 @@ class BLEManager:
                                 adapter_name = line.split(":", 1)[1].strip()
                             if "Firmware:" in line and ":" in line:
                                 adapter_firmware = line.split(":", 1)[1].strip()
+                    except subprocess.TimeoutExpired:
+                        self.logger.warning("bluetoothctl command timed out")
                     except Exception as e:
                         self.logger.debug(f"Error getting bluetoothctl info: {e}")
                     
                     # Try to get vendor/model info from lsusb
                     try:
-                        lsusb_result = subprocess.check_output(["lsusb"], stderr=subprocess.STDOUT).decode('utf-8', errors='ignore')
+                        lsusb_result = subprocess.check_output(["lsusb"], stderr=subprocess.STDOUT, timeout=2).decode('utf-8', errors='ignore')
                         for line in lsusb_result.splitlines():
                             if "Bluetooth" in line:
                                 parts = line.split()
                                 if len(parts) >= 6:
                                     adapter_vendor = parts[5].replace("Technology", "").replace("Inc.", "").strip()
                                     adapter_model = ' '.join(parts[6:]).replace("Bluetooth", "").strip()
+                    except subprocess.TimeoutExpired:
+                        self.logger.warning("lsusb command timed out")
                     except Exception as e:
                         self.logger.debug(f"Error getting lsusb info: {e}")
                 except Exception as e:
@@ -1009,32 +1035,39 @@ class BLEManager:
                 import subprocess
                 try:
                     # Use system_profiler to get Bluetooth information
-                    result = subprocess.check_output(["system_profiler", "SPBluetoothDataType"], stderr=subprocess.STDOUT).decode('utf-8', errors='ignore')
-                    
-                    bt_controller_section = False
-                    for line in result.splitlines():
-                        line = line.strip()
-                        if "Bluetooth Controller" in line:
-                            bt_controller_section = True
-                        elif bt_controller_section:
-                            if not line or ":" not in line:
-                                # End of controller section
-                                bt_controller_section = False
-                            elif "Address:" in line or "Bluetooth Address:" in line:
-                                adapter_address = line.split(":", 1)[1].strip()
-                            elif "Manufacturer:" in line:
-                                adapter_vendor = line.split(":", 1)[1].strip()
-                            elif "Transport:" in line:
-                                adapter_model = line.split(":", 1)[1].strip()
-                            elif "Firmware Version:" in line:
-                                adapter_firmware = line.split(":", 1)[1].strip()
-                            elif "Name:" in line:
-                                adapter_name = line.split(":", 1)[1].strip()
+                    try:
+                        result = subprocess.check_output(["system_profiler", "SPBluetoothDataType"], 
+                                                    stderr=subprocess.STDOUT, 
+                                                    timeout=3).decode('utf-8', errors='ignore')
+                        
+                        bt_controller_section = False
+                        for line in result.splitlines():
+                            line = line.strip()
+                            if "Bluetooth Controller" in line:
+                                bt_controller_section = True
+                            elif bt_controller_section:
+                                if not line or ":" not in line:
+                                    # End of controller section
+                                    bt_controller_section = False
+                                elif "Address:" in line or "Bluetooth Address:" in line:
+                                    adapter_address = line.split(":", 1)[1].strip()
+                                elif "Manufacturer:" in line:
+                                    adapter_vendor = line.split(":", 1)[1].strip()
+                                elif "Transport:" in line:
+                                    adapter_model = line.split(":", 1)[1].strip()
+                                elif "Firmware Version:" in line:
+                                    adapter_firmware = line.split(":", 1)[1].strip()
+                                elif "Name:" in line:
+                                    adapter_name = line.split(":", 1)[1].strip()
+                    except subprocess.TimeoutExpired:
+                        self.logger.warning("system_profiler command timed out")
                     
                     # Try ioreg as an alternative if system_profiler didn't work
                     if adapter_address == "Unknown":
                         try:
-                            ioreg_result = subprocess.check_output(["ioreg", "-l", "-p", "IODeviceTree", "-r", "-n", "bluetooth"], stderr=subprocess.STDOUT).decode('utf-8', errors='ignore')
+                            ioreg_result = subprocess.check_output(["ioreg", "-l", "-p", "IODeviceTree", "-r", "-n", "bluetooth"], 
+                                                                stderr=subprocess.STDOUT, 
+                                                                timeout=3).decode('utf-8', errors='ignore')
                             for line in ioreg_result.splitlines():
                                 if "bluetooth-address" in line:
                                     parts = line.split('=')
@@ -1044,6 +1077,8 @@ class BLEManager:
                                         if len(hex_val) >= 12:
                                             adapter_address = ':'.join(hex_val[i:i+2].upper() for i in range(0, 12, 2))
                                             break
+                        except subprocess.TimeoutExpired:
+                            self.logger.warning("ioreg command timed out")
                         except Exception as e:
                             self.logger.debug(f"Error getting ioreg info: {e}")
                 except Exception as e:
@@ -1052,7 +1087,12 @@ class BLEManager:
         except Exception as e:
             self.logger.warning(f"Error getting adapter info: {e}")
             
-        # AGGRESSIVE FALLBACK MECHANISM
+        # ENHANCED FALLBACK MECHANISM
+        # If still no name but we have an address, create a name from that
+        if adapter_name == "Unknown" and adapter_address != "Unknown":
+            short_addr = adapter_address.replace(':', '')[-4:]
+            adapter_name = f"Bluetooth Adapter ({short_addr})"
+            
         # If we still don't have a model but have a vendor, create a generic model
         if adapter_model == "Unknown" and adapter_vendor != "Unknown":
             adapter_model = f"{adapter_vendor} Bluetooth"
@@ -1062,12 +1102,7 @@ class BLEManager:
             # Try to format it as a proper MAC
             clean_addr = ''.join(c for c in adapter_address if c in '0123456789abcdefABCDEF')
             if len(clean_addr) >= 12:
-                adapter_address = ':'.join(clean_addr[:12][i:i+2].upper() for i in range(0, 12, 2))
-        
-        # If still no name but we have an address, create a name from that
-        if adapter_name == "Unknown" and adapter_address != "Unknown":
-            short_addr = adapter_address.replace(':', '')[-4:]
-            adapter_name = f"Bluetooth Adapter ({short_addr})"
+                adapter_address = ':'.join(clean_addr[:12][i:i+2].upper() for i in range(0, len(clean_addr), 2))
         
         # Create comprehensive device info
         features = {
@@ -1088,16 +1123,20 @@ class BLEManager:
             "hci_version": hci_version
         }
         
-        return {
+        # Create the final adapter info with proper error handling for Bleak version
+        adapter_info = {
             "available": adapter_available,
             "name": adapter_name,
             "address": adapter_address,
             "platform": system_platform,
-            "api_version": f"Bleak {__version__}",
+            "api_version": f"Bleak {bleak_version}",  # Use our safely retrieved version
             "features": features,
             "hardware": hardware_info,
             "timestamp": time.time()
         }
+        
+        self.logger.info(f"Adapter info retrieved: {adapter_name} ({adapter_address})")
+        return adapter_info
 
     def is_disconnecting(self) -> bool:
         """Flag to indicate if the device is in the process of disconnecting."""
@@ -1129,7 +1168,6 @@ class BLEManager:
                 
                 try:
                     # Clear the client reference to force a new connection
-                    old_client = self.client
                     self.client = None
                     
                     # Attempt to reconnect

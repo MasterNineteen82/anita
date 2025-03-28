@@ -65,7 +65,7 @@ export async function getBatteryLevel(state, deviceId) {
 }
 
 // Helper function to update battery UI
-function updateBatteryUI(state, batteryLevel) {
+export function updateBatteryUI(state, batteryLevel) {
     if (state.domElements.batteryLevel) {
         state.domElements.batteryLevel.textContent = `${batteryLevel}%`;
         
@@ -97,7 +97,7 @@ function updateBatteryUI(state, batteryLevel) {
 }
 
 // Try device-specific approaches to get battery level
-async function tryDeviceSpecificBatteryCheck(state) {
+export async function tryDeviceSpecificBatteryCheck(state) {
     // Example implementation for specific device types
     const deviceInfo = state.deviceInfo || {};
     const deviceAddress = state.connectedDevice.address;
@@ -174,10 +174,176 @@ export async function powerEfficientScan(state, duration = 5) {
 }
 
 // Helper to get/set device cache timestamp in localStorage
-function getDeviceCacheTimestamp() {
+export function getDeviceCacheTimestamp() {
     return parseInt(localStorage.getItem('bleDeviceCacheTimestamp') || '0');
 }
 
-function setDeviceCacheTimestamp(timestamp) {
+export function setDeviceCacheTimestamp(timestamp) {
     localStorage.setItem('bleDeviceCacheTimestamp', timestamp.toString());
+}
+
+// Set up periodic battery monitoring for connected device
+export function setupBatteryMonitoring(state, intervalMinutes = 5) {
+    if (!state || !state.connectedDevice) {
+        logMessage('No device connected for battery monitoring', 'warning');
+        return false;
+    }
+    
+    // Clear any existing monitoring
+    if (state.batteryMonitorInterval) {
+        clearInterval(state.batteryMonitorInterval);
+    }
+    
+    // Convert minutes to milliseconds
+    const interval = intervalMinutes * 60 * 1000;
+    
+    // Initial battery check
+    getBatteryLevel(state);
+    
+    // Set up periodic checks
+    state.batteryMonitorInterval = setInterval(() => {
+        getBatteryLevel(state);
+    }, interval);
+    
+    logMessage(`Battery monitoring started (every ${intervalMinutes} minutes)`, 'info');
+    return true;
+}
+
+// Optimize BLE settings for power efficiency
+export function optimizePowerSettings(state, settings = {}) {
+    const defaultSettings = {
+        connectionInterval: 30, // ms
+        latency: 2,
+        timeout: 500, // ms
+        scanDutyCycle: 0.25, // 25% duty cycle
+        txPower: 'low'
+    };
+    
+    const finalSettings = { ...defaultSettings, ...settings };
+    
+    // Apply settings through API
+    fetch('/api/ble/power-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalSettings)
+    })
+    .then(response => {
+        if (response.ok) {
+            logMessage('Power settings optimized', 'success');
+            return response.json();
+        }
+        throw new Error('Failed to set power settings');
+    })
+    .catch(error => {
+        logMessage(`Power optimization error: ${error.message}`, 'error');
+    });
+    
+    return finalSettings;
+}
+
+// Get estimated battery usage for current configuration
+export function getEstimatedBatteryUsage(state) {
+    if (!state || !state.connectedDevice) {
+        return { estimatedHours: 0, confidence: 'none' };
+    }
+    
+    // Calculate based on device profile and connection parameters
+    let baseHours = 0;
+    let confidence = 'low';
+    
+    if (state.deviceInfo && state.deviceInfo.batteryCapacity) {
+        // More precise estimation with device battery capacity information
+        const connParams = state.connectionParameters || {};
+        const interval = connParams.interval || 30;
+        const latency = connParams.latency || 0;
+        
+        // Simple formula - can be enhanced with more detailed calculations
+        baseHours = state.deviceInfo.batteryCapacity * 0.8 / (24 / interval * (1 + latency));
+        confidence = 'medium';
+    } else {
+        // Generic estimate based on device type
+        baseHours = state.lowPowerMode ? 36 : 20;
+    }
+    
+    return {
+        estimatedHours: Math.round(baseHours * 10) / 10,
+        confidence: confidence,
+        deviceType: state.deviceInfo?.type || 'unknown'
+    };
+}
+
+// Enable or disable low power mode
+export function setLowPowerMode(state, enable = true) {
+    state.lowPowerMode = enable;
+    
+    const settings = enable ? {
+        connectionInterval: 100, // Longer interval
+        latency: 4,       // Higher latency
+        scanDutyCycle: 0.1, // 10% duty cycle
+        txPower: 'lowest',
+        notifyReduceFactor: 2  // Reduce notification frequency
+    } : {
+        connectionInterval: 30,
+        latency: 0,
+        scanDutyCycle: 0.5,
+        txPower: 'medium',
+        notifyReduceFactor: 1
+    };
+    
+    // Apply the new settings
+    optimizePowerSettings(state, settings);
+    
+    logMessage(`Low power mode ${enable ? 'enabled' : 'disabled'}`, 'info');
+    return state.lowPowerMode;
+}
+
+// Get current battery threshold settings
+export function getBatteryThresholds(state) {
+    // Get from state or use defaults
+    const thresholds = state.batteryThresholds || {
+        critical: 10,
+        low: 20,
+        normal: 30,
+        high: 80
+    };
+    
+    return { ...thresholds };
+}
+
+// Set battery thresholds for notifications
+export function setBatteryThresholds(state, thresholds) {
+    const currentThresholds = getBatteryThresholds(state);
+    state.batteryThresholds = {
+        ...currentThresholds,
+        ...thresholds
+    };
+    
+    // Validate thresholds are in order
+    if (state.batteryThresholds.critical > state.batteryThresholds.low ||
+        state.batteryThresholds.low > state.batteryThresholds.normal ||
+        state.batteryThresholds.normal > state.batteryThresholds.high) {
+        logMessage('Invalid battery thresholds (must be in ascending order)', 'error');
+        state.batteryThresholds = currentThresholds;
+        return false;
+    }
+    
+    logMessage('Battery thresholds updated', 'info');
+    return true;
+}
+
+// Check current power state for device and connection
+export function checkPowerState(state) {
+    if (!state || !state.connectedDevice) {
+        return { connected: false };
+    }
+    
+    return {
+        connected: true,
+        deviceId: state.connectedDevice.address,
+        lowPowerMode: state.lowPowerMode || false,
+        batteryLevel: state.batteryLevel || null,
+        connectionParameters: state.connectionParameters || {},
+        lastChecked: new Date().toISOString(),
+        estimatedUsage: getEstimatedBatteryUsage(state)
+    };
 }

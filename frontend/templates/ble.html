@@ -8,7 +8,7 @@
 {% block page_id %}ble-manager{% endblock %}
 
 {% block content %}
-<div class="container mx-auto p-4">
+<div class="container mx-auto p-4 ble-container">
   {{ render_page_header(title="Bluetooth Low Energy (BLE) Manager", icon="bluetooth") }}
 
   <div class="mb-4">
@@ -22,12 +22,12 @@
   <div id="loading-indicator" class="fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
     <div class="bg-gray-800 rounded-lg p-4 flex items-center">
       <div class="spinner mr-3"></div>
-      <span class="text-white">Loading...</span>
+      <span class="text-white" id="loading-message">Loading...</span>
     </div>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-    <!-- Device Scanner Card -->
+  <!-- First Row: Device Scanner -->
+  <div class="grid grid-cols-1 gap-4 mb-4">
     {% call render_card(title="Device Scanner", id="ble-scanner-card", icon="bluetooth") %}
       <div id="scan-container" class="mb-4">
         <div class="flex items-center justify-between mb-2">
@@ -38,34 +38,59 @@
             </span>
           </div>
           <div class="flex space-x-2">
-            <button id="scan-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm">
+            <button id="scan-btn" class="ble-btn ble-btn-primary">
               <i class="fas fa-search mr-2"></i>Scan for Devices
             </button>
-            <button id="clear-cache-btn" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm">
+            <button id="clear-cache-btn" type="button" title="Clear device cache" class="ble-btn ble-btn-secondary">
               <i class="fas fa-trash mr-2"></i>Clear Cache
             </button>
           </div>
         </div>
         
-        <div id="device-list" class="mt-4">
+        <div id="devices-list" class="mt-4">
           <div class="text-gray-500">No devices found. Click the scan button to start scanning.</div>
         </div>
       </div>
     {% endcall %}
-    
+  </div>
+
+  <!-- Second Row: Device Information and Adapter Info -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
     <!-- Device Information Card -->
     {% call render_card(title="Device Information", id="ble-device-card", icon="info-circle") %}
       <div id="device-info-content">
         <div class="text-gray-500">No device connected</div>
       </div>
+      <!-- Battery information container -->
+      <div id="battery-container" class="mt-4 ble-battery-container hidden">
+        <i id="battery-icon" class="fas fa-battery-half ble-battery-icon mr-2"></i>
+        <div class="flex-1">
+          <div class="text-sm font-medium">Battery Level</div>
+          <div id="battery-level" class="text-lg font-bold ble-battery-level">--</div>
+        </div>
+        <button id="refresh-battery" type="button" title="Refresh battery level" class="ble-btn ble-btn-tertiary">
+          <i class="fas fa-sync"></i>
+        </button>
+      </div>
       <div class="mt-4 flex justify-end">
-        <button id="disconnect-btn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm hidden">
+        <button id="disconnect-btn" class="ble-btn ble-btn-danger hidden">
           <i class="fas fa-times mr-2"></i>Disconnect
         </button>
       </div>
     {% endcall %}
+
+    <!-- Bluetooth Adapter Info Card -->
+    {% call render_card(title="Bluetooth Adapter Info", id="ble-adapter-info-card", icon="info") %}
+      <div id="adapter-info-content" class="space-y-2">
+        <div class="text-gray-500">Fetching adapter information...</div>
+      </div>
+      <div id="device-info" class="mt-4">
+        <!-- Auto-reconnect toggle will be inserted here -->
+      </div>
+    {% endcall %}
   </div>
 
+  <!-- Third Row: BLE Services and Characteristics -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
     <!-- BLE Services Card -->
     {% call render_card(title="BLE Services", id="ble-services-card", icon="server") %}
@@ -82,25 +107,33 @@
     {% endcall %}
   </div>
 
+  <!-- Fourth Row: Notifications and Advanced Settings -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+    <!-- Notifications Card -->
+    {% call render_card(title="Characteristic Notifications", id="ble-notifications-card", icon="bell") %}
+      <div id="notifications-container" class="mt-2 max-h-48 overflow-y-auto">
+        <div class="text-gray-500">Subscribe to receive characteristic updates</div>
+      </div>
+    {% endcall %}
+
     <!-- Advanced BLE Settings Card -->
     {% call render_card(title="Advanced BLE Settings", id="ble-advanced-settings", icon="sliders-h") %}
       <div class="space-y-4">
         <!-- Bonding Controls -->
         <div>
-          <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Device Bonding</h3>
+          <h3 class="ble-card-heading">Device Bonding</h3>
           <div class="flex justify-between items-center">
-            <button id="bond-button" class="btn btn-sm btn-primary disabled:opacity-50" disabled>
+            <button id="bond-button" class="ble-btn ble-btn-primary" disabled>
               <i class="fas fa-link mr-1"></i> Bond Device
             </button>
-            <button id="unbond-button" class="btn btn-sm btn-secondary disabled:opacity-50" disabled>
+            <button id="unbond-button" class="ble-btn ble-btn-secondary" disabled>
               <i class="fas fa-unlink mr-1"></i> Remove Bond
             </button>
           </div>
           
           <div class="mt-3">
-            <h4 class="text-xs font-semibold text-gray-400 mb-1">Bonded Devices</h4>
-            <div id="bonded-devices-list" class="bg-gray-700 bg-opacity-50 rounded p-2 max-h-24 overflow-y-auto">
+            <h4 class="ble-card-subheading">Bonded Devices</h4>
+            <div id="bonded-devices-list" class="ble-bonded-devices-list">
               <div class="text-gray-500 text-sm">No bonded devices</div>
             </div>
           </div>
@@ -108,171 +141,197 @@
         
         <!-- MTU Negotiation -->
         <div>
-          <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">MTU Settings</h3>
+          <h3 class="ble-card-heading">MTU Settings</h3>
           <div class="flex items-center space-x-2">
             <label for="mtu-input" class="sr-only">MTU Value</label>
             <input type="number" id="mtu-input" min="23" max="517" value="217" 
-                  class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-24"
+                  class="ble-input"
                   title="MTU Value (23-517 bytes)" placeholder="MTU value">
-            <button id="mtu-button" class="btn btn-sm btn-primary disabled:opacity-50" disabled>
+            <button id="mtu-button" class="ble-btn ble-btn-primary" disabled>
               <i class="fas fa-exchange-alt mr-1"></i> Negotiate MTU
             </button>
           </div>
-          <p class="text-xs text-gray-400 mt-1">
+          <p class="ble-input-description">
             MTU determines the maximum data size per transfer (23-517 bytes)
           </p>
         </div>
         
         <!-- Connection Parameters -->
         <div>
-          <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Connection Parameters</h3>
+          <h3 class="ble-card-heading">Connection Parameters</h3>
           <div class="grid grid-cols-2 gap-2 mb-2">
             <div>
-              <label for="min-interval" class="text-xs text-gray-400">Min Interval (ms)</label>
+              <label for="min-interval" class="ble-input-label">Min Interval (ms)</label>
               <input type="number" id="min-interval" min="7.5" max="4000" value="7.5" step="1.25"
-                    class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-full"
+                    class="ble-input"
                     title="Minimum connection interval in milliseconds" placeholder="Min Interval">
             </div>
             <div>
-              <label class="text-xs text-gray-400">Max Interval (ms)</label>
+              <label for="max-interval" class="ble-input-label">Max Interval (ms)</label>
               <input type="number" id="max-interval" min="7.5" max="4000" value="30" step="1.25"
-                    class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-full"
+                    class="ble-input"
                     title="Maximum connection interval in milliseconds" placeholder="Max Interval">
             </div>
             <div>
-              <label class="text-xs text-gray-400">Latency</label>
+              <label for="latency" class="ble-input-label">Latency</label>
               <input type="number" id="latency" min="0" max="500" value="0"
-                    class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-full"
+                    class="ble-input"
                     title="Connection latency (slave latency) in connection events" placeholder="Latency">
             </div>
             <div>
-              <label class="text-xs text-gray-400">Timeout (ms)</label>
+              <label for="timeout" class="ble-input-label">Timeout (ms)</label>
               <input type="number" id="timeout" min="100" max="32000" value="500" step="10"
-                    class="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 w-full"
+                    class="ble-input"
                     title="Connection supervision timeout in milliseconds" placeholder="Timeout">
             </div>
           </div>
           <div class="flex justify-between">
-            <button id="set-params-button" class="btn btn-sm btn-primary disabled:opacity-50" disabled>
+            <button id="set-params-button" class="ble-btn ble-btn-primary" disabled>
               <i class="fas fa-save mr-1"></i> Set Parameters
             </button>
-            <button id="get-params-button" class="btn btn-sm btn-secondary disabled:opacity-50" disabled>
+            <button id="get-params-button" class="ble-btn ble-btn-secondary" disabled>
               <i class="fas fa-sync mr-1"></i> Get Current
             </button>
           </div>
         </div>
       </div>
     {% endcall %}
-
-    <!-- Bluetooth Adapter Info Card -->
-    {% call render_card(title="Bluetooth Adapter Info", id="ble-adapter-info-card", icon="info") %}
-      <div id="adapter-info-content" class="space-y-2">
-        <div class="text-gray-500">Fetching adapter information...</div>
-      </div>
-    {% endcall %}
   </div>
 
-  <!-- BLE Performance Metrics Card (Full Width) -->
+  <!-- Fifth Row: BLE Performance Metrics (Full Width) -->
   <div class="grid grid-cols-1 gap-4 mb-4">
     {% call render_card(title="BLE Performance Metrics", id="ble-metrics-card", icon="chart-line") %}
-      <div class="space-y-4">
+      <div class="space-y-6"></div>
         <!-- Connection Statistics -->
         <div>
-          <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Connection Statistics</h3>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div class="bg-gray-700 bg-opacity-50 rounded p-2 text-center">
-              <div id="connection-success-rate" class="text-2xl font-bold text-blue-400">N/A</div>
-              <div class="text-xs text-gray-400">Connection Success Rate</div>
+          <h3 class="ble-card-heading">Connection Statistics</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="ble-metric-container bg-gray-700 rounded-lg p-3 shadow-md">
+              <div class="text-2xl font-bold text-blue-400" id="connection-success-rate">N/A</div>
+              <div class="text-sm text-gray-300 mt-1">Connection Success Rate</div>
             </div>
-            <div class="bg-gray-700 bg-opacity-50 rounded p-2 text-center">
-              <div id="avg-connection-time" class="text-2xl font-bold text-green-400">N/A</div>
-              <div class="text-xs text-gray-400">Avg. Connection Time</div>
+            <div class="ble-metric-container bg-gray-700 rounded-lg p-3 shadow-md">
+              <div class="text-2xl font-bold text-green-400" id="avg-connection-time">N/A</div>
+              <div class="text-sm text-gray-300 mt-1">Avg. Connection Time</div>
             </div>
-            <div class="bg-gray-700 bg-opacity-50 rounded p-2 text-center">
-              <div id="device-count" class="text-2xl font-bold text-purple-400">0</div>
-              <div class="text-xs text-gray-400">Known Devices</div>
+            <div class="ble-metric-container bg-gray-700 rounded-lg p-3 shadow-md">
+              <div class="text-2xl font-bold text-yellow-400" id="device-count">0</div>
+              <div class="text-sm text-gray-300 mt-1">Known Devices</div>
             </div>
           </div>
         </div>
         
         <!-- Error Recovery -->
         <div>
-          <h3 class="text-sm font-semibold text-gray-300 uppercase mb-2">Error Recovery</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="bg-gray-700 bg-opacity-50 rounded p-2">
-              <div class="flex justify-between items-center mb-1">
-                <span class="text-xs text-gray-400">Recovery Success Rate</span>
-                <span id="recovery-success-rate" class="text-sm font-medium text-yellow-400">N/A</span>
+          <h3 class="ble-card-heading">Error Recovery</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="ble-metric-container bg-gray-700 rounded-lg p-3 shadow-md">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-sm text-gray-300">Recovery Success Rate</span>
+                <span id="recovery-success-rate" class="text-green-500 font-semibold">N/A</span>
               </div>
               <div class="flex justify-between items-center">
-                <span class="text-xs text-gray-400">Adapter Resets</span>
-                <span id="adapter-resets" class="text-sm font-medium text-red-400">0</span>
+                <span class="text-sm text-gray-300">Adapter Resets</span>
+                <span id="adapter-resets" class="text-red-500 font-semibold">0</span>
               </div>
             </div>
-            <div class="bg-gray-700 bg-opacity-50 rounded p-2">
-              <div class="mb-1">
-                <span class="text-xs text-gray-400">Top Errors</span>
+            <div class="ble-metric-container bg-gray-700 rounded-lg p-3 shadow-md">
+              <div class="mb-2">
+                <span class="text-sm text-gray-300">Top Errors</span>
               </div>
-              <div id="top-errors" class="space-y-1 text-xs">
-                <div class="text-gray-500">No errors recorded</div>
+              <div id="top-errors" class="space-y-2 text-xs">
+                <div class="text-gray-400">No errors recorded</div>
               </div>
             </div>
           </div>
         </div>
-        
-        <!-- Adapter Controls -->
-        <div>
-          <div class="flex justify-between items-center">
-            <button id="reset-adapter" class="btn btn-sm btn-danger">
-              <i class="fas fa-power-off mr-1"></i> Reset Adapter
-            </button>
-            <button id="refresh-metrics" class="btn btn-sm btn-secondary">
-              <i class="fas fa-sync mr-1"></i> Refresh Metrics
-            </button>
-          </div>
-        </div>
+      </div>
+      <!-- Adapter Controls -->
+      <div class="flex justify-between items-center">
+        <button id="reset-adapter" class="ble-btn ble-btn-danger">
+          <i class="fas fa-power-off mr-1"></i> Reset Adapter
+        </button>
+        <button id="refresh-metrics" class="ble-btn ble-btn-secondary">
+          <i class="fas fa-sync mr-1"></i> Refresh Metrics
+        </button>
       </div>
     {% endcall %}
   </div>
 
-  <!-- BLE Operations Log Card (Full Width) -->
-  <div class="grid grid-cols-1 gap-4 mt-4">
+  <!-- Sixth Row: BLE Operations Log and Settings -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+    <!-- BLE Operations Log Card -->
     {% call render_card(title="BLE Operations Log", id="ble-log-card", icon="terminal") %}
-      <div class="h-64 overflow-y-auto bg-gray-900 p-2 rounded">
-        <div id="ble-log-container" class="font-mono text-xs space-y-1">
+      <div class="ble-log-container">
+        <div id="ble-log-container" class="ble-log-content">
           <div class="text-gray-400">[System] BLE subsystem initialized</div>
         </div>
       </div>
       <div class="mt-2 flex justify-end">
-        <button id="clear-log-btn" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm">
+        <button id="clear-log-btn" class="ble-btn ble-btn-tertiary">
           Clear Log
         </button>
       </div>
     {% endcall %}
+
+    <!-- BLE Settings Panel -->
+    {% call render_card(title="BLE Settings", id="ble-settings-card", icon="cog") %}
+      <div class="space-y-4">
+        <form id="ble-settings-form">
+          <div class="flex items-center justify-between p-2 rounded-md">
+            <label for="setting-auto-connect" class="ble-settings-label">
+              Auto-connect to last device
+            </label>
+            <input type="checkbox" id="setting-auto-connect" class="ble-checkbox">
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <label for="setting-scan-duration" class="ble-settings-label">Scan Duration (seconds)</label>
+              <input type="number" id="setting-scan-duration" min="1" max="30" step="1" value="5"
+                    class="ble-input">
+            </div>
+            <div class="flex items-center p-2 rounded-md">
+              <label for="setting-active-scan" class="ble-settings-label">
+                Use active scanning
+              </label>
+              <input type="checkbox" id="setting-active-scan" checked class="ble-checkbox ml-2">
+            </div>
+          </div>
+          <div class="flex justify-end">
+            <button type="button" id="ble-reset-settings" class="ble-btn ble-btn-tertiary">
+              Reset to Defaults
+            </button>
+          </div>
+        </form>
+      </div>
+    {% endcall %}
   </div>
 
-  <div id="debug-panel" class="mt-6 p-4 bg-gray-900 rounded-lg border border-gray-700 hidden">
-    <h3 class="text-xl font-bold mb-2 text-white">API Debug Panel</h3>
-    <div class="flex flex-col space-y-4">
-      <div class="flex space-x-2">
-        <button id="debug-toggle" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm">
-          <i class="fas fa-eye mr-2"></i>Toggle Panel
-        </button>
-        <button id="debug-send" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
-          <i class="fas fa-paper-plane mr-2"></i>Send Request
-        </button>
+  <!-- Debug Panel and Button -->
+  <div class="grid grid-cols-1 gap-4 mb-4">
+    <!-- Debug Panel -->
+    {% call render_card(title="API Debug Panel", id="debug-panel-card", icon="bug") %}
+      <div id="debug-panel" class="p-4 space-y-4">
+        <div class="flex space-x-2">
+          <button id="debug-toggle" class="ble-btn ble-btn-secondary">
+            <i class="fas fa-eye mr-2"></i>Toggle Panel
+          </button>
+          <button id="debug-send" class="ble-btn ble-btn-primary">
+            <i class="fas fa-paper-plane mr-2"></i>Send Request
+          </button>
+        </div>
+        <select id="debug-endpoint" class="ble-select">
+          <option value="">Select debug endpoint...</option>
+          <!-- Populated dynamically by ble-debug.js -->
+        </select>
+        <label for="debug-endpoint" class="ble-input-label">Debug Endpoint</label>
+        <pre id="debug-response" class="ble-debug-response">Debug response will appear here</pre>
       </div>
-      <select id="debug-endpoint" class="bg-gray-800 text-white p-2 rounded w-full">
-        <option value="">Select debug endpoint...</option>
-        <!-- Populated dynamically by ble-debug.js -->
-      </select>
-      <label for="debug-endpoint" class="block text-white text-sm font-bold mb-2">Debug Endpoint</label>
-      <pre id="debug-response" class="bg-gray-800 p-2 rounded text-white text-sm overflow-auto max-h-48">Debug response will appear here</pre>
-    </div>
+    {% endcall %}
   </div>
 
   <div class="fixed bottom-4 right-4">
-    <button id="show-debug" type="button" title="Show Debug Panel" class="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-full shadow-lg">
+    <button id="show-debug" type="button" title="Show Debug Panel" class="ble-debug-button">
       <i class="fas fa-bug"></i>
     </button>
   </div>
@@ -280,10 +339,276 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- Import required JavaScript modules -->
 <script type="module" src="{{ url_for('static', path='js/pages/ble/ble.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-advanced.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-debug.js') }}"></script>
-<script>
-  console.log("BLE HTML template loaded - inline script works");
+
+<!-- Enhanced initialization script with event handler registration -->
+<script type="module">
+  // Import key BLE modules
+  import { 
+    state,
+    bleEvents, 
+    BLE_EVENTS,
+    initializeUI,
+    logMessage,
+    connectToDevice, 
+    disconnectFromDevice,
+    scanDevicesWithErrorHandling,
+    deviceCache,
+    getBatteryLevel,
+    runDiagnostics
+  } from "{{ url_for('static', path='js/pages/ble/ble.js') }}";
+
+  // Initialize DOM references
+  function initializeDomReferences() {
+    console.log('Ensuring DOM references are properly initialized...');
+    
+    // Make sure important elements exist
+    ['scan-btn', 'devices-list', 'clear-cache-btn', 'disconnect-btn', 
+     'battery-container', 'battery-level', 'battery-icon', 'refresh-battery',
+     'clear-log-btn', 'reset-adapter', 'refresh-metrics'].forEach(id => {
+      const element = document.getElementById(id);
+      if (!element) {
+        console.warn(`Element with ID "${id}" not found in DOM`);
+      }
+    });
+  }
+
+  // Set up form validation for numeric inputs
+  function setupFormValidation() {
+    const numericInputs = document.querySelectorAll('input[type="number"]');
+    numericInputs.forEach(input => {
+      input.addEventListener('input', function() {
+        const min = parseFloat(this.min);
+        const max = parseFloat(this.max);
+        let value = parseFloat(this.value);
+        
+        if (value < min) this.value = min;
+        if (value > max) this.value = max;
+        
+        // Add visual feedback
+        if (value >= min && value <= max) {
+          this.classList.remove('border-red-500');
+          this.classList.add('border-green-500');
+        } else {
+          this.classList.remove('border-green-500');
+          this.classList.add('border-red-500');
+        }
+      });
+    });
+  }
+
+  // Add custom UI enhancements
+  function enhanceUI() {
+    // Add hover animations to device list items
+    const deviceList = document.getElementById('devices-list');
+    if (deviceList) {
+      const observer = new MutationObserver(() => {
+        const deviceItems = deviceList.querySelectorAll('div');
+        deviceItems.forEach(item => {
+          if (!item.classList.contains('enhanced')) {
+            item.classList.add('enhanced', 'transition-all', 'hover:translate-x-1');
+            item.addEventListener('mouseenter', () => {
+              item.classList.add('bg-opacity-80');
+            });
+            item.addEventListener('mouseleave', () => {
+              item.classList.remove('bg-opacity-80');
+            });
+          }
+        });
+      });
+      
+      observer.observe(deviceList, { childList: true, subtree: true });
+    }
+    
+    // Add visual feedback when scanning
+    const scanBtn = document.getElementById('scan-btn');
+    if (scanBtn) {
+      scanBtn.addEventListener('click', () => {
+        scanBtn.classList.add('animate-pulse');
+        setTimeout(() => {
+          scanBtn.classList.remove('animate-pulse');
+        }, 5000); // Remove after 5 seconds
+      });
+    }
+  }
+
+  // Setup event listeners for real-time events
+  function setupEventListeners() {
+    // Listen for BLE events
+    if (window.bleEvents) {
+      window.bleEvents.on(BLE_EVENTS.DEVICE_CONNECTED, (device) => {
+        console.log('Device connected event received:', device);
+        
+        // Visual notification of connection
+        const deviceItem = document.querySelector(`[data-address="${device.address}"]`);
+        if (deviceItem) {
+          deviceItem.classList.add('ring-2', 'ring-green-500');
+        }
+      });
+      
+      window.bleEvents.on(BLE_EVENTS.CHARACTERISTIC_NOTIFICATION, (data) => {
+        // Enhance notification display
+        const notificationsContainer = document.getElementById('notifications-container');
+        if (notificationsContainer) {
+          const item = document.createElement('div');
+          item.className = 'notification-item bg-gray-800 p-2 mb-1 rounded animate-fade-in';
+          
+          const timestamp = document.createElement('span');
+          timestamp.className = 'text-xs text-gray-400';
+          timestamp.textContent = new Date().toLocaleTimeString();
+          
+          const valueSpan = document.createElement('span');
+          valueSpan.className = 'ml-2 text-white';
+          valueSpan.textContent = data.value;
+          
+          item.appendChild(timestamp);
+          item.appendChild(valueSpan);
+          
+          notificationsContainer.prepend(item);
+          
+          // Limit to 10 notifications
+          const notifications = notificationsContainer.children;
+          if (notifications.length > 10) {
+            notificationsContainer.removeChild(notifications[notifications.length - 1]);
+          }
+        }
+      });
+    }
+    
+    // Improve battery refresh UX
+    const refreshBatteryBtn = document.getElementById('refresh-battery');
+    if (refreshBatteryBtn) {
+      refreshBatteryBtn.addEventListener('click', () => {
+        refreshBatteryBtn.disabled = true;
+        refreshBatteryBtn.innerHTML = '<i class="fas fa-sync fa-spin"></i>';
+        
+        getBatteryLevel(state)
+          .then(() => {
+            refreshBatteryBtn.classList.add('text-green-500');
+            setTimeout(() => {
+              refreshBatteryBtn.classList.remove('text-green-500');
+            }, 500);
+          })
+          .catch(() => {
+            refreshBatteryBtn.classList.add('text-red-500');
+            setTimeout(() => {
+              refreshBatteryBtn.classList.remove('text-red-500');
+            }, 500);
+          })
+          .finally(() => {
+            setTimeout(() => {
+              refreshBatteryBtn.disabled = false;
+              refreshBatteryBtn.innerHTML = '<i class="fas fa-sync"></i>';
+            }, 1000);
+          });
+      });
+    }
+    
+    // Add diagnostic button functionality
+    const diagnosticsBtn = document.getElementById('diagnostics-btn');
+    if (diagnosticsBtn) {
+      diagnosticsBtn.addEventListener('click', () => {
+        runDiagnostics();
+      });
+    }
+  }
+
+  // Handle local storage for persistent settings
+  function setupPersistentSettings() {
+    // Save auto-reconnect setting
+    const autoReconnect = localStorage.getItem('bleAutoReconnect') === 'true';
+    
+    // Create toggle if it doesn't exist
+    if (!document.getElementById('auto-reconnect-toggle')) {
+      const container = document.createElement('div');
+      container.className = 'flex items-center justify-between mt-4';
+      container.innerHTML = `
+        <span class="text-sm text-gray-300">Auto-reconnect</span>
+        <label class="inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="auto-reconnect-toggle" class="sr-only peer" ${autoReconnect ? 'checked' : ''}>
+          <div class="relative w-11 h-6 bg-gray-700 rounded-full peer peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-600
+                    after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5
+                    after:transition-all peer-checked:after:translate-x-5"></div>
+        </label>
+      `;
+      
+      const deviceInfo = document.getElementById('device-info');
+      if (deviceInfo) {
+        deviceInfo.appendChild(container);
+        
+        // Add event listener
+        document.getElementById('auto-reconnect-toggle').addEventListener('change', function() {
+          localStorage.setItem('bleAutoReconnect', this.checked);
+          logMessage(`Auto-reconnect ${this.checked ? 'enabled' : 'disabled'}`, 'info');
+        });
+      }
+    }
+  }
+
+  // Main initialization function
+  document.addEventListener('DOMContentLoaded', async () => {
+    console.log("Enhanced BLE initialization starting...");
+    
+    // Force basic UI visibility first
+    document.body.style.backgroundColor = '#111827';
+    document.body.style.color = 'white';
+    
+    // Add a basic loading indicator in case styles aren't working
+    const loadingDiv = document.createElement('div');
+    loadingDiv.innerHTML = '<div style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background-color:#1F2937; color:white; padding:20px; border-radius:10px; z-index:9999;">Loading BLE Interface...</div>';
+    document.body.appendChild(loadingDiv);
+    
+    try {
+      // Initialize core components
+      initializeDomReferences();
+      setupFormValidation();
+      enhanceUI();
+      setupEventListeners();
+      setupPersistentSettings();
+      
+      // Attach diagnostic shortcuts for debugging
+      window.addEventListener('keydown', (e) => {
+        // Alt+D to run diagnostics
+        if (e.altKey && e.key === 'd') {
+          console.log('Running BLE diagnostics...');
+          runDiagnostics();
+        }
+        
+        // Alt+R to reset adapter
+        if (e.altKey && e.key === 'r') {
+          const resetBtn = document.getElementById('reset-adapter');
+          if (resetBtn) resetBtn.click();
+        }
+      });
+      
+      logMessage('Enhanced BLE Manager loaded successfully', 'success');
+    } catch (error) {
+      console.error('Error during enhanced initialization:', error);
+      const errorMessage = document.createElement('div');
+      errorMessage.style.position = 'fixed';
+      errorMessage.style.top = '20px';
+      errorMessage.style.left = '20px';
+      errorMessage.style.right = '20px';
+      errorMessage.style.padding = '20px';
+      errorMessage.style.backgroundColor = '#EF4444';
+      errorMessage.style.color = 'white';
+      errorMessage.style.borderRadius = '8px';
+      errorMessage.style.zIndex = '9999';
+      errorMessage.innerHTML = `<strong>Error loading BLE Interface:</strong> ${error.message}<br>Check console for details.`;
+      document.body.appendChild(errorMessage);
+    } finally {
+      // Remove loading indicator after 2 seconds
+      setTimeout(() => loadingDiv.remove(), 2000);
+    }
+  });
+</script>
+
+<script type="module">
+    // Import all BLE functionality
+    import * as BLE from './static/js/pages/ble/index.js';
+    
+    // Access exported functions if needed
+    window.BLE = BLE; // Optional: make BLE available globally
 </script>
 {% endblock %}

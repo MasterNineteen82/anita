@@ -1,80 +1,105 @@
+import logging
 import json
 import os
-import logging
-from typing import Dict, List, Any, Optional
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 class BLEDeviceStorage:
-    """Persistent storage for BLE device information and bonding."""
+    """Storage class for BLE device information and configurations."""
     
-    def __init__(self, storage_path: str = None, logger=None):
-        self.logger = logger or logging.getLogger(__name__)
-        self.storage_path = storage_path or os.path.join(os.path.expanduser("~"), ".anita", "ble_devices.json")
-        self._ensure_storage_dir()
-        self.devices = self._load_devices()
-    
-    def _ensure_storage_dir(self):
-        """Ensure the storage directory exists."""
-        os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
-    
-    def _load_devices(self) -> Dict[str, Any]:
-        """Load devices from storage."""
+    def __init__(self, storage_dir: str = None):
+        self.storage_dir = storage_dir or os.path.join(os.path.expanduser("~"), ".blemanager")
+        os.makedirs(self.storage_dir, exist_ok=True)
+        self.bonded_devices_file = os.path.join(self.storage_dir, "bonded_devices.json")
+        self.device_preferences_file = os.path.join(self.storage_dir, "device_preferences.json")
+        
+    async def get_bonded_devices(self) -> List[Dict[str, Any]]:
+        """Get list of bonded/paired devices."""
         try:
-            if os.path.exists(self.storage_path):
-                with open(self.storage_path, 'r') as f:
-                    return json.load(f)
-            return {}
+            if not os.path.exists(self.bonded_devices_file):
+                return []
+                
+            with open(self.bonded_devices_file, 'r') as f:
+                devices = json.load(f)
+            return devices
         except Exception as e:
-            self.logger.error(f"Error loading BLE devices: {e}")
-            return {}
-    
-    def _save_devices(self):
-        """Save devices to storage."""
+            logger.error(f"Error loading bonded devices: {e}", exc_info=True)
+            return []
+            
+    async def add_bonded_device(self, device: Dict[str, Any]) -> bool:
+        """Add a device to the bonded devices list."""
         try:
-            with open(self.storage_path, 'w') as f:
-                json.dump(self.devices, f, indent=2)
+            devices = await self.get_bonded_devices()
+            
+            # Check if device already exists
+            if any(d.get("address") == device.get("address") for d in devices):
+                # Update the existing device
+                devices = [device if d.get("address") == device.get("address") else d for d in devices]
+            else:
+                # Add timestamp to the device info
+                device["bonded_at"] = datetime.now().isoformat()
+                devices.append(device)
+                
+            with open(self.bonded_devices_file, 'w') as f:
+                json.dump(devices, f, indent=2)
+            return True
         except Exception as e:
-            self.logger.error(f"Error saving BLE devices: {e}")
-    
-    def get_device(self, address: str) -> Optional[Dict[str, Any]]:
-        """Get device information by address."""
-        return self.devices.get(address)
-    
-    def get_all_devices(self) -> List[Dict[str, Any]]:
-        """Get all stored devices."""
-        return [
-            {"address": addr, **info} 
-            for addr, info in self.devices.items()
-        ]
-    
-    def get_bonded_devices(self) -> List[Dict[str, Any]]:
-        """Get all bonded devices."""
-        return [
-            {"address": addr, **info} 
-            for addr, info in self.devices.items() 
-            if info.get("bonded", False)
-        ]
-    
-    def save_device(self, address: str, info: Dict[str, Any]):
-        """Save device information."""
-        self.devices[address] = info
-        self._save_devices()
-    
-    def update_device(self, address: str, updates: Dict[str, Any]):
-        """Update device information."""
-        if address in self.devices:
-            self.devices[address].update(updates)
-            self._save_devices()
-    
-    def remove_device(self, address: str):
-        """Remove a device from storage."""
-        if address in self.devices:
-            del self.devices[address]
-            self._save_devices()
-    
-    def set_bonded(self, address: str, bonded: bool = True):
-        """Mark a device as bonded/unbonded."""
-        if address in self.devices:
-            self.devices[address]["bonded"] = bonded
-        else:
-            self.devices[address] = {"bonded": bonded}
-        self._save_devices()
+            logger.error(f"Error adding bonded device: {e}", exc_info=True)
+            return False
+            
+    async def remove_bonded_device(self, address: str) -> bool:
+        """Remove a device from the bonded devices list."""
+        try:
+            devices = await self.get_bonded_devices()
+            devices = [d for d in devices if d.get("address") != address]
+            
+            with open(self.bonded_devices_file, 'w') as f:
+                json.dump(devices, f, indent=2)
+            return True
+        except Exception as e:
+            logger.error(f"Error removing bonded device: {e}", exc_info=True)
+            return False
+            
+    async def get_device_preferences(self, address: str) -> Dict[str, Any]:
+        """Get preferences for a specific device."""
+        try:
+            if not os.path.exists(self.device_preferences_file):
+                return {}
+                
+            with open(self.device_preferences_file, 'r') as f:
+                all_preferences = json.load(f)
+                
+            return all_preferences.get(address, {})
+        except Exception as e:
+            logger.error(f"Error loading device preferences: {e}", exc_info=True)
+            return {}
+            
+    async def save_device_preferences(self, address: str, preferences: Dict[str, Any]) -> bool:
+        """Save preferences for a specific device."""
+        try:
+            all_preferences = {}
+            
+            if os.path.exists(self.device_preferences_file):
+                with open(self.device_preferences_file, 'r') as f:
+                    all_preferences = json.load(f)
+                    
+            all_preferences[address] = preferences
+            
+            with open(self.device_preferences_file, 'w') as f:
+                json.dump(all_preferences, f, indent=2)
+            return True
+        except Exception as e:
+            logger.error(f"Error saving device preferences: {e}", exc_info=True)
+            return False
+
+# Singleton persistence service
+_persistence_service = None
+
+def get_persistence_service():
+    """Get the BLE persistence service singleton."""
+    global _persistence_service
+    if _persistence_service is None:
+        _persistence_service = BLEDeviceStorage()
+    return _persistence_service

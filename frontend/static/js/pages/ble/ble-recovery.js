@@ -110,7 +110,7 @@ export async function resetAdapter() {
  * @param {Boolean} success - Whether recovery was successful
  * @param {Number} time - Time taken for recovery in ms
  */
-function recordRecoveryAttempt(address, success, time) {
+export function recordRecoveryAttempt(address, success, time) {
     try {
         // Get existing metrics
         const metricsStr = localStorage.getItem('ble-recovery-metrics');
@@ -177,7 +177,7 @@ function recordRecoveryAttempt(address, success, time) {
  * @param {String} name - Device name
  * @returns {Promise<Boolean>} Success status
  */
-async function attemptReconnection(state, address, name) {
+export async function attemptReconnection(state, address, name) {
     try {
         logMessage(`Attempting simple reconnection to ${name}...`, 'info');
         
@@ -221,7 +221,7 @@ async function attemptReconnection(state, address, name) {
  * Initialize recovery UI components
  * @param {Object} state - Application state
  */
-function initializeRecoveryUI(state) {
+export function initializeRecoveryUI(state) {
     // Add recovery mode toggle to advanced settings
     const advancedSettingsContainer = document.querySelector('#ble-advanced-settings');
     if (advancedSettingsContainer) {
@@ -319,7 +319,7 @@ function initializeRecoveryUI(state) {
  * @param {String} address - Device address
  * @param {String} name - Device name
  */
-function showRecoveryUI(state, address, name) {
+export function showRecoveryUI(state, address, name) {
     // Get the device info container
     const deviceInfoContainer = state.domElements.deviceInfoContent;
     if (!deviceInfoContainer) return;
@@ -443,7 +443,7 @@ function showRecoveryUI(state, address, name) {
  * @param {String} address - Optional device address to diagnose
  * @returns {Promise<Object>} Diagnostic results
  */
-async function diagnoseBleConnection(state, address = null) {
+export async function diagnoseBleConnection(state, address = null) {
     try {
         logMessage('Starting BLE connection diagnostics...', 'info');
         
@@ -528,7 +528,7 @@ async function diagnoseBleConnection(state, address = null) {
  * Show diagnostics results in UI
  * @param {Object} diagnostics - Diagnostic results
  */
-function showDiagnosticsResults(diagnostics) {
+export function showDiagnosticsResults(diagnostics) {
     // Create diagnostics modal
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70';
@@ -639,7 +639,7 @@ function showDiagnosticsResults(diagnostics) {
  * @param {Object} diagnostics - Diagnostic results
  * @returns {Array<String>} Recommendations
  */
-function generateRecommendations(diagnostics) {
+export function generateRecommendations(diagnostics) {
     const recommendations = [];
     
     // API connectivity issues
@@ -682,7 +682,7 @@ function generateRecommendations(diagnostics) {
 /**
  * Set up diagnostic collection for BLE issues
  */
-function setupDiagnosticCollection() {
+export function setupDiagnosticCollection() {
     // Listen for certain types of errors
     window.addEventListener('unhandledrejection', event => {
         // Only capture BLE-related errors
@@ -717,7 +717,7 @@ function setupDiagnosticCollection() {
  * @param {String} type - Error type
  * @param {String} message - Error message
  */
-function recordErrorForDiagnostics(type, message) {
+export function recordErrorForDiagnostics(type, message) {
     try {
         // Get existing diagnostics
         const diagnosticsStr = localStorage.getItem('ble-error-diagnostics');
@@ -751,7 +751,7 @@ function recordErrorForDiagnostics(type, message) {
  * @param {String} name - Device name
  * @returns {Promise<Boolean>} Success status
  */
-async function recoverConnection(address, name) {
+export async function recoverConnection(address, name) {
     try {
         logMessage(`Attempting connection recovery for ${name}...`, 'info');
         
@@ -839,7 +839,7 @@ async function recoverConnection(address, name) {
  * @param {String} message - Confirmation message
  * @param {Function} onConfirm - Function to call when user confirms
  */
-function showConfirmationDialog(title, message, onConfirm) {
+export function showConfirmationDialog(title, message, onConfirm) {
     // Create modal dialog
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-70';
@@ -884,5 +884,282 @@ function showConfirmationDialog(title, message, onConfirm) {
     });
 }
 
-// Export additional functions
-export { recoverConnection, diagnoseBleConnection, showDiagnosticsResults };
+/**
+ * Handles connection failure and attempts recovery
+ * @param {Object} state - Application state
+ * @param {String} address - Device address
+ * @param {String} name - Device name
+ * @returns {Promise<Boolean>} Success status
+ */
+export async function recoverFromConnectionFailure(state, address, name) {
+    try {
+        // Check if auto recovery is enabled
+        if (!state.autoReconnectEnabled) {
+            logMessage('Auto recovery is disabled', 'info');
+            return false;
+        }
+        
+        // Initialize recovery count if not present
+        if (!state.recoveryAttempts) {
+            state.recoveryAttempts = {};
+        }
+        
+        // Initialize recovery count for this device
+        if (!state.recoveryAttempts[address]) {
+            state.recoveryAttempts[address] = 0;
+        }
+        
+        // Increment recovery count
+        state.recoveryAttempts[address]++;
+        
+        // Log recovery attempt
+        logMessage(`Recovery attempt ${state.recoveryAttempts[address]} for ${name || address}`, 'info');
+        
+        // Track recovery start time
+        const startTime = Date.now();
+        
+        // Set recovery mode
+        state.inRecoveryMode = true;
+        state.recoveryCleanupNeeded = true;
+        
+        // Decide recovery strategy based on attempt count
+        let success = false;
+        
+        if (state.recoveryAttempts[address] <= 2) {
+            // For first two attempts, try simple reconnection
+            logMessage('Attempting simple reconnection...', 'info');
+            success = await attemptReconnection(state, address, name);
+        } else if (state.recoveryAttempts[address] <= 4) {
+            // For attempts 3-4, try full recovery
+            logMessage('Attempting full recovery procedure...', 'info');
+            success = await recoverConnection(address, name);
+        } else if (state.enableAdvancedRecovery && state.recoveryAttempts[address] <= 5) {
+            // For attempt 5, reset adapter and try again if advanced recovery is enabled
+            logMessage('Attempting advanced recovery with adapter reset...', 'info');
+            await resetAdapter();
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for adapter to stabilize
+            success = await recoverConnection(address, name);
+        } else {
+            // Too many attempts, show manual recovery UI
+            logMessage('Automatic recovery failed, showing recovery UI', 'warning');
+            showRecoveryUI(state, address, name);
+            return false;
+        }
+        
+        // Calculate recovery time
+        const recoveryTime = Date.now() - startTime;
+        
+        // Record recovery metrics
+        recordRecoveryAttempt(address, success, recoveryTime);
+        
+        // Reset recovery state if successful
+        if (success) {
+            state.inRecoveryMode = false;
+            state.recoveryAttempts[address] = 0;
+            
+            // Re-connect UI events if needed
+            if (window.bleEvents) {
+                window.bleEvents.emit(BLE_EVENTS.DEVICE_RECOVERED, {
+                    address: address,
+                    name: name
+                });
+            }
+        }
+        
+        return success;
+    } catch (error) {
+        console.error('Recovery failed:', error);
+        logMessage(`Recovery failed: ${error.message}`, 'error');
+        state.inRecoveryMode = false;
+        return false;
+    }
+}
+
+/**
+ * Setup recovery options and initialize state
+ * @param {Object} state - Application state
+ * @returns {Object} Updated state with recovery options
+ */
+export function setupRecoveryOptions(state) {
+    // Initialize recovery state if not already present
+    if (!state.recoveryOptions) {
+        state.recoveryOptions = {
+            enabled: true,
+            maxAttempts: 5,
+            timeout: 30000,
+            attemptsBeforeReset: 3,
+            waitBetweenAttempts: 2000,
+            enableAdvancedRecovery: true
+        };
+    }
+    
+    // Initialize recovery counters
+    state.recoveryAttempts = state.recoveryAttempts || {};
+    state.inRecoveryMode = state.inRecoveryMode || false;
+    state.recoveryCleanupNeeded = state.recoveryCleanupNeeded || false;
+    state.lastRecoveryTimestamp = state.lastRecoveryTimestamp || null;
+    
+    // Initialize auto-reconnect setting
+    if (typeof state.autoReconnectEnabled === 'undefined') {
+        state.autoReconnectEnabled = true;
+    }
+    
+    // Setup event listeners for recovery if not already set
+    if (!state.recoveryListenersInitialized) {
+        // Use existing BLE events system
+        if (window.bleEvents) {
+            window.bleEvents.on(BLE_EVENTS.DEVICE_DISCONNECTED, (data) => {
+                handleRecoveryEvent(state, 'disconnected', data);
+            });
+            
+            window.bleEvents.on(BLE_EVENTS.CONNECTION_FAILED, (data) => {
+                handleRecoveryEvent(state, 'connection_failed', data);
+            });
+            
+            window.bleEvents.on(BLE_EVENTS.DEVICE_RECOVERED, (data) => {
+                handleRecoveryEvent(state, 'recovered', data);
+            });
+        }
+        
+        state.recoveryListenersInitialized = true;
+    }
+    
+    logMessage('Recovery options initialized', 'info');
+    return state;
+}
+
+/**
+ * Handle recovery events
+ * @param {Object} state - Application state
+ * @param {String} event - Event name
+ * @param {Object} data - Event data
+ */
+export function handleRecoveryEvent(state, event, data) {
+    if (!state || !state.recoveryOptions) {
+        console.warn('Recovery state not initialized');
+        return;
+    }
+    
+    switch (event) {
+        case 'disconnected':
+            if (state.autoReconnectEnabled && !state.inRecoveryMode) {
+                logMessage(`Device ${data.name || data.address} disconnected, initiating recovery...`, 'info');
+                state.lastRecoveryTimestamp = Date.now();
+                // Start recovery process
+                recoverFromConnectionFailure(state, data.address, data.name);
+            }
+            break;
+            
+        case 'connection_failed':
+            if (state.autoReconnectEnabled && !state.inRecoveryMode) {
+                logMessage(`Connection to ${data.name || data.address} failed, initiating recovery...`, 'info');
+                state.lastRecoveryTimestamp = Date.now();
+                // Start recovery process
+                recoverFromConnectionFailure(state, data.address, data.name);
+            }
+            break;
+            
+        case 'recovered':
+            // Reset recovery state for this device
+            if (state.recoveryAttempts && state.recoveryAttempts[data.address]) {
+                state.recoveryAttempts[data.address] = 0;
+            }
+            state.inRecoveryMode = false;
+            logMessage(`Device ${data.name || data.address} successfully recovered`, 'success');
+            break;
+            
+        default:
+            console.warn(`Unknown recovery event: ${event}`);
+    }
+}
+
+/**
+ * Get current recovery state
+ * @param {Object} state - Application state
+ * @returns {Object} Recovery state
+ */
+export function getRecoveryState(state) {
+    if (!state) return null;
+    
+    return {
+        enabled: state.autoReconnectEnabled,
+        inRecoveryMode: state.inRecoveryMode || false,
+        recoveryAttempts: state.recoveryAttempts || {},
+        lastRecoveryTimestamp: state.lastRecoveryTimestamp,
+        advancedRecoveryEnabled: state.enableAdvancedRecovery,
+        options: state.recoveryOptions || {}
+    };
+}
+
+/**
+ * Reset recovery attempt count for a device
+ * @param {Object} state - Application state
+ * @param {String} address - Device address (optional, if not provided resets all devices)
+ */
+export function resetRecoveryCount(state, address = null) {
+    if (!state || !state.recoveryAttempts) {
+        console.warn('Recovery state not initialized');
+        return;
+    }
+    
+    if (address) {
+        // Reset for specific device
+        if (state.recoveryAttempts[address]) {
+            state.recoveryAttempts[address] = 0;
+            logMessage(`Recovery count reset for device ${address}`, 'info');
+        }
+    } else {
+        // Reset for all devices
+        state.recoveryAttempts = {};
+        logMessage('Recovery count reset for all devices', 'info');
+    }
+}
+
+/**
+ * Enable auto recovery
+ * @param {Object} state - Application state
+ * @param {Boolean} enableAdvanced - Whether to enable advanced recovery as well
+ */
+export function enableAutoRecovery(state, enableAdvanced = true) {
+    if (!state) {
+        console.warn('Application state not initialized');
+        return;
+    }
+    
+    state.autoReconnectEnabled = true;
+    state.enableAdvancedRecovery = enableAdvanced;
+    
+    // Update UI toggles if they exist
+    const autoReconnectToggle = document.getElementById('auto-reconnect-toggle');
+    if (autoReconnectToggle) {
+        autoReconnectToggle.checked = true;
+    }
+    
+    const advancedRecoveryToggle = document.getElementById('advanced-recovery-toggle');
+    if (advancedRecoveryToggle && enableAdvanced) {
+        advancedRecoveryToggle.checked = true;
+    }
+    
+    logMessage(`Auto-recovery ${enableAdvanced ? 'and advanced recovery ' : ''}enabled`, 'info');
+}
+
+/**
+ * Disable auto recovery
+ * @param {Object} state - Application state
+ */
+export function disableAutoRecovery(state) {
+    if (!state) {
+        console.warn('Application state not initialized');
+        return;
+    }
+    
+    state.autoReconnectEnabled = false;
+    
+    // Update UI toggle if it exists
+    const autoReconnectToggle = document.getElementById('auto-reconnect-toggle');
+    if (autoReconnectToggle) {
+        autoReconnectToggle.checked = false;
+    }
+    
+    logMessage('Auto-recovery disabled', 'info');
+}

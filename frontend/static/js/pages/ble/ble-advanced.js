@@ -20,6 +20,7 @@ export function initializeAdvancedFeatures(state) {
     // Update metrics on page load
     refreshMetrics();
     
+    
     // Setup periodic metrics refresh
     setInterval(refreshMetrics, 30000); // Refresh every 30 seconds
     
@@ -30,7 +31,7 @@ export function initializeAdvancedFeatures(state) {
  * Initialize MTU negotiation controls
  * @param {Object} state - Shared BLE state object
  */
-function initializeMtuControls(state) {
+export function initializeMtuControls(state) {
     const mtuInput = document.getElementById('mtu-input');
     const mtuButton = document.getElementById('mtu-button');
     
@@ -88,7 +89,7 @@ function initializeMtuControls(state) {
  */
 // Add a fallback when buttons aren't found
 
-function initializeConnectionParamControls(state) {
+export function initializeConnectionParamControls(state) {
     const minIntervalInput = document.getElementById('min-interval');
     const maxIntervalInput = document.getElementById('max-interval');
     const latencyInput = document.getElementById('latency');
@@ -172,7 +173,7 @@ getParamsButton.addEventListener('click', async () => {
  * Initialize device bonding controls
  * @param {Object} state - Shared BLE state object
  */
-function initializeBondingControls(state) {
+export function initializeBondingControls(state) {
     const bondButton = document.getElementById('bond-button');
     const unbondButton = document.getElementById('unbond-button');
     const bondedDevicesList = document.getElementById('bonded-devices-list');
@@ -266,7 +267,7 @@ function initializeBondingControls(state) {
  * Load and display bonded devices
  * @param {HTMLElement} container - Container element for bonded devices list
  */
-async function loadBondedDevices(container) {
+export async function loadBondedDevices(container) {
     if (!container) return;
     
     try {
@@ -322,6 +323,86 @@ async function loadBondedDevices(container) {
 }
 
 /**
+ * Load and display bonded devices in the DOM
+ * @param {HTMLElement} container - Container element for bonded devices list
+ */
+export async function displayBondedDevices(container) {
+    if (!container) return;
+
+    try {
+        // Show loading
+        container.innerHTML = '<div class="text-gray-500 text-center py-2"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</div>';
+
+        // Fetch bonded devices
+        const devices = await fetchBondedDevices();
+
+        // Display devices
+        if (devices.length === 0) {
+            container.innerHTML = '<div class="text-gray-500 text-sm">No bonded devices</div>';
+            return;
+        }
+
+        // Create list items
+        container.innerHTML = '';
+        devices.forEach(device => {
+            const deviceEl = document.createElement('div');
+            deviceEl.className = 'flex justify-between items-center p-1 border-b border-gray-700 last:border-0';
+            deviceEl.innerHTML = `
+                <div class="text-sm truncate" title="${device.address}">
+                    ${device.name || 'Unknown Device'}
+                </div>
+                <button class="connect-bonded-btn text-xs text-blue-400 hover:text-blue-300 ml-2" 
+                        data-address="${device.address}">
+                    <i class="fas fa-plug mr-1"></i>Connect
+                </button>
+            `;
+            container.appendChild(deviceEl);
+
+            // Add connection event handler
+            const connectBtn = deviceEl.querySelector('.connect-bonded-btn');
+            if (connectBtn) {
+                connectBtn.addEventListener('click', () => {
+                    // This should trigger connection in main BLE module
+                    window.dispatchEvent(new CustomEvent('CONNECT_TO_DEVICE', { 
+                        detail: { address: device.address } 
+                    }));
+                });
+            }
+        });
+
+    } catch (error) {
+        console.error('Error loading bonded devices:', error);
+        container.innerHTML = `<div class="text-red-400 text-sm">Error: ${error.message}</div>`;
+    }
+}
+
+/**
+ * Fetch bonded BLE devices from the backend.
+ * @returns {Promise<Array>} - List of bonded devices
+ */
+export async function fetchBondedDevices() {
+    try {
+        const response = await fetch('/api/ble/devices/bonded', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache'
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Failed to load bonded devices: ${JSON.stringify(errorData)}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching bonded devices:', error);
+        return [];
+    }
+}
+
+/**
  * Initialize metrics display
  */
 function initializeMetricsDisplay() {
@@ -347,7 +428,7 @@ function showConfirmationDialog(message) {
     });
 }
 
-async function refreshMetrics() {
+export async function refreshMetrics() {
     const successRateEl = document.getElementById('connection-success-rate');
     const avgConnTimeEl = document.getElementById('avg-connection-time');
     const deviceCountEl = document.getElementById('device-count');
@@ -450,4 +531,215 @@ function initializeAdapterControls() {
             resetAdapterBtn.innerHTML = '<i class="fas fa-power-off mr-1"></i> Reset Adapter';
         }
     });
+}
+
+/**
+ * Set up all advanced BLE controls
+ * @param {Object} state - Shared BLE state object
+ */
+export function setupAdvancedControls(state) {
+    initializeMtuControls(state);
+    initializeConnectionParamControls(state);
+    initializeBondingControls(state);
+    setupConnectionPriority(state);
+    
+    const mtuInput = document.getElementById('mtu-input');
+    if (mtuInput) {
+        mtuInput.addEventListener('change', (e) => handleMtuSizeChange(e, state));
+    }
+}
+
+/**
+ * Handle change in MTU size input
+ * @param {Event} event - Input change event
+ * @param {Object} state - Shared BLE state object
+ */
+export function handleMtuSizeChange(event, state) {
+    const mtuSize = parseInt(event.target.value, 10);
+    
+    if (isNaN(mtuSize) || mtuSize < 23 || mtuSize > 517) {
+        event.target.classList.add('border-red-500');
+        logMessage('Invalid MTU size. Must be between 23 and 517', 'warning');
+    } else {
+        event.target.classList.remove('border-red-500');
+        if (state && state.mtuSettings) {
+            state.mtuSettings.requestedSize = mtuSize;
+        }
+    }
+}
+
+/**
+ * Negotiate MTU size with connected device
+ * @param {number} mtuSize - Requested MTU size
+ * @returns {Promise<Object>} - Result of MTU negotiation
+ */
+export async function negotiateMtuSize(mtuSize) {
+    if (isNaN(mtuSize) || mtuSize < 23 || mtuSize > 517) {
+        throw new Error('Invalid MTU size. Must be between 23 and 517');
+    }
+    
+    try {
+        const response = await fetch('/api/ble/mtu', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ size: mtuSize })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to negotiate MTU');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        logMessage(`MTU negotiation failed: ${error.message}`, 'error');
+        throw error;
+    }
+}
+
+/**
+ * Remove bond with a specific device
+ * @param {string} deviceAddress - Address of the device to unbond
+ * @returns {Promise<Object>} - Result of unbonding operation
+ */
+export async function removeBond(deviceAddress) {
+    if (!deviceAddress) {
+        throw new Error('Device address is required');
+    }
+    
+    try {
+        const response = await fetch(`/api/ble/devices/${deviceAddress}/bond`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Unbonding failed');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        logMessage(`Unbonding failed: ${error.message}`, 'error');
+        throw error;
+    }
+}
+
+/**
+ * Clear all bonded devices
+ * @returns {Promise<Object>} - Result of operation
+ */
+export async function clearAllBonds() {
+    try {
+        const confirmClear = await showConfirmationDialog('Are you sure you want to clear all bonded devices?');
+        if (!confirmClear) {
+            return { canceled: true };
+        }
+        
+        const response = await fetch('/api/ble/devices/bonded', {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to clear bonded devices');
+        }
+        
+        logMessage('All bonded devices cleared successfully', 'success');
+        return await response.json();
+    } catch (error) {
+        logMessage(`Failed to clear bonds: ${error.message}`, 'error');
+        throw error;
+    }
+}
+
+/**
+ * Setup connection priority controls
+ * @param {Object} state - Shared BLE state object
+ */
+export function setupConnectionPriority(state) {
+    const highPriorityBtn = document.getElementById('high-priority-btn');
+    const balancedPriorityBtn = document.getElementById('balanced-priority-btn');
+    const lowPowerPriorityBtn = document.getElementById('low-power-btn');
+    
+    const setPriority = async (priority) => {
+        if (!state.connected) {
+            logMessage('Cannot set connection priority: Not connected to a device', 'warning');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/ble/connection-priority', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ priority })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to set connection priority');
+            }
+            
+            logMessage(`Connection priority set to ${priority}`, 'success');
+            return await response.json();
+        } catch (error) {
+            logMessage(`Failed to set connection priority: ${error.message}`, 'error');
+            throw error;
+        }
+    };
+    
+    if (highPriorityBtn) {
+        highPriorityBtn.addEventListener('click', () => setPriority('high'));
+        state.eventBus.on('CONNECTION_STATE_CHANGED', (connected) => {
+            highPriorityBtn.disabled = !connected;
+        });
+    }
+    
+    if (balancedPriorityBtn) {
+        balancedPriorityBtn.addEventListener('click', () => setPriority('balanced'));
+        state.eventBus.on('CONNECTION_STATE_CHANGED', (connected) => {
+            balancedPriorityBtn.disabled = !connected;
+        });
+    }
+    
+    if (lowPowerPriorityBtn) {
+        lowPowerPriorityBtn.addEventListener('click', () => setPriority('low_power'));
+        state.eventBus.on('CONNECTION_STATE_CHANGED', (connected) => {
+            lowPowerPriorityBtn.disabled = !connected;
+        });
+    }
+}
+
+/**
+ * Set connection parameters for the current connection
+ * @param {Object} params - Connection parameters object
+ * @returns {Promise<Object>} - Result of operation
+ */
+export async function setConnectionParameters(params) {
+    try {
+        if (!params.minInterval || !params.maxInterval || params.latency === undefined || !params.timeout) {
+            throw new Error('All connection parameters must be provided');
+        }
+        
+        const response = await fetch('/api/ble/connection-parameters', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                min_interval: params.minInterval,
+                max_interval: params.maxInterval,
+                latency: params.latency,
+                timeout: params.timeout
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to set connection parameters');
+        }
+        
+        logMessage('Connection parameters updated successfully', 'success');
+        return await response.json();
+    } catch (error) {
+        logMessage(`Failed to set connection parameters: ${error.message}`, 'error');
+        throw error;
+    }
 }

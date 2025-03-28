@@ -1,5 +1,10 @@
 import { logMessage, updateSubscriptionStatus } from './ble-ui.js';
 import { formatCharacteristicValue } from './ble-services.js';
+import { updateDeviceList } from './ble-device-list.js';
+import { updateStatus } from './ble-ui.js';
+import { updateAdapterInfo } from './ble-ui.js';
+
+
 
 let retryCount = 0;
 const maxRetries = 5;
@@ -35,32 +40,26 @@ export function connectWebSocket(state) {
             console.log('WebSocket connection established');
             logMessage('WebSocket connected', 'info');
             state.socketConnected = true;
-            
-            // Set up ping interval to keep connection alive
-            if (state.pingInterval) clearInterval(state.pingInterval);
-            state.pingInterval = setInterval(() => {
-                if (socket.readyState === WebSocket.OPEN) {
-                    socket.send(JSON.stringify({ type: 'ping' }));
-                }
-            }, 30000); // Send ping every 30 seconds
+            retryCount = 0; // Reset retry count on successful connection
         };
         
         socket.onclose = (event) => {
-            console.log('WebSocket connection closed', event);
-            logMessage(`WebSocket disconnected (${event.code})`, 'warning');
             state.socketConnected = false;
+            console.log(`WebSocket connection closed: ${event.code}`);
             
-            // Clear ping interval
-            if (state.pingInterval) {
-                clearInterval(state.pingInterval);
-                state.pingInterval = null;
+            // Don't try to reconnect for normal close events (1000, 1001)
+            if (event.code !== 1000 && event.code !== 1001) {
+                logMessage('WebSocket disconnected. Reconnecting...', 'warning');
+                scheduleReconnection(state);
+            } else {
+                // Normal closure - still reconnect if we're not navigating away
+                // Add a small delay to check if we're navigating away
+                setTimeout(() => {
+                    if (document.visibilityState === 'visible') {
+                        scheduleReconnection(state);
+                    }
+                }, 500);
             }
-            
-            // Attempt to reconnect after a delay
-            setTimeout(() => {
-                logMessage('Attempting to reconnect WebSocket...', 'info');
-                state.socket = connectWebSocket(state);
-            }, 5000);
         };
         
         socket.onerror = (error) => {
@@ -80,17 +79,17 @@ export function connectWebSocket(state) {
         
         return socket;
     } catch (error) {
-        console.error('Error creating WebSocket:', error);
-        logMessage(`Failed to create WebSocket: ${error.message}`, 'error');
+        console.error('Failed to connect WebSocket:', error);
+        logMessage(`WebSocket connection error: ${error.message}`, 'error');
+        scheduleReconnection(state);
         return null;
     }
 }
-
 /**
  * Schedule WebSocket reconnection with exponential backoff
  * @param {Object} state - The shared BLE state object
  */
-function scheduleReconnection(state) {
+export function scheduleReconnection(state) {
     if (state.reconnectAttempts === undefined) {
         state.reconnectAttempts = 0;
     }
@@ -121,7 +120,7 @@ function scheduleReconnection(state) {
  * Start ping interval to keep WebSocket connection alive
  * @param {WebSocket} socket - The WebSocket instance
  */
-function startPingInterval(socket) {
+export function startPingInterval(socket) {
     const PING_INTERVAL = 30000; // 30 seconds
     
     // Clear any existing interval
@@ -141,44 +140,51 @@ function startPingInterval(socket) {
     }, PING_INTERVAL);
 }
 
-/**
- * Handle incoming WebSocket messages
- * @param {Object} state - The shared BLE state object
- * @param {MessageEvent} event - The WebSocket message event
- */
-export function handleWebSocketMessage(state, event) {
+// Update the message handler to properly handle invalid JSON
+export function handleWebSocketMessage(event) {
     try {
-        const data = JSON.parse(event.data);
-        console.log("WebSocket message received:", data);
+        if (!event.data || event.data.trim() === '') {
+            console.warn('Received empty WebSocket message');
+            return;
+        }
         
+        const message = JSON.parse(event.data);
+        console.log('Received WebSocket message:', message);
+
         // Handle different message types
-        switch (data.type) {
-            case "ble.characteristic":
-                handleCharacteristicNotification(state, data);
+        switch (message.type) {
+            case 'log':
+                logMessage(message.content, message.level || 'info');
                 break;
-            case "ble.characteristic_subscription":
-                handleSubscriptionUpdate(state, data);
+            case 'device_update':
+                if (typeof updateDeviceList === 'function') {
+                    updateDeviceList(message.devices);
+                } else {
+                    console.error('updateDeviceList function not available');
+                }
                 break;
-            case "ble.connection":
-                handleConnectionUpdate(state, data);
+            case 'status_update':
+                updateStatus(message.status);
                 break;
-            case "error":
-                console.error("WebSocket error message:", data.message);
+            case 'adapter_info':
+                updateAdapterInfo(message.info);
                 break;
-            case "pong":
-                // Received response to our ping
+            case 'ble.notification':
+                // Handle characteristic notification
+                console.log(`Notification received from ${message.char_uuid}: ${message.decoded_value}`);
                 break;
             default:
-                console.warn("Unknown WebSocket message type:", data.type);
-        }
-        
-        // Broadcast the message via the event system if available
-        if (window.bleEvents) {
-            window.bleEvents.emit('WEBSOCKET_MESSAGE', data);
+                console.warn('Unknown message type:', message.type);
         }
     } catch (error) {
-        console.error("Error handling WebSocket message:", error);
+        console.error('Error handling WebSocket message:', error);
+        console.error('Raw message data:', event.data); // Log the raw message data
+        logMessage(`WebSocket error: ${error.message}`, 'error');
     }
+}
+
+export function handleDeviceUpdate(data) {
+    console.log("Device update:", data);
 }
 
 /**
@@ -186,7 +192,7 @@ export function handleWebSocketMessage(state, event) {
  * @param {Object} state - The shared BLE state object
  * @param {Object} data - The notification data
  */
-function handleCharacteristicNotification(state, data) {
+export function handleCharacteristicNotification(state, data) {
     // Update the UI with the notification data
     const characteristicId = data.characteristic;
     const value = data.value_hex;
@@ -211,7 +217,7 @@ function handleCharacteristicNotification(state, data) {
  * @param {Object} state - The shared BLE state object
  * @param {Object} data - The subscription data
  */
-function handleSubscriptionUpdate(state, data) {
+export function handleSubscriptionUpdate(state, data) {
     const characteristicId = data.char_uuid;
     const status = data.status;
     
@@ -230,7 +236,7 @@ function handleSubscriptionUpdate(state, data) {
  * @param {Object} state - The shared BLE state object
  * @param {Object} data - The connection data
  */
-function handleConnectionUpdate(state, data) {
+export function handleConnectionUpdate(state, data) {
     console.log("Connection update:", data);
     
     // You may want to update UI elements based on connection status here
@@ -259,7 +265,7 @@ export function closeWebSocket(state) {
  * @param {Object} state - Application state
  * @param {Object} data - Connection event data
  */
-async function handleConnectionEvent(state, data) {
+export async function handleConnectionEvent(state, data) {
     if (data.status === 'disconnected' && state.connectedDevice) {
         logMessage("Device disconnected unexpectedly", 'warning');
         try {
@@ -280,7 +286,7 @@ async function handleConnectionEvent(state, data) {
  * @param {String} characteristic - Characteristic UUID
  * @param {String} value_hex - Hex value
  */
-function addNotification(state, characteristic, value_hex) {
+export function addNotification(state, characteristic, value_hex) {
     const { notificationsContainer } = state.domElements;
     if (!notificationsContainer) return;
 
@@ -305,5 +311,194 @@ function addNotification(state, characteristic, value_hex) {
     const MAX_NOTIFICATIONS = 20;
     while (notificationsContainer.children.length > MAX_NOTIFICATIONS) {
         notificationsContainer.removeChild(notificationsContainer.lastChild);
+    }
+}
+
+/**
+ * Send a command through the WebSocket connection
+ * @param {Object} state - The shared BLE state object
+ * @param {String} command - The command type
+ * @param {Object} data - The command payload
+ * @returns {Boolean} - Success status of sending the command
+ */
+export function sendWebSocketCommand(state, command, data = {}) {
+    if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
+        console.error('WebSocket not connected. Cannot send command:', command);
+        logMessage('Cannot send command: WebSocket not connected', 'error');
+        return false;
+    }
+    
+    try {
+        const message = {
+            type: command,
+            ...data
+        };
+        
+        state.socket.send(JSON.stringify(message));
+        return true;
+    } catch (error) {
+        console.error('Error sending WebSocket command:', error);
+        logMessage(`Failed to send command: ${error.message}`, 'error');
+        return false;
+    }
+}
+
+/**
+ * Reconnect the WebSocket
+ * @param {Object} state - The shared BLE state object
+ * @returns {Promise} - Resolves when reconnected
+ */
+export async function reconnectWebSocket(state) {
+    if (state.socket) {
+        closeWebSocket(state);
+    }
+    
+    logMessage('Reconnecting WebSocket...', 'info');
+    
+    try {
+        state.socket = connectWebSocket(state);
+        if (state.socket) {
+            return new Promise((resolve, reject) => {
+                state.socket.onopen = () => {
+                    logMessage('WebSocket reconnected successfully', 'success');
+                    state.reconnectAttempts = 0;
+                    resolve(true);
+                };
+                
+                state.socket.onerror = (error) => {
+                    reject(error);
+                };
+                
+                // Add timeout for connection attempt
+                setTimeout(() => {
+                    if (!state.socketConnected) {
+                        reject(new Error('WebSocket reconnection timeout'));
+                    }
+                }, 5000);
+            });
+        } else {
+            throw new Error('Failed to create WebSocket connection');
+        }
+    } catch (error) {
+        console.error('Error reconnecting WebSocket:', error);
+        logMessage(`WebSocket reconnection failed: ${error.message}`, 'error');
+        scheduleReconnection(state);
+        throw error;
+    }
+}
+
+/**
+ * Disconnect the WebSocket
+ * @param {Object} state - The shared BLE state object
+ */
+export function disconnectWebSocket(state) {
+    closeWebSocket(state);
+    logMessage('WebSocket disconnected', 'info');
+}
+
+/**
+ * Get the current state of the WebSocket connection
+ * @param {Object} state - The shared BLE state object
+ * @returns {Object} - Connection state information
+ */
+export function getWebSocketState(state) {
+    if (!state.socket) {
+        return {
+            connected: false,
+            readyState: 'CLOSED',
+            reconnectAttempts: state.reconnectAttempts || 0
+        };
+    }
+    
+    const readyStateMap = {
+        [WebSocket.CONNECTING]: 'CONNECTING',
+        [WebSocket.OPEN]: 'OPEN',
+        [WebSocket.CLOSING]: 'CLOSING',
+        [WebSocket.CLOSED]: 'CLOSED'
+    };
+    
+    return {
+        connected: state.socketConnected,
+        readyState: readyStateMap[state.socket.readyState],
+        reconnectAttempts: state.reconnectAttempts || 0,
+        url: state.socket.url
+    };
+}
+
+/**
+ * Setup heartbeat mechanism to detect disconnections
+ * @param {Object} state - The shared BLE state object
+ */
+export function setupWebSocketHeartbeat(state) {
+    if (!state.socket) return;
+    
+    // Clear any existing heartbeat
+    if (state.heartbeatInterval) {
+        clearInterval(state.heartbeatInterval);
+        clearTimeout(state.heartbeatTimeout);
+    }
+    
+    const HEARTBEAT_INTERVAL = 15000; // 15 seconds
+    const HEARTBEAT_TIMEOUT = 10000; // 10 seconds
+    
+    state.heartbeatInterval = setInterval(() => {
+        if (state.socket && state.socket.readyState === WebSocket.OPEN) {
+            // Send heartbeat and expect response
+            state.socket.send(JSON.stringify({ type: 'heartbeat' }));
+            
+            // Set timeout for response
+            state.heartbeatTimeout = setTimeout(() => {
+                console.warn('Heartbeat timeout - no response received');
+                logMessage('Connection problem detected', 'warning');
+                
+                // Force reconnection
+                reconnectWebSocket(state);
+            }, HEARTBEAT_TIMEOUT);
+        }
+    }, HEARTBEAT_INTERVAL);
+}
+
+/**
+ * Handle WebSocket errors
+ * @param {Object} state - The shared BLE state object
+ * @param {Error} error - The error object
+ */
+export function handleWebSocketError(state, error) {
+    console.error('WebSocket error:', error);
+    logMessage(`WebSocket error: ${error.message || 'Unknown error'}`, 'error');
+    
+    // Increment error count
+    state.wsErrorCount = (state.wsErrorCount || 0) + 1;
+    
+    // If too many errors, force reconnection
+    if (state.wsErrorCount > 3) {
+        console.warn('Too many WebSocket errors, forcing reconnection');
+        logMessage('Too many connection errors, reconnecting...', 'warning');
+        state.wsErrorCount = 0;
+        reconnectWebSocket(state);
+    }
+}
+
+/**
+ * Parse WebSocket data
+ * @param {String} data - Raw WebSocket data
+ * @returns {Object|null} - Parsed data or null if parsing failed
+ */
+export function parseWebSocketData(data) {
+    try {
+        if (typeof data === 'string') {
+            return JSON.parse(data);
+        } else if (data instanceof Blob) {
+            // Handle binary data if needed
+            console.warn('Received binary WebSocket data');
+            return null;
+        } else {
+            console.warn('Received unknown WebSocket data type:', typeof data);
+            return null;
+        }
+    } catch (error) {
+        console.error('Error parsing WebSocket data:', error);
+        console.error('Raw data:', data);
+        return null;
     }
 }

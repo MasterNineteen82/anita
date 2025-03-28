@@ -101,7 +101,7 @@ export async function sendDebugRequest(state) {
  * Populate the debug endpoint selector with available endpoints
  * @param {Object} state - Application state
  */
-function populateDebugEndpoints(state) {
+export function populateDebugEndpoints(state) {
     const { debugEndpointSelect } = state.domElements;
 
     if (!debugEndpointSelect) {
@@ -251,3 +251,219 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+/**
+ * Format debug data for display or logging
+ * @param {Object} data - The data to format
+ * @param {String} type - The type of data being formatted
+ * @returns {String} Formatted data string
+ */
+export function formatDebugData(data, type = 'json') {
+    try {
+        if (type === 'json') {
+            return JSON.stringify(data, null, 2);
+        } else if (type === 'table' && Array.isArray(data)) {
+            return data.map(item => JSON.stringify(item)).join('\n');
+        } else {
+            return String(data);
+        }
+    } catch (error) {
+        console.error('Error formatting debug data:', error);
+        return `[Error formatting data: ${error.message}]`;
+    }
+}
+
+/**
+ * Log a debug message with timestamp
+ * @param {String} message - The message to log
+ * @param {Object} data - Optional data to include
+ * @param {String} level - Log level (info, warning, error)
+ */
+export function debugLog(message, data = null, level = 'info') {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+        timestamp,
+        level,
+        message,
+        data
+    };
+    
+    console.log(`[BLE-DEBUG][${timestamp}][${level}] ${message}`);
+    if (data) {
+        console.log(formatDebugData(data));
+    }
+    
+    // Store in debug history
+    if (!window.bleDebugHistory) {
+        window.bleDebugHistory = [];
+    }
+    window.bleDebugHistory.push(logEntry);
+    
+    // Limit history size
+    if (window.bleDebugHistory.length > 500) {
+        window.bleDebugHistory.shift();
+    }
+    
+    logMessage(message, level);
+}
+
+/**
+ * Create a snapshot of the current BLE state for debugging
+ * @param {Object} state - Application state
+ * @returns {Object} Debug snapshot object
+ */
+export function createDebugSnapshot(state) {
+    const snapshot = {
+        timestamp: new Date().toISOString(),
+        connected: !!state.connectedDevice,
+        deviceInfo: state.connectedDevice ? {
+            id: state.connectedDevice.id,
+            name: state.connectedDevice.name || 'Unknown',
+            gatt: state.connectedDevice.gatt ? 'Connected' : 'Disconnected'
+        } : null,
+        socketConnected: state.socketConnected,
+        subscribedCharacteristics: Array.from(state.subscribedCharacteristics || []),
+        queuedOperations: state.operationQueue ? state.operationQueue.length : 0,
+        lastError: state.lastError,
+        browserInfo: {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            bluetooth: navigator.bluetooth ? 'Available' : 'Not Available'
+        }
+    };
+    
+    debugLog('Debug snapshot created', snapshot);
+    return snapshot;
+}
+
+/**
+ * Export debug logs to a downloadable file
+ * @param {Object} state - Application state
+ */
+export function exportDebugLogs(state) {
+    try {
+        const snapshot = createDebugSnapshot(state);
+        const exportData = {
+            snapshot,
+            logs: window.bleDebugHistory || [],
+            exportDate: new Date().toISOString()
+        };
+        
+        const blob = new Blob([formatDebugData(exportData)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ble-debug-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+        
+        logMessage('Debug logs exported to file', 'info');
+    } catch (error) {
+        console.error('Error exporting debug logs:', error);
+        logMessage(`Failed to export debug logs: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * Set up event listeners for debug events
+ * @param {Object} state - Application state
+ */
+export function setupDebugListeners(state) {
+    const { debugExportBtn } = state.domElements;
+    
+    if (debugExportBtn) {
+        debugExportBtn.addEventListener('click', () => exportDebugLogs(state));
+    }
+    
+    // Monitor bluetooth events
+    if (navigator.bluetooth) {
+        navigator.bluetooth.addEventListener('availabilitychanged', (event) => {
+            debugLog('Bluetooth availability changed', { available: event.value }, 'info');
+        });
+    }
+    
+    // Listen for uncaught BLE errors
+    window.addEventListener('unhandledrejection', (event) => {
+        if (event.reason && event.reason.toString().includes('bluetooth')) {
+            debugLog('Unhandled BLE promise rejection', { error: event.reason.toString() }, 'error');
+        }
+    });
+    
+    debugLog('Debug listeners initialized', null, 'debug');
+}
+
+/**
+ * Monitor BLE operations and log them
+ * @param {Object} state - Application state
+ */
+export function monitorBleOperations(state) {
+    let operationCount = 0;
+    
+    // Create wrapped versions of common BLE operations for monitoring
+    const monitoredOperations = {
+        connect: async (device) => {
+            const opId = ++operationCount;
+            debugLog(`Starting BLE connect operation #${opId}`, { deviceId: device.id });
+            try {
+                const result = await state.bleOperations.connect(device);
+                debugLog(`Completed BLE connect operation #${opId}`, { success: true });
+                return result;
+            } catch (error) {
+                debugLog(`Failed BLE connect operation #${opId}`, { error: error.toString() }, 'error');
+                throw error;
+            }
+        },
+        
+        disconnect: async () => {
+            const opId = ++operationCount;
+            debugLog(`Starting BLE disconnect operation #${opId}`);
+            try {
+                const result = await state.bleOperations.disconnect();
+                debugLog(`Completed BLE disconnect operation #${opId}`, { success: true });
+                return result;
+            } catch (error) {
+                debugLog(`Failed BLE disconnect operation #${opId}`, { error: error.toString() }, 'error');
+                throw error;
+            }
+        }
+    };
+    
+    // Assign monitored operations back to state
+    state.monitoredBleOperations = monitoredOperations;
+    
+    debugLog('BLE operation monitoring initialized', null, 'debug');
+    return monitoredOperations;
+}
+
+/**
+ * Toggle visibility of debug elements
+ * @param {Object} state - Application state
+ * @param {String} elementId - Target element ID (optional)
+ */
+export function toggleDebugVisibility(state, elementId = null) {
+    if (elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.classList.toggle('hidden');
+            debugLog(`Toggled visibility of debug element: ${elementId}`, 
+                     { visible: !element.classList.contains('hidden') });
+        } else {
+            console.warn(`Debug element not found: ${elementId}`);
+        }
+    } else {
+        // Toggle all debug elements
+        const debugElements = document.querySelectorAll('.debug-element');
+        debugElements.forEach(element => {
+            element.classList.toggle('hidden');
+        });
+        
+        // Also toggle the main debug panel
+        toggleDebugPanel(state);
+    }
+}

@@ -1,4 +1,4 @@
-{% macro render_card(title, id=None, icon=None, actions=True, footer=True, footer_content="", footer_buttons=[], card_class="", icon_bg="", button_text="", button_class="", body_class="") %}
+{% macro render_card(title, id=None, id_prefix=None, icon=None, class=None, actions=True, footer=True, footer_content="", footer_buttons=[], card_class="", icon_bg="", button_text="", button_class="", body_class="") %}
 <div {% if id %}id="{{ id }}"{% endif %} class="bg-gray-800 rounded-lg shadow-lg flex flex-col card-hover dashboard-card anita-card-processed {{ card_class }}">
   <div class="flex justify-between items-center border-b border-gray-700 anita-card-header">
     <span class="text-md font-semibold text-white flex items-center gap-2">
@@ -14,7 +14,11 @@
   </div>
 
   <div class="px-4 py-3 flex-grow anita-card-content {{ body_class }}">
-    {{ caller() }}
+    {% if caller is defined %}
+      {{ caller() }}
+    {% else %}
+      <p class="text-gray-400">No content provided for this card.</p>
+    {% endif %}
   </div>
 
   {% if footer_buttons %}

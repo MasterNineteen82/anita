@@ -2,93 +2,101 @@
 {% from "components/card.html" import render_card %}
 {% from "components/page_header.html" import render_page_header %}
 {% from "components/alerts.html" import render_alert, render_ble_status_alert %}
-{% from "components/toggle_control.html" import render_toggle %}
+{% from "components/toggle_control.html" import render_toggle_control %}
+
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', path='css/pages/ble-dashboard.css') }}">
+    <script type="module" src="{{ url_for('static', path='js/pages/ble-dashboard.js') }}"></script>
+{% endblock %}
+
+{% block title %}BLE Dashboard{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Device List -->
-    <div class="card">
-      <div class="card-header">
-        <h2 class="text-xl font-bold">BLE Devices</h2>
-        <div class="flex space-x-2">
-          <button id="scan-button" class="btn btn-primary">
-            <i class="fas fa-search"></i> Scan
-          </button>
-          <div class="dropdown">
-            <button type="button" class="btn btn-secondary dropdown-toggle" title="Settings">
-              <i class="fas fa-cog"></i>
-            </button>
-            <div class="dropdown-menu">
-              <a href="#" id="clear-history">Clear History</a>
-              <a href="#" id="toggle-auto-reconnect">Auto Reconnect</a>
-            </div>
-          </div>
+<div class="py-4">
+    {{ render_page_header("Bluetooth Dashboard", "Manage and monitor Bluetooth Low Energy devices") }}
+    
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 mt-4">
+        <!-- Adapter Information -->
+        <div class="lg:col-span-4">
+            {{ render_card(
+                title="Adapter Information",
+                icon="bluetooth",
+                id_prefix="adapter",
+                class=""
+            ) }}
         </div>
-      </div>
-      <div class="card-body">
-        <div id="devices-container" class="space-y-2 max-h-96 overflow-y-auto">
-          <!-- Devices will be listed here -->
-          <div class="text-gray-500">No devices found</div>
+        
+        <!-- Device Scanner -->
+        <div class="lg:col-span-8">
+            {{ render_card(
+                title="Device Scanner",
+                icon="search",
+                id_prefix="scanner",
+                class="h-full"
+            ) }}
         </div>
-      </div>
+        
+        <!-- Connected Device -->
+        <div class="lg:col-span-4">
+            {{ render_card(
+                title="Device Information",
+                icon="info-circle",
+                id_prefix="device-info",
+                class=""
+            ) }}
+        </div>
+        
+        <!-- Services & Characteristics -->
+        <div class="lg:col-span-8">
+            {{ render_card(
+                title="Services & Characteristics",
+                icon="list",
+                id_prefix="services",
+                class=""
+            ) }}
+        </div>
     </div>
     
-    <!-- Device Details -->
-    <div class="card lg:col-span-2">
-      <div class="card-header">
-        <h2 class="text-xl font-bold" id="device-name">Device Details</h2>
-        <div class="flex items-center space-x-2">
-          <span id="connection-status" class="badge badge-inactive">Disconnected</span>
-          <span id="battery-container" class="hidden">
-            <i id="battery-icon" class="fas fa-battery-half"></i>
-            <span id="battery-level">--</span>
-          </span>
+    <!-- Hidden elements for JavaScript functionality -->
+    <div class="hidden">
+        <div id="status-indicator-container"></div>
+        <div id="loading-indicator"></div>
+        <button id="scan-btn">Scan</button>
+        <button id="disconnect-btn">Disconnect</button>
+        <div id="ble-log-container"></div>
+        <button id="clear-log-btn">Clear Log</button>
+        <button id="show-debug">Debug</button>
+        <div id="debug-panel"></div>
+        <button id="debug-toggle">Toggle Debug</button>
+        <button id="debug-send">Send</button>
+        <select id="debug-endpoint" title="Debug Endpoint"></select>
+        <div id="debug-response"></div>
+        <div id="scan-status">
+            <span id="scan-status-text"></span>
+            <span id="scan-progress"></span>
         </div>
-      </div>
-      <div class="card-body">
-        <div id="device-details-container">
-          <div class="tabs">
-            <button class="tab-button active" data-tab="info">Information</button>
-            <button class="tab-button" data-tab="services">Services</button>
-            <button class="tab-button" data-tab="characteristics">Characteristics</button>
-            <button class="tab-button" data-tab="log">Activity Log</button>
-          </div>
-          
-          <div class="tab-content active" id="tab-info">
-            <div id="device-info-container" class="mt-4">
-              <div class="text-gray-500">Connect to a device to see information</div>
-            </div>
-          </div>
-          
-          <div class="tab-content" id="tab-services">
-            <div id="services-container" class="mt-4">
-              <div class="text-gray-500">Connect to a device to view services</div>
-            </div>
-          </div>
-          
-          <div class="tab-content" id="tab-characteristics">
-            <div id="characteristics-container" class="mt-4">
-              <div class="text-gray-500">Select a service to view characteristics</div>
-            </div>
-          </div>
-          
-          <div class="tab-content" id="tab-log">
-            <div id="log-container" class="mt-4 bg-gray-800 p-4 rounded h-64 overflow-y-auto">
-              <div class="text-gray-300 font-mono text-xs" id="log-entries">
-                <!-- Log entries will appear here -->
-              </div>
-            </div>
-            <button id="clear-log" class="btn btn-secondary mt-2">Clear Log</button>
-          </div>
-        </div>
-      </div>
+        <div id="services-list"></div>
+        <div id="characteristics-list"></div>
+        <div id="notifications-container"></div>
+        <div id="scan-container"></div>
+        <div id="device-list"></div>
     </div>
-  </div>
 </div>
+
+<!-- Initialize the BLE module -->
+<script type="module">
+    import { initializeUI } from '/static/js/pages/ble/ble.js';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('BLE Dashboard template loaded - inline script works');
+        initializeUI();
+    });
+</script>
 {% endblock %}
 
 {% block scripts %}
 <script type="module" src="{{ url_for('static', path='js/pages/ble/ble-dashboard.js') }}"></script>
 <script type="module" src="{{ url_for('static', path='js/pages/ble/ble-advanced.js') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/pages/ble/ble.js') }}"></script>
 {% endblock %}

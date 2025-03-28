@@ -1,11 +1,6 @@
 import { logMessage } from './ble-ui.js';
 
 /**
- * BLE Adapter Information Module
- * Handles retrieving and displaying Bluetooth adapter information
- */
-
-/**
  * Initialize adapter information
  * @param {Object} state - Global BLE state
  */
@@ -38,18 +33,15 @@ export function initializeAdapterInfo(state) {
                 });
             }
             
-            // Log error
-            logMessage(`Adapter info error: ${error.message}`, 'error');
+            console.error('Adapter info error:', error);
         });
 }
 
 /**
- * Get Bluetooth adapter information
- * @returns {Promise<Object>} - Adapter information
+ * Fetch Bluetooth adapter information.
  */
 export async function getAdapterInfo() {
     try {
-        // First, try the new adapter-info endpoint
         const response = await fetch('/api/ble/adapter-info', {
             method: 'GET',
             headers: {
@@ -57,41 +49,24 @@ export async function getAdapterInfo() {
                 'Cache-Control': 'no-cache'
             }
         });
-        
+
         if (!response.ok) {
-            let errorText = await response.text();
-            try {
-                const errorJson = JSON.parse(errorText);
-                errorText = errorJson.detail || errorText;
-            } catch (e) {
-                // Not JSON, use as is
-            }
-            
-            // For backwards compatibility, try an older endpoint if available
-            try {
-                const legacyResponse = await fetch('/api/ble/adapter', {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Cache-Control': 'no-cache'
-                    }
-                });
-                
-                if (legacyResponse.ok) {
-                    console.log("Using legacy adapter endpoint");
-                    return await legacyResponse.json();
-                }
-            } catch (legacyError) {
-                console.warn("Legacy adapter endpoint also failed:", legacyError);
-            }
-            
-            throw new Error(`Failed to get adapter info: ${errorText}`);
+            const errorData = await response.json();
+            throw new Error(`Failed to get adapter info: ${JSON.stringify(errorData)}`);
         }
-        
+
         return await response.json();
     } catch (error) {
         console.error('Error fetching adapter info:', error);
-        throw error;
+        return {
+            available: false,
+            name: "Unknown Adapter",
+            address: "N/A",
+            software: {
+                bleak_version: "Unknown",
+                backend: "Unknown"
+            }
+        };
     }
 }
 
@@ -126,7 +101,7 @@ export async function resetAdapter() {
  * @param {HTMLElement} container - Container element
  * @param {Object} info - Adapter information
  */
-function displayAdapterInfo(container, info) {
+export function displayAdapterInfo(container, info) {
     if (!info) {
         container.innerHTML = '<div class="text-red-500">No adapter information available</div>';
         return;
@@ -401,7 +376,7 @@ function displayAdapterInfo(container, info) {
  * @param {HTMLElement} container - Container for showing diagnostic progress
  * @returns {Promise<void>}
  */
-async function simulateDiagnostics(container) {
+export async function simulateDiagnostics(container) {
     // Store adapter info for the report
     const adapterInfo = await getAdapterInfo();
     
@@ -555,7 +530,7 @@ async function simulateDiagnostics(container) {
  * Show detailed diagnostic report
  * @param {Object} diagnosticData - Diagnostic data
  */
-function showDetailedDiagnosticReport(diagnosticData) {
+export function showDetailedDiagnosticReport(diagnosticData) {
     // Create modal container
     const modalContainer = document.createElement('div');
     modalContainer.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50';
@@ -680,7 +655,7 @@ function showDetailedDiagnosticReport(diagnosticData) {
  * @param {Object} data - Diagnostic data
  * @returns {string} - Text report
  */
-function generateTextReport(data) {
+export function generateTextReport(data) {
     const lines = [
         'BLE ADAPTER DIAGNOSTIC REPORT',
         '============================',
@@ -716,7 +691,7 @@ function generateTextReport(data) {
  * @param {Object} features - Features object with boolean values
  * @returns {string} HTML for features list
  */
-function renderFeaturesList(features = {}) {
+export function renderFeaturesList(features = {}) {
     if (!features || Object.keys(features).length === 0) {
         return '<div class="text-gray-500">No feature information available</div>';
     }
@@ -741,7 +716,7 @@ function renderFeaturesList(features = {}) {
  * @param {Object} info - Adapter information
  * @returns {string} - Adapter type description
  */
-function getAdapterType(info) {
+export function getAdapterType(info) {
     // First check hardware info if available
     const hardware = info.hardware || {};
     if (hardware.vendor && hardware.vendor !== 'Unknown') {
@@ -801,4 +776,187 @@ function getAdapterType(info) {
     return 'Standard Bluetooth Adapter';
 }
 
-// Export named functions for direct use
+/**
+ * Check the current status of the Bluetooth adapter
+ * @returns {Promise<Object>} - Current adapter status
+ */
+export async function checkAdapterStatus() {
+    try {
+        const response = await fetch('/api/ble/adapter-status', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to check adapter status');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error checking adapter status:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get detailed capabilities of the Bluetooth adapter
+ * @returns {Promise<Object>} - Adapter capabilities
+ */
+export async function getAdapterCapabilities() {
+    try {
+        const response = await fetch('/api/ble/adapter-capabilities', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to get adapter capabilities');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error getting adapter capabilities:', error);
+        throw error;
+    }
+}
+
+/**
+ * Update adapter settings
+ * @param {Object} settings - Settings to update
+ * @returns {Promise<Object>} - Updated settings
+ */
+export async function setAdapterSettings(settings) {
+    try {
+        const response = await fetch('/api/ble/adapter-settings', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(settings)
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to update adapter settings');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error updating adapter settings:', error);
+        throw error;
+    }
+}
+
+/**
+ * Toggle the power state of the Bluetooth adapter
+ * @param {boolean} powerOn - Whether to power on (true) or off (false)
+ * @returns {Promise<Object>} - Result of the power toggle operation
+ */
+export async function toggleAdapterPower(powerOn) {
+    try {
+        const response = await fetch('/api/ble/adapter-power', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ power: powerOn })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to toggle adapter power');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error toggling adapter power:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get performance metrics for the Bluetooth adapter
+ * @returns {Promise<Object>} - Adapter metrics
+ */
+export async function getAdapterMetrics() {
+    try {
+        const response = await fetch('/api/ble/adapter-metrics', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to get adapter metrics');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error getting adapter metrics:', error);
+        throw error;
+    }
+}
+
+/**
+ * Clear the Bluetooth adapter's cache
+ * @returns {Promise<Object>} - Result of the cache clearing operation
+ */
+export async function clearAdapterCache() {
+    try {
+        const response = await fetch('/api/ble/clear-cache', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to clear adapter cache');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error clearing adapter cache:', error);
+        throw error;
+    }
+}
+
+/**
+ * Apply optimized settings to the Bluetooth adapter
+ * @param {Object} profile - Optimization profile (e.g., 'balanced', 'performance', 'powersave')
+ * @returns {Promise<Object>} - Result of the optimization operation
+ */
+export async function optimizeAdapterSettings(profile = 'balanced') {
+    try {
+        const response = await fetch('/api/ble/optimize-adapter', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ profile })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to optimize adapter settings');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error optimizing adapter settings:', error);
+        throw error;
+    }
+}
