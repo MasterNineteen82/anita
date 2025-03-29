@@ -1,257 +1,489 @@
-/**
- * BLE Events module - provides a simple event system for BLE-related events
- */
-
-// Define event names as constants
+// Event constants
 export const BLE_EVENTS = {
-    // Connection events
-    DEVICE_CONNECTING: 'ble.device.connecting',
-    DEVICE_CONNECTED: 'ble.device.connected',
-    DEVICE_DISCONNECTING: 'ble.device.disconnecting',
-    DEVICE_DISCONNECTED: 'ble.device.disconnected',
-    CONNECTION_FAILED: 'ble.connection.failed',
-    CONNECTION_TIMEOUT: 'ble.connection.timeout',
-    CONNECTION_CANCELLED: 'ble.connection.cancelled',
-    CONNECTION_STATE_CHANGED: 'ble.connection.state_changed',
+    // Adapter events
+    ADAPTER_CHANGED: 'ADAPTER_CHANGED',
+    ADAPTER_READY: 'ADAPTER_READY',
+    ADAPTER_ERROR: 'ADAPTER_ERROR',
     
     // Scan events
-    SCAN_STARTED: 'ble.scan.start',
-    SCAN_RESULT: 'ble.scan.result',
-    SCAN_COMPLETE: 'ble.scan.complete',
-    SCAN_FAILED: 'ble.scan.failed',
+    SCAN_STARTED: 'SCAN_STARTED',
+    SCAN_RESULT: 'SCAN_RESULT',
+    SCAN_COMPLETED: 'SCAN_COMPLETED',
     
-    // Service events
-    SERVICES_DISCOVERED: 'ble.services.discovered',
-    SERVICE_CHANGED: 'ble.service.changed',
+    // Device events
+    DEVICE_CONNECTED: 'DEVICE_CONNECTED',
+    DEVICE_DISCONNECTED: 'DEVICE_DISCONNECTED',
+    DEVICE_SERVICES_DISCOVERED: 'DEVICE_SERVICES_DISCOVERED',
     
     // Characteristic events
-    CHARACTERISTIC_READ: 'ble.characteristic.read',
-    CHARACTERISTIC_WRITE: 'ble.characteristic.write',
-    CHARACTERISTIC_NOTIFY: 'ble.characteristic.notify',
-    CHARACTERISTIC_CHANGED: 'ble.characteristic.changed',
-    CHARACTERISTIC_NOTIFICATION: 'ble.characteristic.notification',
-    
-    // Notification events
-    NOTIFICATION_SUBSCRIBED: 'ble.notification.subscribed',
-    NOTIFICATION_UNSUBSCRIBED: 'ble.notification.unsubscribed',
+    CHARACTERISTIC_READ: 'CHARACTERISTIC_READ',
+    CHARACTERISTIC_WRITTEN: 'CHARACTERISTIC_WRITTEN',
+    CHARACTERISTIC_NOTIFICATION: 'CHARACTERISTIC_NOTIFICATION',
+    NOTIFICATION_SUBSCRIBED: 'NOTIFICATION_SUBSCRIBED',
+    NOTIFICATION_UNSUBSCRIBED: 'NOTIFICATION_UNSUBSCRIBED',
     
     // Error events
-    ERROR_SCAN: 'ble.error.scan',
-    ERROR_CONNECT: 'ble.error.connect',
-    ERROR_DISCONNECT: 'ble.error.disconnect',
-    ERROR_READ: 'ble.error.read',
-    ERROR_WRITE: 'ble.error.write',
-    ERROR_NOTIFY: 'ble.error.notify',
+    ERROR: 'ERROR',
     
-    // Adapter events
-    ADAPTER_STATE_CHANGED: 'ble.adapter.state_changed'
+    // WebSocket events
+    WEBSOCKET_CONNECTED: 'WEBSOCKET_CONNECTED',
+    WEBSOCKET_DISCONNECTED: 'WEBSOCKET_DISCONNECTED',
+    WEBSOCKET_MESSAGE: 'WEBSOCKET_MESSAGE'
 };
 
-// Event registry for internal use
-const eventRegistry = {};
+// Make sure this is in your existing BleEvents class
+export class BleEvents {
+    // Your existing code...
 
-// Export the BleEvents object
-export const BleEvents = {
-    _listeners: {},
+    // Add the event constants as static properties
+    static get ADAPTER_CHANGED() { return BLE_EVENTS.ADAPTER_CHANGED; }
+    static get ADAPTER_READY() { return BLE_EVENTS.ADAPTER_READY; }
+    static get ADAPTER_ERROR() { return BLE_EVENTS.ADAPTER_ERROR; }
+    static get SCAN_STARTED() { return BLE_EVENTS.SCAN_STARTED; }
+    static get SCAN_RESULT() { return BLE_EVENTS.SCAN_RESULT; }
+    static get SCAN_COMPLETED() { return BLE_EVENTS.SCAN_COMPLETED; }
+    static get DEVICE_CONNECTED() { return BLE_EVENTS.DEVICE_CONNECTED; }
+    static get DEVICE_DISCONNECTED() { return BLE_EVENTS.DEVICE_DISCONNECTED; }
+    static get DEVICE_SERVICES_DISCOVERED() { return BLE_EVENTS.DEVICE_SERVICES_DISCOVERED; }
+    static get CHARACTERISTIC_READ() { return BLE_EVENTS.CHARACTERISTIC_READ; }
+    static get CHARACTERISTIC_WRITTEN() { return BLE_EVENTS.CHARACTERISTIC_WRITTEN; }
+    static get CHARACTERISTIC_NOTIFICATION() { return BLE_EVENTS.CHARACTERISTIC_NOTIFICATION; }
+    static get NOTIFICATION_SUBSCRIBED() { return BLE_EVENTS.NOTIFICATION_SUBSCRIBED; }
+    static get NOTIFICATION_UNSUBSCRIBED() { return BLE_EVENTS.NOTIFICATION_UNSUBSCRIBED; }
+    static get ERROR() { return BLE_EVENTS.ERROR; }
+    static get WEBSOCKET_CONNECTED() { return BLE_EVENTS.WEBSOCKET_CONNECTED; }
+    static get WEBSOCKET_DISCONNECTED() { return BLE_EVENTS.WEBSOCKET_DISCONNECTED; }
+    static get WEBSOCKET_MESSAGE() { return BLE_EVENTS.WEBSOCKET_MESSAGE; }
+
+    
+    // Singleton pattern
+    static #instance;
     
     /**
-     * Register an event listener
-     * @param {string} eventName - Name of the event
-     * @param {Function} callback - Callback function
-     * @returns {Function} Unsubscribe function
+     * Get the singleton instance
+     * @returns {BleEventsImpl} The singleton instance
      */
-    on(eventName, callback) {
-        if (!this._listeners[eventName]) {
-            this._listeners[eventName] = [];
+    static getInstance() {
+        if (!this.#instance) {
+            this.#instance = new BleEventsImpl();
         }
-        this._listeners[eventName].push(callback);
-        
-        return () => this.off(eventName, callback); // Return unsubscribe function
-    },
+        return this.#instance;
+    }
     
     /**
-     * Remove an event listener
-     * @param {string} eventName - Name of the event
-     * @param {Function} callback - Callback function to remove
+     * Initialize the events system
      */
-    off(eventName, callback) {
-        if (this._listeners[eventName]) {
-            this._listeners[eventName] = this._listeners[eventName].filter(
-                cb => cb !== callback
-            );
-        }
-    },
+    static initialize() {
+        this.getInstance(); // Ensure instance is created
+        console.log('BLE Events system initialized');
+        return this;
+    }
+    
+    /**
+     * Register a handler for an event
+     * @param {string} eventType - The event type
+     * @param {Function} callback - The callback function
+     */
+    static on(eventType, callback) {
+        return this.getInstance().on(eventType, callback);
+    }
+    
+    /**
+     * Unregister a handler for an event
+     * @param {string} eventType - The event type
+     * @param {Function} callback - The callback function
+     */
+    static off(eventType, callback) {
+        return this.getInstance().off(eventType, callback);
+    }
     
     /**
      * Emit an event
-     * @param {string} eventName - Name of the event
-     * @param {*} data - Event data
+     * @param {string} eventType - The event type
+     * @param {any} data - The event data
      */
-    emit(eventName, data) {
-        // Add timestamp to all events
-        const eventData = {
+    static emit(eventType, data) {
+        return this.getInstance().emit(eventType, data);
+    }
+    
+    /**
+     * Add a handler for a characteristic notification
+     * @param {string} uuid - The characteristic UUID
+     * @param {Function} callback - The callback function
+     */
+    static addCharacteristicHandler(uuid, callback) {
+        return this.getInstance().addCharacteristicHandler(uuid, callback);
+    }
+    
+    /**
+     * Remove a handler for a characteristic notification
+     * @param {string} uuid - The characteristic UUID
+     */
+    static removeCharacteristicHandler(uuid) {
+        return this.getInstance().removeCharacteristicHandler(uuid);
+    }
+    
+    /**
+     * Handle a message from the WebSocket
+     * @param {Object} message - The message object
+     */
+    static handleWebSocketMessage(message) {
+        return this.getInstance().handleWebSocketMessage(message);
+    }
+    
+    /**
+     * Connect to the WebSocket server
+     */
+    static connectWebSocket() {
+        return this.getInstance().connectWebSocket();
+    }
+}
+
+/**
+ * Implementation of BLE events system
+ * @private
+ */
+class BleEventsImpl {
+    constructor() {
+        this.handlers = {};
+        this.characteristicHandlers = {};
+        this.socket = null;
+        this.pingInterval = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+        this.reconnectBackoff = 1000; // Start with 1 second, will increase
+        
+        // Initialize WebSocket connection
+        this.connectWebSocket();
+        
+        console.log('BLE Events implementation initialized');
+    }
+    
+    /**
+     * Register a handler for an event
+     * @param {string} eventType - The event type
+     * @param {Function} callback - The callback function
+     * @returns {Function} A function to remove this specific handler
+     */
+    on(eventType, callback) {
+        if (!this.handlers[eventType]) {
+            this.handlers[eventType] = [];
+        }
+        
+        this.handlers[eventType].push(callback);
+        
+        // Return a function that will remove this specific handler
+        return () => this.off(eventType, callback);
+    }
+    
+    /**
+     * Unregister a handler for an event
+     * @param {string} eventType - The event type
+     * @param {Function} callback - The callback function
+     */
+    off(eventType, callback) {
+        if (!this.handlers[eventType]) return;
+        
+        this.handlers[eventType] = this.handlers[eventType].filter(h => h !== callback);
+    }
+    
+    /**
+     * Emit an event
+     * @param {string} eventType - The event type
+     * @param {any} data - The event data
+     */
+    emit(eventType, data) {
+        if (!this.handlers[eventType]) return;
+        
+        const augmentedData = {
             ...data,
-            timestamp: Date.now()
+            timestamp: data.timestamp || Date.now(),
+            eventType
         };
         
-        // Log all events for debugging
-        console.log(`BLE Event: ${eventName}`, eventData);
+        this.handlers[eventType].forEach(callback => {
+            try {
+                callback(augmentedData);
+            } catch (error) {
+                console.error(`Error in BLE event handler for ${eventType}:`, error);
+            }
+        });
+    }
+    
+    /**
+     * Add a handler for a characteristic notification
+     * @param {string} uuid - The characteristic UUID
+     * @param {Function} callback - The callback function
+     */
+    addCharacteristicHandler(uuid, callback) {
+        // Convert UUID to lowercase for consistent matching
+        const lowerUuid = uuid.toLowerCase();
+        this.characteristicHandlers[lowerUuid] = callback;
         
-        if (this._listeners[eventName]) {
-            this._listeners[eventName].forEach(callback => {
-                try {
-                    callback(eventData);
-                } catch (error) {
-                    console.error(`Error in event listener for ${eventName}:`, error);
+        // If WebSocket is connected, send subscribe message
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({
+                type: 'subscribe',
+                characteristic: lowerUuid
+            }));
+        }
+        
+        // Emit subscription event
+        this.emit(BleEvents.NOTIFICATION_SUBSCRIBED, {
+            characteristic: lowerUuid
+        });
+    }
+    
+    /**
+     * Remove a handler for a characteristic notification
+     * @param {string} uuid - The characteristic UUID
+     */
+    removeCharacteristicHandler(uuid) {
+        // Convert UUID to lowercase for consistent matching
+        const lowerUuid = uuid.toLowerCase();
+        
+        // If WebSocket is connected, send unsubscribe message
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({
+                type: 'unsubscribe',
+                characteristic: lowerUuid
+            }));
+        }
+        
+        delete this.characteristicHandlers[lowerUuid];
+        
+        // Emit unsubscription event
+        this.emit(BleEvents.NOTIFICATION_UNSUBSCRIBED, {
+            characteristic: lowerUuid
+        });
+    }
+    
+    /**
+     * Handle a message from the WebSocket
+     * @param {Object} message - The message object
+     */
+    handleWebSocketMessage(message) {
+        try {
+            // Handle different message types
+            switch (message.type) {
+                case 'ble.notification':
+                    this.handleNotification(message);
+                    break;
+                    
+                case 'ble.connection':
+                    this.emit(BleEvents.DEVICE_CONNECTED, {
+                        device: message.device,
+                        timestamp: message.timestamp
+                    });
+                    break;
+                    
+                case 'ble.disconnect':
+                    this.emit(BleEvents.DEVICE_DISCONNECTED, {
+                        device: message.device,
+                        timestamp: message.timestamp
+                    });
+                    break;
+                    
+                case 'ble.scan.start':
+                    this.emit(BleEvents.SCAN_STARTED, {
+                        timestamp: message.timestamp,
+                        config: message.config
+                    });
+                    break;
+                    
+                case 'ble.scan.result':
+                    this.emit(BleEvents.SCAN_RESULT, {
+                        device: message.device,
+                        timestamp: message.timestamp
+                    });
+                    break;
+                    
+                case 'ble.scan.complete':
+                    this.emit(BleEvents.SCAN_COMPLETED, {
+                        devices: message.devices,
+                        timestamp: message.timestamp,
+                        duration: message.duration
+                    });
+                    break;
+                    
+                case 'ble.error':
+                    this.emit(BleEvents.ERROR, {
+                        message: message.message,
+                        context: message.context,
+                        timestamp: message.timestamp
+                    });
+                    break;
+                    
+                case 'pong':
+                    // WebSocket keep-alive, no action needed
+                    break;
+                    
+                default:
+                    console.warn('Unknown WebSocket message type:', message.type);
+            }
+        } catch (error) {
+            console.error('Error handling WebSocket message:', error);
+        }
+    }
+    
+    /**
+     * Handle a notification message
+     * @param {Object} message - The notification message
+     */
+    handleNotification(message) {
+        // Extract notification details
+        const { characteristic, value, encoding, device } = message;
+        
+        // Convert UUID to lowercase for consistent matching
+        const lowerUuid = characteristic.toLowerCase();
+        
+        // Call the specific handler for this characteristic
+        if (this.characteristicHandlers[lowerUuid]) {
+            try {
+                this.characteristicHandlers[lowerUuid](value, encoding);
+            } catch (error) {
+                console.error(`Error in characteristic handler for ${characteristic}:`, error);
+            }
+        }
+        
+        // Also emit a general notification event
+        this.emit(BleEvents.NOTIFICATION, { characteristic, value, encoding, device });
+    }
+    
+    /**
+     * Connect to the WebSocket server
+     */
+    connectWebSocket() {
+        try {
+            // Close existing socket if any
+            if (this.socket) {
+                this.socket.close();
+            }
+            
+            // Determine WebSocket URL based on current page URL
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const wsUrl = `${protocol}://${window.location.host}/api/ws/ble`;
+            
+            console.log(`Connecting to WebSocket at ${wsUrl}`);
+            
+            // Create new WebSocket
+            this.socket = new WebSocket(wsUrl);
+            
+            // Set up event handlers
+            this.socket.addEventListener('open', this.handleSocketOpen.bind(this));
+            this.socket.addEventListener('message', this.handleSocketMessage.bind(this));
+            this.socket.addEventListener('close', this.handleSocketClose.bind(this));
+            this.socket.addEventListener('error', this.handleSocketError.bind(this));
+            
+            // Set up ping interval to keep the connection alive
+            this.pingInterval = setInterval(() => {
+                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                    this.socket.send(JSON.stringify({ type: 'ping' }));
                 }
+            }, 30000); // Send a ping every 30 seconds
+        } catch (error) {
+            console.error('Error connecting to WebSocket:', error);
+            this.emit(BleEvents.WEBSOCKET_ERROR, {
+                message: `WebSocket connection error: ${error.message}`,
+                context: { wsError: true }
             });
         }
-        
-        // Also dispatch as DOM event for legacy support
-        emitCustomEvent(eventName, eventData);
-    },
+    }
     
     /**
-     * Register multiple event listeners at once
-     * @param {Object} listeners - Object with event names as keys and callbacks as values
-     * @returns {Function} Unsubscribe function for all registered listeners
+     * Handle WebSocket open event
      */
-    onMany(listeners) {
-        const unsubscribeFunctions = [];
+    handleSocketOpen(event) {
+        console.log('WebSocket connection established');
+        this.reconnectAttempts = 0;
         
-        // Register each listener
-        for (const [eventName, callback] of Object.entries(listeners)) {
-            const unsubscribe = this.on(eventName, callback);
-            unsubscribeFunctions.push(unsubscribe);
+        // Emit websocket connected event
+        this.emit(BleEvents.WEBSOCKET_CONNECTED, {
+            timestamp: Date.now()
+        });
+        
+        // Re-subscribe to all characteristics
+        Object.keys(this.characteristicHandlers).forEach(uuid => {
+            this.socket.send(JSON.stringify({
+                type: 'subscribe',
+                characteristic: uuid
+            }));
+        });
+    }
+    
+    /**
+     * Handle WebSocket message event
+     */
+    handleSocketMessage(event) {
+        try {
+            const message = JSON.parse(event.data);
+            this.handleWebSocketMessage(message);
+        } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+        }
+    }
+    
+    /**
+     * Handle WebSocket close event
+     */
+    handleSocketClose(event) {
+        console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
+        
+        // Emit websocket disconnected event
+        this.emit(BleEvents.WEBSOCKET_DISCONNECTED, {
+            code: event.code,
+            reason: event.reason,
+            timestamp: Date.now()
+        });
+        
+        // Clear ping interval
+        if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+            this.pingInterval = null;
         }
         
-        // Return a function that unsubscribes all listeners
-        return () => {
-            unsubscribeFunctions.forEach(unsubscribe => unsubscribe());
-        };
-    },
-    
-    /**
-     * Register a one-time event listener
-     * @param {string} eventName - Name of the event
-     * @param {Function} callback - Callback function
-     */
-    once(eventName, callback) {
-        const wrappedCallback = (data) => {
-            // Unsubscribe immediately
-            this.off(eventName, wrappedCallback);
-            // Call the original callback
-            callback(data);
-        };
+        // Attempt to reconnect with exponential backoff
+        this.reconnectAttempts++;
         
-        return this.on(eventName, wrappedCallback);
-    },
-    
-    /**
-     * Check if an event has any listeners
-     * @param {string} eventName - Name of the event
-     * @returns {boolean} Whether the event has listeners
-     */
-    hasListeners(eventName) {
-        return !!this._listeners[eventName] && this._listeners[eventName].length > 0;
-    },
-    
-    /**
-     * Get all registered event names
-     * @returns {string[]} Array of event names
-     */
-    getRegisteredEvents() {
-        return Object.keys(this._listeners);
-    },
-    
-    /**
-     * Clear all listeners for a specific event
-     * @param {string} eventName - Name of the event
-     */
-    clearEvent(eventName) {
-        this._listeners[eventName] = [];
-    },
-    
-    /**
-     * Clear all listeners for all events
-     */
-    clearAll() {
-        this._listeners = {};
+        if (this.reconnectAttempts <= this.maxReconnectAttempts) {
+            const delay = Math.min(30000, this.reconnectBackoff * Math.pow(2, this.reconnectAttempts - 1));
+            
+            // Emit reconnecting event
+            this.emit(BleEvents.RECONNECTING, {
+                attempt: this.reconnectAttempts,
+                maxAttempts: this.maxReconnectAttempts,
+                delay,
+                timestamp: Date.now()
+            });
+            
+            console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+            
+            setTimeout(() => {
+                this.connectWebSocket();
+            }, delay);
+        } else {
+            console.error(`Maximum reconnection attempts (${this.maxReconnectAttempts}) reached. Giving up.`);
+            
+            // Emit final error
+            this.emit(BleEvents.ERROR, {
+                message: 'WebSocket connection failed after maximum attempts',
+                context: { wsError: true, reconnect: false },
+                timestamp: Date.now()
+            });
+        }
     }
-};
-
-/**
- * Register an event handler (legacy method)
- * @param {string} eventName - Event name
- * @param {Function} handlerFn - Handler function
- * @returns {Function} - Unregister function
- */
-export function registerEventHandler(eventName, handlerFn) {
-    return BleEvents.on(eventName, handlerFn);
-}
-
-/**
- * Unregister an event handler (legacy method)
- * @param {string} eventName - Event name
- * @param {Function} handlerFn - Handler function
- */
-export function unregisterEventHandler(eventName, handlerFn) {
-    BleEvents.off(eventName, handlerFn);
-}
-
-/**
- * Emit a custom DOM event
- * @param {string} eventName - Event name
- * @param {Object} detail - Event details
- */
-export function emitCustomEvent(eventName, detail) {
-    // Create and dispatch a custom event
-    const event = new CustomEvent(eventName, {
-        detail,
-        bubbles: true,
-        cancelable: true
-    });
     
-    document.dispatchEvent(event);
-}
-
-// Legacy event handlers - use these for backward compatibility
-export const BLE_EVENT_HANDLERS = {
-    onScanStart: (callback) => BleEvents.on(BLE_EVENTS.SCAN_STARTED, callback),
-    onScanComplete: (callback) => BleEvents.on(BLE_EVENTS.SCAN_COMPLETE, callback),
-    onScanError: (callback) => BleEvents.on(BLE_EVENTS.ERROR_SCAN, callback),
-    onDeviceConnecting: (callback) => BleEvents.on(BLE_EVENTS.DEVICE_CONNECTING, callback),
-    onDeviceConnected: (callback) => BleEvents.on(BLE_EVENTS.DEVICE_CONNECTED, callback),
-    onConnectionFailed: (callback) => BleEvents.on(BLE_EVENTS.CONNECTION_FAILED, callback),
-    onDeviceDisconnected: (callback) => BleEvents.on(BLE_EVENTS.DEVICE_DISCONNECTED, callback),
-    onCharacteristicNotification: (callback) => BleEvents.on(BLE_EVENTS.CHARACTERISTIC_NOTIFICATION, callback),
-    onNotificationSubscribed: (callback) => BleEvents.on(BLE_EVENTS.NOTIFICATION_SUBSCRIBED, callback),
-    onNotificationUnsubscribed: (callback) => BleEvents.on(BLE_EVENTS.NOTIFICATION_UNSUBSCRIBED, callback)
-};
-
-// For backward compatibility
-// Create a global reference to BleEvents
-window.bleEvents = BleEvents;
-
-// Initialize event listeners when the DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('BLE Events module initialized');
-    
-    // Register global event listeners for debugging
-    if (window.BLE_DEBUG) {
-        document.addEventListener('ble.device.connected', function(event) {
-            console.log('[DOM Event] Device connected:', event.detail);
-        });
+    /**
+     * Handle WebSocket error event
+     */
+    handleSocketError(error) {
+        console.error('WebSocket error:', error);
         
-        document.addEventListener('ble.device.disconnected', function(event) {
-            console.log('[DOM Event] Device disconnected:', event.detail);
-        });
-        
-        document.addEventListener('ble.characteristic.notification', function(event) {
-            console.log('[DOM Event] Notification received:', event.detail);
+        this.emit(BleEvents.WEBSOCKET_ERROR, {
+            message: 'WebSocket connection error',
+            error,
+            context: { wsError: true },
+            timestamp: Date.now()
         });
     }
-});
-
-// Export default for convenience
-export default BleEvents;
+}

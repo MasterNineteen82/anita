@@ -1,0 +1,39 @@
+{#
+  Tab navigation component with configurable tabs
+  
+  Usage:
+  {{ render_tabs([
+      {"id": "tab1", "label": "First Tab", "icon": "home", "active": true},
+      {"id": "tab2", "label": "Second Tab", "icon": "cog"}
+  ], "my-tabs") }}
+#}
+{% macro render_tabs(tabs, id="tabs") %}
+<div class="tabs-container" id="{{ id }}">
+    <div class="border-b border-gray-200">
+        <nav class="flex -mb-px" role="tablist">
+            {% for tab in tabs %}
+            <button type="button" class="tab-button px-3 py-2 text-sm font-medium {% if tab.active %}tab-active{% endif %}" 
+                    data-tab="{{ tab.id }}" 
+                    {% if tab.active %}aria-selected="true"{% else %}aria-selected="false"{% endif %}
+                    role="tab">
+                {% if tab.icon %}<i class="fas fa-{{ tab.icon }} mr-1"></i>{% endif %}
+                {{ tab.label }}
+            </button>
+            {% endfor %}
+        </nav>
+    </div>
+</div>
+{% endmacro %}
+
+{#
+  Tab content component
+  
+  Usage:
+  {{ render_tab_content("tab1", true, 'Tab 1 content here') }}
+  {{ render_tab_content("tab2", false, 'Tab 2 content here') }}
+#}
+{% macro render_tab_content(id, active=false, content='') %}
+<div class="tab-pane {% if not active %}hidden{% endif %}" id="{{ id }}" role="tabpanel">
+    {{ content }}
+</div>
+{% endmacro %}

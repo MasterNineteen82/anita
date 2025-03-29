@@ -1,592 +1,360 @@
-import { BleEvents } from './ble-events.js';
-
 /**
- * BLE UI Module - Handles all UI-related functionality for BLE operations
+ * UI utilities for BLE interfaces
  */
+export class BleUI {
+    static logContainer = null;
 
-// Create BleUI as a module with exported functions
-export const BleUI = {
     /**
-     * Initialize the UI components
+     * Initialize the UI
      */
-    initializeUI() {
-        // Initialize message area
-        const appContainer = document.getElementById('ble-app');
-        if (appContainer && !document.getElementById('ble-messages')) {
-            const messagesDiv = document.createElement('div');
-            messagesDiv.id = 'ble-messages';
-            messagesDiv.className = 'ble-messages';
-            appContainer.appendChild(messagesDiv);
-        }
-        
-        // Set initial states
-        this.updateScanStatus(false, 'Ready');
-        this.updateConnectionStatus(false);
-        
-        // Log initialization
-        this.logMessage("BLE UI initialized", 'info');
-    },
-    
+    static async initialize() {
+        console.log('Initializing BLE UI module');
+        // Any UI initialization logic here
+    }
+
     /**
-     * Update the scan status in the UI
-     * @param {boolean} isScanning - Whether scanning is in progress
-     * @param {string} message - Status message
+     * Initialize the log container
+     * @param {string} elementId - ID of the log container element
      */
-    updateScanStatus(isScanning, message) {
-        const statusElement = document.getElementById('ble-scan-status');
-        if (statusElement) {
-            statusElement.textContent = message || (isScanning ? 'Scanning...' : 'Idle');
-            statusElement.className = isScanning ? 'status-scanning' : 'status-idle';
+    static initializeLog(elementId) {
+        this.logContainer = document.getElementById(elementId);
+
+        // Set up log controls
+        const clearLogBtn = document.getElementById('clear-log-btn');
+        if (clearLogBtn) {
+            clearLogBtn.addEventListener('click', () => this.clearLog());
         }
-        
-        // Update scan button states
-        const scanButton = document.getElementById('ble-scan-button');
-        const stopButton = document.getElementById('ble-stop-scan');
-        
-        if (scanButton) scanButton.disabled = isScanning;
-        if (stopButton) stopButton.disabled = !isScanning;
-    },
-    
+
+        const logLevelSelect = document.getElementById('log-level');
+        if (logLevelSelect) {
+            logLevelSelect.addEventListener('change', () => this.filterLog(logLevelSelect.value));
+        }
+    }
+
     /**
-     * Show a message in the UI
-     * @param {string} message - Message text
+     * Add a message to the log
+     * @param {string} message - Message to log
      * @param {string} type - Message type (info, success, warning, error)
      */
-    showMessage(message, type = 'info') {
-        console.log(`BLE: ${message}`);
-        const messageElement = document.getElementById('ble-messages');
-        if (messageElement) {
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `ble-message message-${type}`;
-            msgDiv.textContent = message;
-            messageElement.appendChild(msgDiv);
-            
-            // Auto-remove after delay
-            setTimeout(() => {
-                if (msgDiv.parentNode === messageElement) {
-                    messageElement.removeChild(msgDiv);
-                }
-            }, 5000);
-        }
-        
-        // Also log to the log container
-        this.logMessage(message, type);
-    },
-    
-    /**
-     * Show an error message
-     * @param {string} message - Error message
-     */
-    showError(message) {
-        this.showMessage(message, 'error');
-    },
-    
-    /**
-     * Update the device list in the UI
-     * @param {Array} devices - List of BLE devices 
-     */
-    updateDeviceList(devices) {
-        const deviceList = document.getElementById('ble-device-list');
-        if (!deviceList) return;
-        
-        // Clear current list
-        deviceList.innerHTML = '';
-        
-        if (!devices || devices.length === 0) {
-            deviceList.innerHTML = '<div class="ble-no-devices">No devices found</div>';
-            return;
-        }
-        
-        // Sort devices by RSSI (strongest signal first)
-        const sortedDevices = [...devices].sort((a, b) => (b.rssi || -100) - (a.rssi || -100));
-        
-        // Create device elements
-        sortedDevices.forEach(device => {
-            const deviceEl = document.createElement('div');
-            deviceEl.className = 'ble-device';
-            deviceEl.dataset.bleDevice = device.address;
-            
-            // Calculate signal strength icon
-            const rssi = device.rssi || -100;
-            let signalStrength = 'low';
-            if (rssi > -70) {
-                signalStrength = 'high';
-            } else if (rssi > -85) {
-                signalStrength = 'medium';
-            }
-            
-            // Create device content with more detailed information
-            deviceEl.innerHTML = `
-                <div class="ble-device-header">
-                    <div class="ble-device-name">${device.name || 'Unknown Device'}</div>
-                    <div class="ble-device-signal signal-${signalStrength}" title="Signal: ${rssi} dBm">
-                        <i class="fas fa-signal"></i>
-                    </div>
-                </div>
-                <div class="ble-device-address">${device.address}</div>
-                <div class="ble-device-details">
-                    <div class="ble-device-rssi">RSSI: ${rssi} dBm</div>
-                    ${device.services && device.services.length ? 
-                      `<div class="ble-device-services">Services: ${device.services.length}</div>` : ''}
-                </div>
-                <div class="ble-device-actions">
-                    <button class="ble-device-connect" data-ble-connect="${device.address}">Connect</button>
-                    <button class="ble-device-details-btn" data-ble-details="${device.address}">Details</button>
-                </div>
-            `;
-            
-            deviceList.appendChild(deviceEl);
-        });
-    },
-    
-    /**
-     * Update connection status in the UI
-     * @param {boolean} isConnected - Whether a device is connected
-     * @param {Object} deviceInfo - Connected device info
-     */
-    updateConnectionStatus(isConnected, deviceInfo = null) {
-        const statusEl = document.getElementById('ble-connection-status');
-        if (statusEl) {
-            statusEl.className = isConnected ? 'status-connected' : 'status-disconnected';
-            statusEl.textContent = isConnected ? 
-                `Connected to ${deviceInfo?.name || deviceInfo?.address || 'device'}` : 
-                'Disconnected';
-        }
-        
-        // Update UI elements that depend on connection state
-        document.querySelectorAll('[data-requires-connection]').forEach(el => {
-            el.disabled = !isConnected;
-        });
-        
-        // Toggle visibility of connection-dependent elements
-        document.querySelectorAll('[data-show-when-connected]').forEach(el => {
-            el.style.display = isConnected ? '' : 'none';
-        });
-        
-        document.querySelectorAll('[data-show-when-disconnected]').forEach(el => {
-            el.style.display = isConnected ? 'none' : '';
-        });
-    },
-    
-    /**
-     * Update adapter status in the UI
-     * @param {Object} adapterInfo - Adapter information
-     */
-    updateAdapterStatus(adapterInfo) {
-        const statusEl = document.getElementById('ble-adapter-status');
-        if (statusEl) {
-            statusEl.className = adapterInfo.available ? 'status-available' : 'status-unavailable';
-            statusEl.textContent = adapterInfo.available ? 
-                `Adapter: ${adapterInfo.name}` : 
-                'Bluetooth not available';
-        }
-        
-        // Update adapter information display if it exists
-        const infoEl = document.getElementById('ble-adapter-info');
-        if (infoEl && adapterInfo.available) {
-            infoEl.innerHTML = `
-                <div><strong>Name:</strong> ${adapterInfo.name}</div>
-                <div><strong>Address:</strong> ${adapterInfo.address}</div>
-                <div><strong>Platform:</strong> ${adapterInfo.platform}</div>
-                <div><strong>API:</strong> ${adapterInfo.api_version}</div>
-            `;
-        }
-        
-        // Also update detailed adapter info if available
-        this.updateAdapterInfo(adapterInfo);
-    },
-    
-    /**
-     * Log a message to the BLE operations log
-     * @param {String} message - Message to log
-     * @param {String} level - Log level (info, success, warning, error)
-     */
-    logMessage(message, level = 'info') {
-        const logContainer = document.getElementById('ble-log-container');
-        if (!logContainer) return;
-        
-        // Get timestamp
-        const now = new Date();
-        const timestamp = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-        
-        // Create log entry
-        const logEntry = document.createElement('div');
-        
-        // Define colors for different log levels
-        const colors = {
-            info: 'text-blue-400',
-            success: 'text-green-400',
-            warning: 'text-yellow-400',
-            error: 'text-red-400'
-        };
-        
-        // Set class and icon based on level
-        const icons = {
-            info: 'fa-info-circle',
-            success: 'fa-check-circle',
-            warning: 'fa-exclamation-triangle',
-            error: 'fa-times-circle'
-        };
-        
-        logEntry.className = `text-sm ${colors[level] || 'text-gray-400'}`;
-        logEntry.innerHTML = `
-            <span class="text-gray-500">[${timestamp}]</span>
-            <i class="fas ${icons[level] || 'fa-info-circle'} mr-1"></i>
-            ${message}
-        `;
-        
-        // Add to log container
-        logContainer.appendChild(logEntry);
-        
-        // Scroll to bottom
-        logContainer.scrollTop = logContainer.scrollHeight;
-        
-        // Limit log entries (keep last 100)
-        const entries = logContainer.children;
-        if (entries.length > 100) {
-            logContainer.removeChild(entries[0]);
-        }
-        
-        // Also log to console for debugging
-        if (level === 'error') {
-            console.error(`BLE: ${message}`);
-        } else if (level === 'warning') {
-            console.warn(`BLE: ${message}`);
-        } else {
-            console.log(`BLE: ${message}`);
-        }
-    },
-    
-    /**
-     * Set loading state and show/hide loading indicator
-     * @param {Boolean} loading - Whether to show loading
-     * @param {String} message - Optional loading message
-     */
-    setLoading(loading, message = 'Loading...') {
-        const loadingIndicator = document.getElementById('loading-indicator');
-        if (!loadingIndicator) return;
-        
-        if (loading) {
-            // Update message
-            const messageElement = loadingIndicator.querySelector('span');
-            if (messageElement) {
-                messageElement.textContent = message;
-            }
-            
-            // Show loading indicator
-            loadingIndicator.classList.remove('hidden');
-        } else {
-            // Hide loading indicator
-            loadingIndicator.classList.add('hidden');
-        }
-    },
-    
-    /**
-     * Update subscription status for a characteristic
-     * @param {string} charUuid - Characteristic UUID
-     * @param {boolean} isSubscribed - Subscription status
-     */
-    updateSubscriptionStatus(charUuid, isSubscribed) {
-        const button = document.querySelector(`[data-char-uuid="${charUuid}"]`);
-        if (button) {
-            button.dataset.subscribed = isSubscribed.toString();
-            button.innerHTML = isSubscribed ? '<i class="fas fa-bell-slash"></i>' : '<i class="fas fa-bell"></i>';
-            button.title = isSubscribed ? 'Unsubscribe from notifications' : 'Subscribe to notifications';
-        }
-    },
-    
-    /**
-     * Enable debug mode with additional UI controls
-     */
-    enableDebugMode() {
-        window.BLE_DEBUG = true;
-        
-        // Add debug information to page
-        const debugInfo = document.createElement('div');
-        debugInfo.className = 'fixed bottom-0 right-0 bg-gray-800 text-white p-2 text-xs z-50';
-        debugInfo.id = 'ble-debug-info';
-        debugInfo.innerHTML = `
-            <div>Debug Mode Enabled</div>
-            <div id="ble-debug-status">Status: Initialized</div>
-            <div>
-                <button id="check-imports-btn" class="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs">
-                    Check Imports
-                </button>
-                <button id="check-events-btn" class="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-xs ml-1">
-                    Check Events
-                </button>
-            </div>
-        `;
-        
-        document.body.appendChild(debugInfo);
-        
-        // Add event listeners for debug buttons
-        document.getElementById('check-imports-btn').addEventListener('click', () => {
-            try {
-                // Import dynamically
-                import('./ble-events.js').then(module => {
-                    const debugStatus = document.getElementById('ble-debug-status');
-                    debugStatus.textContent = 'Status: Imports OK';
-                    console.log('BleEvents imported:', module.BleEvents);
-                }).catch(err => {
-                    console.error('Import check failed:', err);
-                    const debugStatus = document.getElementById('ble-debug-status');
-                    debugStatus.textContent = `Status: Import Error: ${err.message}`;
-                });
-            } catch (err) {
-                console.error('Import check failed:', err);
-                const debugStatus = document.getElementById('ble-debug-status');
-                debugStatus.textContent = `Status: Import Error: ${err.message}`;
-            }
-        });
-        
-        document.getElementById('check-events-btn').addEventListener('click', () => {
-            try {
-                const testEvent = 'ble.test.event';
-                let received = false;
-                
-                // Register test listener using BleEvents
-                const unsubscribe = BleEvents.on(testEvent, () => {
-                    received = true;
-                    const debugStatus = document.getElementById('ble-debug-status');
-                    debugStatus.textContent = 'Status: Event System Working';
-                });
-                
-                // Emit test event
-                BleEvents.emit(testEvent, {test: true});
-                
-                if (!received) {
-                    const debugStatus = document.getElementById('ble-debug-status');
-                    debugStatus.textContent = 'Status: Event Not Received';
-                }
-                
-                // Clean up the test listener
-                unsubscribe();
-            } catch (err) {
-                console.error('Event check failed:', err);
-                const debugStatus = document.getElementById('ble-debug-status');
-                debugStatus.textContent = `Status: Event Error: ${err.message}`;
-            }
-        });
-        
-        console.log('Debug mode enabled');
-    },
-    
-    /**
-     * Update adapter information in the UI
-     * @param {Object} info - Adapter information object
-     */
-    updateAdapterInfo(info) {
-        const adapterInfoContainer = document.getElementById('adapter-info');
-        if (!adapterInfoContainer) {
-            return;
+    static logMessage(message, type = 'info') {
+        if (!this.logContainer) return;
+
+        const timestamp = new Date().toLocaleTimeString();
+        const entry = document.createElement('div');
+
+        let icon, textClass;
+        switch (type) {
+            case 'success':
+                icon = 'check-circle';
+                textClass = 'text-green-600';
+                break;
+            case 'warning':
+                icon = 'exclamation-triangle';
+                textClass = 'text-yellow-600';
+                break;
+            case 'error':
+                icon = 'times-circle';
+                textClass = 'text-red-600';
+                break;
+            default:
+                icon = 'info-circle';
+                textClass = 'text-blue-600';
         }
 
-        adapterInfoContainer.innerHTML = `
-            <div class="mb-2">
-                <div class="text-sm font-medium text-gray-400">Adapter Name</div>
-                <div class="font-semibold">${info.name || 'Unknown'}</div>
-            </div>
-            <div class="mb-2">
-                <div class="text-sm font-medium text-gray-400">Address</div>
-                <div class="font-mono text-sm">${info.address || 'Unknown'}</div>
-            </div>
-            ${info.vendor ? `
-            <div class="mb-2">
-                <div class="text-sm font-medium text-gray-400">Vendor</div>
-                <div>${info.vendor}</div>
-            </div>` : ''}
-            ${info.model ? `
-            <div class="mb-2">
-                <div class="text-sm font-medium text-gray-400">Model</div>
-                <div>${info.model}</div>
-            </div>` : ''}
-        `;
-    },
-    
+        entry.className = `${textClass} mb-1`;
+        entry.dataset.logType = type;
+        entry.innerHTML = `[${timestamp}] <i class="${icon}"></i> ${message}`;
+
+        this.logContainer.appendChild(entry);
+        this.logContainer.scrollTop = this.logContainer.scrollHeight;
+    }
+
     /**
-     * Create a UI element with the given properties
-     * @param {String} type - Element type (div, button, etc)
-     * @param {Object} attributes - Element attributes
-     * @param {String} innerHTML - Element inner HTML content
-     * @param {Object} eventListeners - Event listeners to attach
-     * @returns {HTMLElement} Created element
+     * Clear the log container
      */
-    createUIElement(type, attributes = {}, innerHTML = '', eventListeners = {}) {
-        const element = document.createElement(type);
-        
-        // Set attributes
-        Object.entries(attributes).forEach(([key, value]) => {
-            if (key === 'className') {
-                element.className = value;
-            } else if (key === 'dataset') {
-                Object.entries(value).forEach(([dataKey, dataValue]) => {
-                    element.dataset[dataKey] = dataValue;
-                });
-            } else {
-                element.setAttribute(key, value);
+    static clearLog() {
+        if (!this.logContainer) return;
+        this.logContainer.innerHTML = '';
+        this.logMessage('Log cleared', 'info');
+    }
+
+    /**
+     * Filter log entries by type
+     * @param {string} level - Log level to filter (info, error, all)
+     */
+    static filterLog(level) {
+        if (!this.logContainer) return;
+
+        const entries = this.logContainer.querySelectorAll('div');
+
+        entries.forEach(entry => {
+            if (level === 'all') {
+                entry.classList.remove('hidden');
+            } else if (level === 'error') {
+                entry.classList.toggle('hidden', entry.dataset.logType !== 'error');
+            } else if (level === 'info') {
+                entry.classList.toggle('hidden', entry.dataset.logType === 'error');
             }
         });
-        
-        // Set inner HTML
-        if (innerHTML) {
-            element.innerHTML = innerHTML;
-        }
-        
-        // Add event listeners
-        Object.entries(eventListeners).forEach(([event, callback]) => {
-            element.addEventListener(event, callback);
-        });
-        
-        return element;
-    },
-    
+    }
+
     /**
-     * Show a notification toast
-     * @param {String} message - Notification message
-     * @param {String} type - Notification type (success, error, warning, info)
-     * @param {Number} duration - Duration in ms
+     * Initialize toast notifications
      */
-    showNotification(message, type = 'info', duration = 3000) {
-        const types = {
-            success: { bg: 'bg-green-500', icon: 'fa-check-circle' },
-            error: { bg: 'bg-red-500', icon: 'fa-exclamation-circle' },
-            warning: { bg: 'bg-yellow-500', icon: 'fa-exclamation-triangle' },
-            info: { bg: 'bg-blue-500', icon: 'fa-info-circle' }
-        };
-        
-        const config = types[type] || types.info;
-        
-        // Create notification container if it doesn't exist
-        let notifContainer = document.getElementById('notification-container');
-        if (!notifContainer) {
-            notifContainer = document.createElement('div');
-            notifContainer.id = 'notification-container';
-            notifContainer.className = 'fixed top-4 right-4 z-50 flex flex-col items-end space-y-2';
-            document.body.appendChild(notifContainer);
+    static initializeToasts() {
+        // Create toast container if it doesn't exist
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.className = 'fixed top-4 right-4 z-50 flex flex-col space-y-2';
+            document.body.appendChild(toastContainer);
         }
-        
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `${config.bg} text-white py-2 px-4 rounded-md shadow-lg transform transition-transform duration-300 flex items-center`;
-        notification.innerHTML = `
-            <i class="fas ${config.icon} mr-2"></i>
-            ${message}
+    }
+
+    /**
+     * Show a toast notification
+     * @param {string} message - The message to show
+     * @param {string} type - The type of toast (success, error, warning, info)
+     * @param {number} duration - Duration to show in ms
+     */
+    static showToast(message, type = 'info', duration = 3000) {
+        // Ensure toasts are initialized
+        if (!document.getElementById('toast-container')) {
+            this.initializeToasts();
+        }
+
+        const toastContainer = document.getElementById('toast-container');
+
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = 'toast p-3 rounded shadow-lg max-w-md transform transition-all duration-300 translate-x-full opacity-0';
+
+        // Add appropriate color based on type
+        switch (type) {
+            case 'success':
+                toast.classList.add('bg-green-600', 'text-white');
+                break;
+            case 'error':
+                toast.classList.add('bg-red-600', 'text-white');
+                break;
+            case 'warning':
+                toast.classList.add('bg-yellow-500', 'text-white');
+                break;
+            default:
+                toast.classList.add('bg-blue-600', 'text-white');
+        }
+
+        // Add icon based on type
+        let icon;
+        switch (type) {
+            case 'success':
+                icon = 'fas fa-check-circle';
+                break;
+            case 'error':
+                icon = 'fas fa-exclamation-circle';
+                break;
+            case 'warning':
+                icon = 'fas fa-exclamation-triangle';
+                break;
+            default:
+                icon = 'fas fa-info-circle';
+        }
+
+        // Add content
+        toast.innerHTML = `
+            <div class="flex items-center">
+                <div class="mr-2"><i class="${icon}"></i></div>
+                <div>${message}</div>
+            </div>
         `;
-        
+
         // Add to container
-        notifContainer.appendChild(notification);
-        
+        toastContainer.appendChild(toast);
+
         // Animate in
         setTimeout(() => {
-            notification.style.transform = 'translateX(0)';
+            toast.classList.remove('translate-x-full', 'opacity-0');
         }, 10);
-        
-        // Remove after duration
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            notification.style.transform = 'translateX(100%)';
-            setTimeout(() => {
-                if (notification.parentNode === notifContainer) {
-                    notifContainer.removeChild(notification);
-                }
-            }, 300); // Wait for transition to complete
-        }, duration);
-    },
-    
-    /**
-     * Update the BLE connection status with detailed information
-     * @param {Object} state - Application state
-     * @param {String} status - Status (disconnected, connecting, connected, error)
-     * @param {String} message - Optional status message
-     */
-    updateStatus(state, status, message = null) {
-        const statusContainer = document.getElementById('status-indicator-container');
-        if (!statusContainer) return;
-        
-        // Status configurations
-        const statusConfigs = {
-            disconnected: {
-                icon: 'fa-unlink',
-                bg: 'bg-gray-700',
-                text: 'text-gray-300',
-                dot: 'bg-gray-500',
-                defaultMessage: 'Not connected to any device'
-            },
-            connecting: {
-                icon: 'fa-spinner fa-spin',
-                bg: 'bg-blue-700',
-                text: 'text-white',
-                dot: 'bg-blue-400',
-                defaultMessage: 'Connecting...'
-            },
-            connected: {
-                icon: 'fa-link',
-                bg: 'bg-green-700',
-                text: 'text-white',
-                dot: 'bg-green-400',
-                defaultMessage: 'Connected'
-            },
-            error: {
-                icon: 'fa-exclamation-triangle',
-                bg: 'bg-red-700',
-                text: 'text-white',
-                dot: 'bg-red-400',
-                defaultMessage: 'Connection error'
-            },
-            scanning: {
-                icon: 'fa-search fa-pulse',
-                bg: 'bg-blue-700',
-                text: 'text-white',
-                dot: 'bg-blue-400',
-                defaultMessage: 'Scanning...'
-            }
-        };
-        
-        // Get config for current status
-        const config = statusConfigs[status] || statusConfigs.disconnected;
-        
-        // Update state
-        if (state) {
-            state.connectionStatus = status;
-        }
-        
-        // Create alert HTML
-        statusContainer.innerHTML = `
-            <div class="rounded-md ${config.bg} p-3 mb-4">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <i class="fas ${config.icon} ${config.text}"></i>
-                    </div>
-                    <div class="ml-3">
-                        <div class="flex items-center">
-                            <p class="text-sm font-medium ${config.text}">
-                                <span class="inline-block w-2 h-2 rounded-full ${config.dot} mr-2"></span>
-                                ${message || config.defaultMessage}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-};
 
-// Export individual functions to maintain compatibility with existing code
-export const {
-    updateScanStatus,
-    showMessage,
-    showError,
-    updateDeviceList,
-    updateConnectionStatus,
-    updateAdapterStatus,
-    logMessage,
-    setLoading,
-    updateSubscriptionStatus,
-    enableDebugMode,
-    updateAdapterInfo,
-    createUIElement,
-    showNotification,
-    updateStatus,
-    initializeUI
-} = BleUI;
+        // Animate out and remove after duration
+        setTimeout(() => {
+            toast.classList.add('translate-x-full', 'opacity-0');
+
+            // Remove after animation
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, duration);
+    }
+
+    /**
+     * Show a dialog
+     * @param {HTMLElement|string} content - The dialog content
+     * @param {Object} options - Dialog options
+     * @returns {HTMLElement} The dialog element
+     */
+    static showDialog(content, options = {}) {
+        // Create dialog overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+
+        // Create dialog container
+        const dialog = document.createElement('div');
+        dialog.className = 'bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-auto transform transition-transform duration-200 scale-95 opacity-0';
+
+        // Add content
+        if (typeof content === 'string') {
+            dialog.innerHTML = content;
+        } else {
+            dialog.appendChild(content);
+        }
+
+        // Add to DOM
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        // Add click handler to close on overlay click
+        if (options.closeOnOverlayClick !== false) {
+            overlay.addEventListener('click', (event) => {
+                if (event.target === overlay) {
+                    this.closeDialog(overlay);
+                }
+            });
+        }
+
+        // Add keydown handler to close on escape
+        if (options.closeOnEscape !== false) {
+            const escHandler = (event) => {
+                if (event.key === 'Escape') {
+                    this.closeDialog(overlay);
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+        }
+
+        // Animate in
+        setTimeout(() => {
+            dialog.classList.remove('scale-95', 'opacity-0');
+            dialog.classList.add('scale-100', 'opacity-100');
+        }, 10);
+
+        return overlay;
+    }
+
+    /**
+     * Close a dialog
+     * @param {HTMLElement} dialog - The dialog element
+     */
+    static closeDialog(dialog) {
+        const dialogContent = dialog.querySelector('div');
+
+        // Animate out
+        dialogContent.classList.remove('scale-100', 'opacity-100');
+        dialogContent.classList.add('scale-95', 'opacity-0');
+
+        // Remove after animation
+        setTimeout(() => {
+            dialog.remove();
+        }, 200);
+    }
+
+    /**
+     * Show a loading indicator
+     * @param {string} message - The message to show
+     * @returns {HTMLElement} The loading element
+     */
+    static showLoading(message = 'Loading...') {
+        // Create loading overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'loading-overlay';
+        overlay.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+
+        // Create loading container
+        const loading = document.createElement('div');
+        loading.className = 'bg-gray-800 rounded-lg shadow-xl p-4 flex flex-col items-center';
+
+        // Add spinner and message
+        loading.innerHTML = `
+            <div class="inline-block animate-spin text-2xl mb-2">
+                <i class="fas fa-spinner"></i>
+            </div>
+            <div>${message}</div>
+        `;
+
+        // Add to DOM
+        overlay.appendChild(loading);
+        document.body.appendChild(overlay);
+
+        return overlay;
+    }
+
+    /**
+     * Hide the loading indicator
+     */
+    static hideLoading() {
+        const loading = document.getElementById('loading-overlay');
+        if (loading) {
+            loading.remove();
+        }
+    }
+
+    /**
+     * Format a BLE address for display
+     * @param {string} address - The BLE address
+     * @returns {string} Formatted address
+     */
+    static formatAddress(address) {
+        if (!address) return '';
+
+        // If already has colons, return as is
+        if (address.includes(':')) return address;
+
+        // Add colons between every 2 characters
+        return address.match(/.{1,2}/g).join(':');
+    }
+
+    /**
+     * Format signal strength for display
+     * @param {number} rssi - The RSSI value
+     * @returns {string} Formatted signal strength with icon
+     */
+    static formatSignalStrength(rssi) {
+        let icon, color;
+
+        if (rssi >= -60) {
+            icon = 'fas fa-signal';
+            color = 'text-green-500';
+        } else if (rssi >= -75) {
+            icon = 'fas fa-signal';
+            color = 'text-yellow-500';
+        } else if (rssi >= -85) {
+            icon = 'fas fa-signal';
+            color = 'text-orange-500';
+        } else {
+            icon = 'fas fa-signal';
+            color = 'text-red-500';
+        }
+
+        return `<span class="${color}"><i class="${icon}"></i> ${rssi} dBm</span>`;
+    }
+
+    /**
+     * Initialize event listeners with passive option for touch events
+     * @param {HTMLElement} element - DOM element to add listeners to
+     * @param {string} event - Event name (e.g., 'touchstart')
+     * @param {Function} handler - Event handler function
+     * @param {Object} options - Additional options
+     */
+    static addPassiveEventListener(element, event, handler, options = {}) {
+        if (!element) return;
+        element.addEventListener(event, handler, { passive: true, ...options });
+    }
+
+    // Example usage:
+    // BleUI.addPassiveEventListener(document.getElementById('my-element'), 'touchstart', myHandler);
+}
+
+// Export the logMessage function
+export const logMessage = BleUI.logMessage;

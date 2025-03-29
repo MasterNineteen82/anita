@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException, Query
+from fastapi import FastAPI, Request, HTTPException, Query, WebSocket
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -14,21 +14,29 @@ import importlib
 import inspect
 from contextlib import asynccontextmanager
 from starlette.routing import Mount
+from fastapi.middleware.cors import CORSMiddleware
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from backend.ws.factory import websocket_factory
-from backend.modules.ble import ble_routes
 from backend.modules.monitors import monitoring_manager
 from backend.routes.api import (
     device_routes, smartcard_routes, nfc_routes, mifare_routes, biometric_routes,
     card_routes, system_routes, uwb_routes, auth_routes, cache_routes,
     hardware_routes, mqtt_routes, rfid_routes, security_routes, monitoring_router
 )
-#from backend.modules.ble import ble_routes # Remove this line
-#from backend.routes.api.monitoring_router import router as monitoring_router # Remove this line
+from backend.modules.ble import ble_routes
 from backend.logging.logging_config import setup_logging, print_colorful_traceback
 from backend.routes import api as api_package
+
+# Import the WebSocket endpoint directly
+from backend.modules.ble.websocket import websocket_endpoint
+
+# Import existing BLE router
+from backend.modules.ble.ble_routes import router as ble_router
+
+# Add import for the route mapper (to be created)
+from backend.modules.ble.route_mapper import frontend_api_router
 
 logger = setup_logging()
 
@@ -36,6 +44,15 @@ app = FastAPI(
     title="ANITA POC",
     description="Advanced NFC/IoT Technology Application",
     version="0.1.0"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, set to specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -48,7 +65,15 @@ logger.info(f"Using template directory: {template_dir}")
 LOG_DIR = os.environ.get('LOG_DIR', 'poc/logging')
 LOG_LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
-app.add_websocket_route("/ws/ble", ble_routes.ble_websocket_endpoint, name="ble_websocket")
+# Map the frontend-facing BLE WebSocket endpoint
+@app.websocket("/api/ble/ws/ble")
+async def ble_websocket_frontend(websocket: WebSocket):
+    await websocket_endpoint(websocket)
+
+# Keep the original WebSocket endpoint for backward compatibility
+@app.websocket("/api/ws/ble")
+async def ble_websocket(websocket: WebSocket):
+    await ble_routes.websocket_endpoint(websocket)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -92,7 +117,29 @@ known_routers = {
     "ble_routes": ble_routes.router
 }
 
+# Include both the backend and frontend BLE routers
+# Include the existing backend BLE router (original)
+try:
+    logger.info("Including router: ble_backend")
+    app.include_router(ble_router, prefix="/api" if not getattr(ble_router, "prefix", "") else "")
+    logger.info("Successfully included router: ble_backend")
+except Exception as e:
+    logger.error("Error including BLE backend router: {e}")
+
+# Include the new frontend-facing BLE router (with mapped endpoints)
+try:
+    logger.info("Including router: ble_frontend")
+    app.include_router(frontend_api_router)
+    logger.info("Successfully included router: ble_frontend")
+except Exception as e:
+    logger.error(f"Error including BLE frontend router: {e}")
+
+# Include other routers
 for router_name, router in known_routers.items():
+    # Skip BLE router since we already included it
+    if router_name == "ble_routes":
+        continue
+        
     logger.info(f"Including router: {router_name}")
     try:
         app.include_router(router, prefix="/api" if not getattr(router, "prefix", "") else "")
@@ -174,6 +221,12 @@ async def api_docs():
         for tag in route["tags"]:
             categorized_routes.setdefault(tag, []).append(route)
     return {"routes": routes_info, "routes_count": routes_count, "categorized_routes": categorized_routes}
+
+# Add BLE test page
+@app.get("/ble_test", response_class=HTMLResponse)
+async def ble_test(request: Request):
+    """BLE Test Interface for direct API testing"""
+    return templates.TemplateResponse("ble_test.html", {"request": request})
 
 # Frontend routes
 @app.get("/", response_class=HTMLResponse)

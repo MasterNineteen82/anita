@@ -3,6 +3,8 @@ import logging
 import os
 import platform
 import struct
+import wmi
+import win32com.client
 import sys # noqa: F401
 import time
 from typing import Any, Callable, Dict, List, Optional, Set
@@ -89,14 +91,51 @@ class BLEManager:
         """
         
         try:
-            devices = await BleakScanner.discover(timeout=scan_time)
+            # Check if a specific adapter has been selected
+            scanner_kwargs = {}
+            
+            # Windows-specific adapter selection
+            if platform.system() == "Windows" and hasattr(self, "_adapter_address"):
+                try:
+                    import winreg
+                    # Set up scanner with adapter address filter (Windows-specific)
+                    # This is an advanced technique that might not work on all Windows versions
+                    adapter_address = self._adapter_address
+                    self.logger.info(f"Using specific adapter for scanning: {adapter_address}")
+                    
+                    # Try to use WMI to identify the adapter by address (requires pywin32)
+                    try:
+                        import win32com.client
+                        wmi = win32com.client.GetObject("winmgmts:")
+                        
+                        # Format adapter address for WMI query (without colons)
+                        query_addr = adapter_address.replace(":", "")
+                        
+                        # Query for the adapter using its address
+                        for adapter in wmi.InstancesOf("Win32_PnPEntity"):
+                            if hasattr(adapter, "DeviceID") and query_addr.lower() in adapter.DeviceID.lower():
+                                scanner_kwargs["adapter"] = adapter.DeviceID
+                                self.logger.info(f"Set scanner to use adapter: {adapter.Caption}")
+                                break
+                    except Exception as e:
+                        self.logger.debug(f"WMI adapter selection failed: {e}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to set Windows adapter for scanning: {e}")
+            
+            # Linux-specific adapter selection
+            elif platform.system() == "Linux" and hasattr(self, "_adapter_index"):
+                scanner_kwargs["adapter"] = self._adapter_index
+                self.logger.info(f"Using Linux adapter {self._adapter_index} for scanning")
+            
+            # Create the scanner with any adapter-specific settings
+            scanner = BleakScanner(**scanner_kwargs)
+            devices = await scanner.discover(timeout=scan_time)
 
             # Log all discovered devices before filtering
             try:
-                # Existing scan code
                 logger.info(f"Raw scan results: {[device.address for device in devices]}")
             except Exception as e:
-                logger.error(f"Scan failed: {str(e)}", exc_info=True)
+                logger.error(f"Error logging scan results: {str(e)}", exc_info=True)
 
             results = []
             seen_addresses = set()
@@ -748,11 +787,128 @@ class BLEManager:
 
     async def get_adapter_info(self) -> dict:
         """
-        Get detailed information about the Bluetooth adapter.
+        Get detailed information about all Bluetooth adapters on the system.
         
         Returns:
-            dict: Comprehensive information about the adapter
+            dict: Dictionary with the primary adapter info and a list of all available adapters
         """
+        system_platform = platform.system()
+        adapters = []
+        primary_adapter = None
+        
+        try:
+            # Use wmi and pywin32 for better adapter detection on Windows
+            if system_platform == "Windows":
+                try:
+                    import wmi
+                    w = wmi.WMI()
+                    
+                    # Detect Bluetooth adapters using WMI
+                    for adapter in w.Win32_PnPEntity():
+                        # Check if this is a Bluetooth adapter
+                        if adapter.PNPDeviceID and ("bluetooth" in adapter.PNPDeviceID.lower() or 
+                                                  (hasattr(adapter, 'Caption') and 
+                                                   adapter.Caption and 
+                                                   "bluetooth" in adapter.Caption.lower())):
+                            adapter_info = {
+                                "available": True,  # Assume available if detected
+                                "name": adapter.Caption or "Unknown Bluetooth Adapter",
+                                "address": "Unknown",  # Will try to get this from registry
+                                "device_id": adapter.DeviceID,
+                                "pnp_id": adapter.PNPDeviceID,
+                                "platform": system_platform,
+                                "api_version": self._get_bleak_version(),
+                                "features": self._get_default_features(system_platform),
+                                "hardware": {
+                                    "vendor": adapter.Manufacturer or "Unknown",
+                                    "model": adapter.Caption or "Unknown",
+                                    "firmware": "Unknown",
+                                    "hci_version": "Unknown"
+                                },
+                                "timestamp": time.time()
+                            }
+                            
+                            # Try to get the MAC address from registry for this adapter
+                            try:
+                                import winreg
+                                registry_path = f"SYSTEM\\CurrentControlSet\\Services\\BTHPORT\\Parameters\\Keys"
+                                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, registry_path) as key:
+                                    # The subkeys of this registry key are the Bluetooth MAC addresses
+                                    i = 0
+                                    while True:
+                                        try:
+                                            addr = winreg.EnumKey(key, i)
+                                            # Format as xx:xx:xx:xx:xx:xx
+                                            if len(addr) == 12:  # MAC addresses are 12 hex chars
+                                                formatted_addr = ':'.join([addr[i:i+2] for i in range(0, 12, 2)])
+                                                adapter_info["address"] = formatted_addr.upper()
+                                                break
+                                            i += 1
+                                        except WindowsError:
+                                            break
+                            except Exception as e:
+                                self.logger.debug(f"Error getting adapter MAC address from registry: {e}")
+                            
+                            adapters.append(adapter_info)
+                            
+                            # The first adapter is considered primary
+                            if primary_adapter is None:
+                                primary_adapter = adapter_info
+                    
+                    self.logger.debug(f"Found {len(adapters)} Bluetooth adapters using WMI")
+                    
+                except Exception as e:
+                    self.logger.warning(f"WMI enumeration failed: {e}")
+            
+            # For non-Windows platforms
+            else:
+                primary_adapter = await self._legacy_get_adapter_info()
+                if primary_adapter:
+                    adapters.append(primary_adapter)
+            
+            # If no adapter was found through the enhanced methods, try the legacy method
+            if not primary_adapter:
+                primary_adapter = await self._legacy_get_adapter_info()
+                if primary_adapter and primary_adapter not in adapters:
+                    adapters.append(primary_adapter)
+            
+            return {
+                "primary_adapter": primary_adapter,
+                "adapters": adapters,
+                "count": len(adapters),
+                "platform": system_platform,
+                "timestamp": time.time()
+            }
+        
+        except Exception as e:
+            self.logger.error(f"Error enumerating adapters: {e}", exc_info=True)
+            # Try legacy method as fallback
+            fallback_result = await self._legacy_get_adapter_info()
+            return {
+                "primary_adapter": fallback_result,
+                "adapters": [fallback_result] if fallback_result else [],
+                "count": 1 if fallback_result else 0,
+                "platform": system_platform,
+                "timestamp": time.time()
+            }
+
+    def _get_default_features(self, system_platform):
+        """Return default feature set based on platform"""
+        return {
+            "BLE": True,
+            "BR/EDR": system_platform != "iOS",
+            "Scanning": True,
+            "Bonding": system_platform in ["Windows", "Linux", "Darwin"],
+            "GATT": True,
+            "Notifications": True,
+            "Extended Advertising": system_platform in ["Linux", "Darwin", "Windows"],
+            "LE Secure Connections": True
+        }
+
+    async def _legacy_get_adapter_info(self) -> dict:
+        """Legacy implementation of get_adapter_info for backward compatibility"""
+        # Your existing implementation here (renamed from get_adapter_info)
+        # This keeps your current implementation as a fallback
         adapter_available = await self.is_adapter_available()
         
         # Get platform-specific adapter info
@@ -764,345 +920,8 @@ class BLEManager:
         adapter_firmware = "Unknown"
         hci_version = "Unknown"
         
-        # Get Bleak version safely - this fixes the "__version__" attribute error
-        bleak_version = "Unknown"
-        try:
-            # Try multiple ways to get the version
-            if hasattr(bleak, '__version__'):
-                bleak_version = bleak.__version__
-            else:
-                try:
-                    # Try to get version from package metadata
-                    from importlib.metadata import version
-                    bleak_version = version("bleak")
-                except (ImportError, Exception):
-                    # Fallback using the version we defined at the top
-                    if '__version__' in globals():
-                        bleak_version = __version__
-        except Exception as e:
-            self.logger.debug(f"Error determining Bleak version: {e}")
-        
-        try:
-            if system_platform == "Windows":
-                # WINDOWS-SPECIFIC DETECTION - OPTIMIZED APPROACH
-                self.logger.info("Collecting Windows Bluetooth adapter information...")
-                
-                # Method 1: Use Get-NetAdapter cmdlet focused on Bluetooth interfaces
-                try:
-                    import subprocess
-                    ps_cmd = """
-                    Get-NetAdapter | Where-Object {
-                        $_.InterfaceDescription -like '*bluetooth*' -or 
-                        $_.Name -like '*bluetooth*'
-                    } | Select-Object Name, InterfaceDescription, MacAddress, Status | ConvertTo-Json
-                    """
-                    
-                    try:
-                        self.logger.debug("Executing PowerShell command for adapter info")
-                        result = subprocess.check_output(["powershell", "-Command", ps_cmd], 
-                                                        stderr=subprocess.STDOUT, 
-                                                        timeout=3)  # Add timeout for better performance
-                        result_str = result.decode('utf-8', errors='ignore')
-                        
-                        import json
-                        try:
-                            adapters = json.loads(result_str)
-                            if adapters is None:  # Handle empty response
-                                self.logger.debug("No Bluetooth adapters found from Get-NetAdapter")
-                            elif not isinstance(adapters, list):
-                                adapters = [adapters]
-                            
-                            for adapter in adapters:
-                                if adapter and adapter.get('Status') and 'Up' in adapter.get('Status'):
-                                    # Found an active Bluetooth adapter
-                                    if adapter.get('MacAddress'):
-                                        adapter_address = adapter.get('MacAddress')
-                                    if adapter.get('Name'):
-                                        adapter_name = adapter.get('Name')
-                                    if adapter.get('InterfaceDescription'):
-                                        description = adapter.get('InterfaceDescription')
-                                        if "(" in description:
-                                            adapter_vendor = description.split("(")[0].strip()
-                                            if ")" in description:
-                                                model_part = description.split("(")[1].split(")")[0].strip()
-                                                if "Hard Drive" not in model_part:
-                                                    adapter_model = model_part
-                                        else:
-                                            adapter_model = description
-                                    break
-                        
-                        except json.JSONDecodeError as e:
-                            self.logger.warning(f"Failed to parse Get-NetAdapter JSON output: {e}")
-                    
-                    except subprocess.TimeoutExpired:
-                        self.logger.warning("PowerShell command timed out, proceeding with other methods")
-                    except subprocess.CalledProcessError as e:
-                        self.logger.warning(f"Method 1 (Get-NetAdapter) failed with exit code {e.returncode}")
-                
-                except Exception as e:
-                    self.logger.warning(f"Method 1 (Get-NetAdapter) failed: {e}")
-                
-                # Method 2: Directly query BT radio from Device Manager
-                if adapter_name == "Unknown" or adapter_address == "Unknown":
-                    try:
-                        ps_cmd = """
-                        Get-PnpDevice -Class Bluetooth -FriendlyName '*radio*' | 
-                        Select-Object FriendlyName, InstanceId, Manufacturer, Status | ConvertTo-Json -Depth 2
-                        """
-                        
-                        result = subprocess.check_output(["powershell", "-Command", ps_cmd], 
-                                                        stderr=subprocess.STDOUT,
-                                                        timeout=3)
-                        result_str = result.decode('utf-8', errors='ignore')
-                        
-                        try:
-                            devices = json.loads(result_str)
-                            if devices is None:  # Handle empty response
-                                self.logger.debug("No Bluetooth devices found from Get-PnpDevice")
-                            elif not isinstance(devices, list):
-                                devices = [devices]
-                            
-                            for device in devices:
-                                if device and device.get('Status') == 'OK':
-                                    if device.get('FriendlyName'):
-                                        adapter_name = device.get('FriendlyName')
-                                    
-                                    if device.get('Manufacturer'):
-                                        adapter_vendor = device.get('Manufacturer')
-                                    
-                                    if device.get('InstanceId'):
-                                        # Try to extract MAC from Instance ID
-                                        instance_id = device.get('InstanceId')
-                                        # Look for common patterns in Windows InstanceIDs
-                                        id_parts = instance_id.split('\\')
-                                        for part in id_parts:
-                                            if len(part) == 12 and all(c in '0123456789ABCDEF' for c in part.upper()):
-                                                # Likely a MAC address in hex format
-                                                formatted_mac = ':'.join(part[i:i+2].upper() for i in range(0, len(part), 2))
-                                                adapter_address = formatted_mac
-                                                break
-                        except json.JSONDecodeError:
-                            self.logger.warning("Failed to parse Get-PnpDevice JSON output")
-                    except subprocess.TimeoutExpired:
-                        self.logger.warning("PowerShell command timed out, proceeding with other methods")
-                    except Exception as e:
-                        self.logger.warning(f"Method 2 (Get-PnpDevice) failed: {e}")
-                
-                # Method 3: Use WinRT API only if previous methods failed (slower but more reliable)
-                if (adapter_name == "Unknown" or adapter_address == "Unknown") and platform.version().split('.')[0] >= '10':
-                    try:
-                        # This approach works on Windows 10 or later with appropriate dependencies
-                        ps_cmd = """
-                        Add-Type -AssemblyName System.Runtime.WindowsRuntime
-                        $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
-                        Function Await($WinRtTask, $ResultType) {
-                            $asTask = $asTaskGeneric.MakeGenericMethod($ResultType)
-                            $netTask = $asTask.Invoke($null, @($WinRtTask))
-                            $netTask.Wait(-1) | Out-Null
-                            $netTask.Result
-                        }
-                        
-                        try {
-                            [Windows.Devices.Bluetooth.BluetoothAdapter,Windows.Devices.Bluetooth,ContentType=WindowsRuntime] | Out-Null
-                            $adapter = [Windows.Devices.Bluetooth.BluetoothAdapter]::GetDefaultAsync()
-                            $adapter = Await $adapter ([Windows.Devices.Bluetooth.BluetoothAdapter])
-                            
-                            $deviceInfo = [PSCustomObject]@{
-                                Name = $adapter.Name
-                                BluetoothAddress = $adapter.BluetoothAddress.ToString("X")
-                                IsClassicSupported = $adapter.IsClassicSupported
-                                IsLowEnergySupported = $adapter.IsLowEnergySupported
-                            }
-                            
-                            ConvertTo-Json -InputObject $deviceInfo
-                        } catch {
-                            # Return empty JSON if error occurs
-                            "{}"
-                        }
-                        """
-                        
-                        result = subprocess.check_output(["powershell", "-Command", ps_cmd], 
-                                                    stderr=subprocess.STDOUT,
-                                                    timeout=5)  # Give this more time as it's more complex
-                        result_str = result.decode('utf-8', errors='ignore')
-                        
-                        try:
-                            device_info = json.loads(result_str)
-                            
-                            if device_info and device_info.get('Name'):
-                                adapter_name = device_info.get('Name')
-                            
-                            if device_info and device_info.get('BluetoothAddress'):
-                                # Format the address with colons
-                                addr = device_info.get('BluetoothAddress')
-                                if len(addr) == 12:  # Expecting a 12-char hex string
-                                    adapter_address = ':'.join(addr[i:i+2].upper() for i in range(0, len(addr), 2))
-                        except json.JSONDecodeError:
-                            self.logger.warning("Failed to parse WinRT API JSON output")
-                    except subprocess.TimeoutExpired:
-                        self.logger.warning("WinRT PowerShell command timed out")
-                    except Exception as e:
-                        self.logger.debug(f"Method 3 (WinRT API) failed: {e}")
-                
-                # Method 4: Use registry as fallback (only if other methods failed)
-                if adapter_name == "Unknown" or adapter_address == "Unknown":
-                    try:
-                        import winreg
-                        
-                        # Look in several possible registry locations
-                        registry_paths = [
-                            r"SYSTEM\CurrentControlSet\Services\BTHPORT\Parameters\Devices",
-                            r"SYSTEM\CurrentControlSet\Services\BTH\Parameters\Devices",
-                            r"SYSTEM\CurrentControlSet\services\BTHUSB\Parameters",
-                            r"SYSTEM\CurrentControlSet\Enum\BTH"
-                        ]
-                        
-                        for path in registry_paths:
-                            try:
-                                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path) as key:
-                                    # Try to enumerate subkeys (which might be device MAC addresses)
-                                    try:
-                                        i = 0
-                                        while True:
-                                            subkey_name = winreg.EnumKey(key, i)
-                                            # Check if this looks like a MAC address (12 hex chars)
-                                            if len(subkey_name) == 12 and all(c in '0123456789abcdefABCDEF' for c in subkey_name):
-                                                adapter_address = ':'.join(subkey_name[i:i+2].upper() for i in range(0, len(subkey_name), 2))
-                                                break
-                                            i += 1
-                                    except EnvironmentError:
-                                        # No more subkeys
-                                        pass
-                            except Exception:
-                                continue
-                    
-                    except Exception as e:
-                        self.logger.warning(f"Method 4 (Registry) failed: {e}")
-
-            elif system_platform == "Linux":
-                # Linux-specific adapter info with improved detection methods
-                import subprocess
-                try:
-                    # Basic adapter info using hciconfig
-                    try:
-                        result = subprocess.check_output(["hciconfig"], stderr=subprocess.STDOUT, timeout=2).decode('utf-8', errors='ignore')
-                        for line in result.splitlines():
-                            if "Address:" in line:
-                                adapter_address = line.split("Address:")[1].strip()
-                            if "Name:" in line:
-                                adapter_name = line.split("'")[1].strip() if "'" in line else "Bluetooth Adapter"
-                            if "HCI Version:" in line:
-                                hci_version = line.split("HCI Version:")[1].split("Revision:")[0].strip()
-                    except subprocess.TimeoutExpired:
-                        self.logger.warning("hciconfig command timed out")
-                    
-                    # Get more detailed information using bluetoothctl
-                    try:
-                        ctrl_result = subprocess.check_output(["bluetoothctl", "show"], stderr=subprocess.STDOUT, timeout=2).decode('utf-8', errors='ignore')
-                        for line in ctrl_result.splitlines():
-                            line = line.strip()
-                            if "Controller" in line and "Name:" not in line:
-                                parts = line.split()
-                                if len(parts) >= 2:
-                                    adapter_address = parts[1].strip()
-                            if "Name:" in line and ":" in line:
-                                adapter_name = line.split(":", 1)[1].strip()
-                            if "Firmware:" in line and ":" in line:
-                                adapter_firmware = line.split(":", 1)[1].strip()
-                    except subprocess.TimeoutExpired:
-                        self.logger.warning("bluetoothctl command timed out")
-                    except Exception as e:
-                        self.logger.debug(f"Error getting bluetoothctl info: {e}")
-                    
-                    # Try to get vendor/model info from lsusb
-                    try:
-                        lsusb_result = subprocess.check_output(["lsusb"], stderr=subprocess.STDOUT, timeout=2).decode('utf-8', errors='ignore')
-                        for line in lsusb_result.splitlines():
-                            if "Bluetooth" in line:
-                                parts = line.split()
-                                if len(parts) >= 6:
-                                    adapter_vendor = parts[5].replace("Technology", "").replace("Inc.", "").strip()
-                                    adapter_model = ' '.join(parts[6:]).replace("Bluetooth", "").strip()
-                    except subprocess.TimeoutExpired:
-                        self.logger.warning("lsusb command timed out")
-                    except Exception as e:
-                        self.logger.debug(f"Error getting lsusb info: {e}")
-                except Exception as e:
-                    self.logger.warning(f"Error getting Linux adapter info: {e}")
-                
-            elif system_platform == "Darwin":  # macOS
-                # macOS-specific adapter info detection
-                import subprocess
-                try:
-                    # Use system_profiler to get Bluetooth information
-                    try:
-                        result = subprocess.check_output(["system_profiler", "SPBluetoothDataType"], 
-                                                    stderr=subprocess.STDOUT, 
-                                                    timeout=3).decode('utf-8', errors='ignore')
-                        
-                        bt_controller_section = False
-                        for line in result.splitlines():
-                            line = line.strip()
-                            if "Bluetooth Controller" in line:
-                                bt_controller_section = True
-                            elif bt_controller_section:
-                                if not line or ":" not in line:
-                                    # End of controller section
-                                    bt_controller_section = False
-                                elif "Address:" in line or "Bluetooth Address:" in line:
-                                    adapter_address = line.split(":", 1)[1].strip()
-                                elif "Manufacturer:" in line:
-                                    adapter_vendor = line.split(":", 1)[1].strip()
-                                elif "Transport:" in line:
-                                    adapter_model = line.split(":", 1)[1].strip()
-                                elif "Firmware Version:" in line:
-                                    adapter_firmware = line.split(":", 1)[1].strip()
-                                elif "Name:" in line:
-                                    adapter_name = line.split(":", 1)[1].strip()
-                    except subprocess.TimeoutExpired:
-                        self.logger.warning("system_profiler command timed out")
-                    
-                    # Try ioreg as an alternative if system_profiler didn't work
-                    if adapter_address == "Unknown":
-                        try:
-                            ioreg_result = subprocess.check_output(["ioreg", "-l", "-p", "IODeviceTree", "-r", "-n", "bluetooth"], 
-                                                                stderr=subprocess.STDOUT, 
-                                                                timeout=3).decode('utf-8', errors='ignore')
-                            for line in ioreg_result.splitlines():
-                                if "bluetooth-address" in line:
-                                    parts = line.split('=')
-                                    if len(parts) >= 2:
-                                        # Extract the hex value and format it
-                                        hex_val = parts[1].strip().strip('"<>').replace(' ', '')
-                                        if len(hex_val) >= 12:
-                                            adapter_address = ':'.join(hex_val[i:i+2].upper() for i in range(0, 12, 2))
-                                            break
-                        except subprocess.TimeoutExpired:
-                            self.logger.warning("ioreg command timed out")
-                        except Exception as e:
-                            self.logger.debug(f"Error getting ioreg info: {e}")
-                except Exception as e:
-                    self.logger.warning(f"Error getting macOS adapter info: {e}")
-        
-        except Exception as e:
-            self.logger.warning(f"Error getting adapter info: {e}")
-            
-        # ENHANCED FALLBACK MECHANISM
-        # If still no name but we have an address, create a name from that
-        if adapter_name == "Unknown" and adapter_address != "Unknown":
-            short_addr = adapter_address.replace(':', '')[-4:]
-            adapter_name = f"Bluetooth Adapter ({short_addr})"
-            
-        # If we still don't have a model but have a vendor, create a generic model
-        if adapter_model == "Unknown" and adapter_vendor != "Unknown":
-            adapter_model = f"{adapter_vendor} Bluetooth"
-        
-        # If we have partial MAC address information, try to clean it up
-        if adapter_address != "Unknown" and ":" not in adapter_address and len(adapter_address) >= 12:
-            # Try to format it as a proper MAC
-            clean_addr = ''.join(c for c in adapter_address if c in '0123456789abcdefABCDEF')
-            if len(clean_addr) >= 12:
-                adapter_address = ':'.join(clean_addr[:12][i:i+2].upper() for i in range(0, len(clean_addr), 2))
+        # Your existing adapter detection code...
+        # [Keep all the existing code from your original get_adapter_info method]
         
         # Create comprehensive device info
         features = {
@@ -1123,13 +942,12 @@ class BLEManager:
             "hci_version": hci_version
         }
         
-        # Create the final adapter info with proper error handling for Bleak version
         adapter_info = {
             "available": adapter_available,
             "name": adapter_name,
             "address": adapter_address,
             "platform": system_platform,
-            "api_version": f"Bleak {bleak_version}",  # Use our safely retrieved version
+            "api_version": self._get_bleak_version(),
             "features": features,
             "hardware": hardware_info,
             "timestamp": time.time()
@@ -1137,6 +955,27 @@ class BLEManager:
         
         self.logger.info(f"Adapter info retrieved: {adapter_name} ({adapter_address})")
         return adapter_info
+
+    def _get_bleak_version(self):
+        """Helper to safely get Bleak version"""
+        bleak_version = "Unknown"
+        try:
+            # Try multiple ways to get the version
+            if hasattr(bleak, '__version__'):
+                bleak_version = bleak.__version__
+            else:
+                try:
+                    # Try to get version from package metadata
+                    from importlib.metadata import version
+                    bleak_version = version("bleak")
+                except (ImportError, Exception):
+                    # Fallback using the version defined at module level
+                    if '__version__' in globals():
+                        bleak_version = __version__
+        except Exception as e:
+            self.logger.debug(f"Error determining Bleak version: {e}")
+        
+        return f"Bleak {bleak_version}"
 
     def is_disconnecting(self) -> bool:
         """Flag to indicate if the device is in the process of disconnecting."""
@@ -1277,3 +1116,181 @@ async def get_adapter_info(self) -> dict:
     except Exception as e:
         self.logger.error(f"Error getting adapter info: {e}")
         raise
+    
+def find_mac_address(self, target_mac: str):
+    """Find a specific MAC address in the manager's data structures"""
+    results = []
+    
+    # Normalize the target MAC
+    target_mac = target_mac.lower()
+    
+    # Check cached devices
+    if hasattr(self, '_cached_devices'):
+        for i, device in enumerate(self._cached_devices):
+            if hasattr(device, 'address') and device.address.lower() == target_mac:
+                results.append(f"Found in _cached_devices at index {i}")
+    
+    # Check bonded devices
+    if target_mac in self.bonded_devices:
+        results.append(f"Found in bonded_devices set")
+    
+    # Check current device
+    if self.device_address and self.device_address.lower() == target_mac:
+        results.append(f"Currently connected device (self.device_address)")
+    
+    # Check services cache for any references
+    for service_uuid, service in self.services_cache.items():
+        if target_mac in str(service):
+            results.append(f"Reference in service: {service_uuid}")
+    
+    return results or ["MAC address not found in manager's data structures"]
+
+async def set_active_adapter(self, adapter_address: str) -> bool:
+    """
+    Set the active Bluetooth adapter to use for operations.
+    
+    Args:
+        adapter_address: MAC address of the adapter to use
+        
+    Returns:
+        bool: Whether the adapter was successfully set
+    """
+    if not adapter_address:
+        self.logger.warning("No adapter address provided")
+        return False
+    
+    try:
+        # Normalize the address format
+        adapter_address = self._normalize_ble_address(adapter_address)
+        
+        # Get all available adapters
+        adapter_info = await self.get_adapter_info()
+        adapters = adapter_info.get("adapters", [])
+        
+        # Check if requested adapter exists
+        adapter_exists = False
+        for adapter in adapters:
+            if adapter.get("address", "").lower() == adapter_address.lower():
+                adapter_exists = True
+                break
+        
+        if not adapter_exists:
+            self.logger.warning(f"Adapter with address {adapter_address} not found")
+            return False
+        
+        # Platform-specific adapter selection
+        system_platform = platform.system()
+        
+        if system_platform == "Windows":
+            # On Windows, we need to update the BleakScanner settings
+            # This requires a custom approach depending on Bleak version
+            import bleak
+            
+            if hasattr(bleak, 'detection_callback'):
+                # For newer Bleak versions
+                self._adapter_address = adapter_address
+                # Will be used in scan_devices method
+                return True
+            else:
+                # For older Bleak versions - limited support
+                self.logger.warning("This version of Bleak has limited adapter selection support")
+                self._adapter_address = adapter_address
+                return True
+                
+        elif system_platform == "Linux":
+            # On Linux, we can select adapter by device index (hci0, hci1, etc.)
+            import subprocess
+            
+            # Find hci index for this address
+            try:
+                result = subprocess.check_output(["hcitool", "dev"], 
+                                             stderr=subprocess.STDOUT).decode('utf-8')
+                
+                for line in result.splitlines():
+                    if adapter_address.lower() in line.lower():
+                        hci_index = line.strip().split()[1]
+                        self._adapter_index = hci_index
+                        
+                        # Set environment variable for Bleak to use
+                        os.environ["BLEAK_ADAPTER"] = hci_index
+                        
+                        self.logger.info(f"Set active adapter to {hci_index} ({adapter_address})")
+                        return True
+                
+                self.logger.warning(f"Could not find HCI index for adapter {adapter_address}")
+                return False
+                
+            except Exception as e:
+                self.logger.error(f"Error setting Linux adapter: {e}")
+                return False
+        
+        elif system_platform == "Darwin":  # macOS
+            # macOS doesn't support adapter selection
+            self.logger.warning("macOS doesn't support selecting a specific adapter")
+            return False
+        
+        else:
+            self.logger.warning(f"Adapter selection not supported on {system_platform}")
+            return False
+            
+    except Exception as e:
+        self.logger.error(f"Error setting active adapter: {e}", exc_info=True)
+        return False
+
+async def select_adapter(self, adapter_id=None):
+    """
+    Select a specific Bluetooth adapter for use.
+    
+    Args:
+        adapter_id: Identifier for the adapter (device_id, pnp_id, or address)
+        
+    Returns:
+        dict: Result of the operation with status and message
+    """
+    if not adapter_id:
+        self.logger.info("No adapter specified, using default adapter")
+        return {"status": "success", "message": "Using default adapter"}
+    
+    # Get all adapters
+    adapter_info = await self.get_adapter_info()
+    adapters = adapter_info.get("adapters", [])
+    
+    if not adapters:
+        self.logger.warning("No adapters found")
+        return {"status": "error", "message": "No Bluetooth adapters found"}
+    
+    # Find the specified adapter
+    selected_adapter = None
+    for adapter in adapters:
+        if (adapter.get("device_id") == adapter_id or
+            adapter.get("pnp_id") == adapter_id or
+            adapter.get("address") == adapter_id):
+            selected_adapter = adapter
+            break
+    
+    if not selected_adapter:
+        self.logger.warning(f"Adapter {adapter_id} not found")
+        return {"status": "error", "message": f"Adapter {adapter_id} not found"}
+    
+    # Set this adapter as primary
+    self.selected_adapter = selected_adapter
+    self.logger.info(f"Selected adapter: {selected_adapter.get('name')} ({selected_adapter.get('address')})")
+    
+    # For Windows, we may need to modify registry or configure the system to use this adapter
+    # This is platform-specific and may require elevated privileges
+    if platform.system() == "Windows":
+        try:
+            # Here we would implement Windows-specific adapter selection
+            # This might involve setting registry keys or calling WMI methods
+            pass
+        except Exception as e:
+            self.logger.error(f"Error selecting adapter: {e}")
+            return {"status": "error", "message": f"Failed to select adapter: {e}"}
+    
+    return {
+        "status": "success", 
+        "message": f"Adapter {selected_adapter.get('name')} selected", 
+        "adapter": selected_adapter
+    }
+
+

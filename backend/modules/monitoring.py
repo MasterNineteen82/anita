@@ -3,7 +3,7 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Dict, Any
-from .ble_manager import BLEManager
+from backend.modules.ble.ble_manager import BLEManager
 from backend.ws.manager import manager
 from backend.ws.events import create_event, DeviceStatus
 from .monitors import Monitor  # Updated import

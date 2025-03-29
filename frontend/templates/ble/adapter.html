@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Bluetooth Adapters{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Bluetooth Adapters</h1>
+            
+            <div id="adapter-selector-container"></div>
+            
+            <div class="mt-4">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">Adapter Health</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="health-report-container">
+                            <div class="text-center py-3">
+                                <button id="check-health" class="btn btn-primary">
+                                    <i class="bi bi-heart-pulse"></i> Check Bluetooth Health
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/pages/ble/ble-adapter-selector.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Health check button
+        const healthCheckBtn = document.getElementById('check-health');
+        const healthReportContainer = document.getElementById('health-report-container');
+        
+        if (healthCheckBtn) {
+            healthCheckBtn.addEventListener('click', async function() {
+                // Show loading
+                healthReportContainer.innerHTML = `
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 mb-0">Analyzing Bluetooth health...</p>
+                    </div>
+                `;
+                
+                try {
+                    const response = await fetch('/api/ble/health');
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to get health report');
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Display health report
+                    healthReportContainer.innerHTML = `
+                        <div class="health-report">
+                            <div class="alert alert-${data.status === 'healthy' ? 'success' : data.status === 'warning' ? 'warning' : 'danger'}">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-${data.status === 'healthy' ? 'check-circle' : 'exclamation-triangle'}-fill me-2 fs-4"></i>
+                                    <div>
+                                        <h5 class="mb-1">Bluetooth Status: ${data.status.charAt(0).toUpperCase() + data.status.slice(1)}</h5>
+                                        <p class="mb-0">${data.status === 'healthy' ? 'Your Bluetooth system is functioning properly' : 'Issues detected with your Bluetooth system'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${data.issues.length > 0 ? `
+                                <h6 class="mt-3">Issues Detected</h6>
+                                <ul class="list-group mb-3">
+                                    ${data.issues.map(issue => `
+                                        <li class="list-group-item">
+                                            <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                                            ${issue}
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            ` : ''}
+                            
+                            ${data.recommendations.length > 0 ? `
+                                <h6 class="mt-3">Recommendations</h6>
+                                <ul class="list-group mb-3">
+                                    ${data.recommendations.map(rec => `
+                                        <li class="list-group-item">
+                                            <i class="bi bi-lightbulb-fill text-primary me-2"></i>
+                                            ${rec}
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            ` : ''}
+                            
+                            <h6 class="mt-3">System Information</h6>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th style="width: 30%">Platform</th>
+                                        <td>${data.system.platform}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Processor</th>
+                                        <td>${data.system.processor}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Memory</th>
+                                        <td>${data.system.memory_total_gb} GB (${data.system.memory_percent}% in use)</td>
+                                    </tr>
+                                    <tr>
+                                        <th>CPU Usage</th>
+                                        <td>${data.system.cpu_percent}%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            
+                            <div class="text-end mt-3">
+                                <button id="refresh-health" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Add event listener to refresh button
+                    document.getElementById('refresh-health').addEventListener('click', function() {
+                        healthCheckBtn.click();
+                    });
+                    
+                } catch (error) {
+                    console.error('Error getting health report:', error);
+                    
+                    healthReportContainer.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Failed to get health report: ${error.message || error}
+                        </div>
+                        <div class="text-center mt-3">
+                            <button id="retry-health" class="btn btn-outline-primary">
+                                <i class="bi bi-arrow-clockwise"></i> Try Again
+                            </button>
+                        </div>
+                    `;
+                    
+                    // Add event listener to retry button
+                    document.getElementById('retry-health').addEventListener('click', function() {
+                        healthCheckBtn.click();
+                    });
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,240 @@
+/* BLE Dashboard specific styles */
+
+/* Tab styles */
+.tab-button {
+    color: #6b7280;
+    border-bottom-width: 2px;
+    border-color: transparent;
+}
+.tab-button:hover {
+    color: #4b5563;
+    border-color: #d1d5db;
+}
+.tab-button:focus {
+    outline: none;
+}
+
+.tab-button.tab-active {
+    color: #2563eb;
+    border-color: #2563eb;
+}
+
+.device-rssi-high {
+    color: #059669;
+}
+
+.device-rssi-medium {
+    color: #d97706;
+}
+
+.device-rssi-low {
+    color: #dc2626;
+}
+
+
+.custom-checkbox input:checked + label div i {
+    display: block;
+}
+
+/* Custom radio buttons */
+.custom-radio input:checked + label div div {
+    display: block;
+}
+
+
+.log-entry {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.log-info {
+    color: #1f2937;
+}
+
+.log-debug {
+    color: #1e40af;
+}
+
+.log-error {
+    color: #991b1b;
+}
+.service-item {
+    margin-bottom: 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.accordion-item {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+}
+
+.accordion-header {
+    padding: 0.75rem;
+    background-color: #f9fafb;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.accordion-header:hover {
+    background-color: #f3f4f6;
+}
+
+.accordion-content {
+    padding: 0.75rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Accordion styles */
+.accordion-item {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+}
+
+.accordion-header {
+    padding: 0.75rem;
+    background-color: #f9fafb;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.accordion-content {
+    padding: 0.75rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Animation utilities */
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Add the styles from your inline declarations */
+.scan-progress {
+    transition: width 0.3s ease;
+}
+
+/* Add other styles as needed */
+
+/* BLE Dashboard Styles */
+
+/* General styles */
+.scan-progress {
+    transition: width 0.3s ease;
+}
+
+/* Device list styles */
+.device-row {
+    transition: background-color 0.2s ease;
+}
+
+.device-row:hover {
+    background-color: rgba(59, 130, 246, 0.05);
+}
+
+.device-row.selected {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-left: 3px solid #3b82f6;
+}
+
+/* Service and characteristic styling */
+.service-item, .characteristic-item {
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+}
+
+.service-item:hover, .characteristic-item:hover {
+    background-color: rgba(59, 130, 246, 0.05);
+}
+
+.service-item.selected, .characteristic-item.selected {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-left-color: #3b82f6;
+}
+
+/* Notification styling */
+.notification-item {
+    animation: notificationFade 0.3s ease-in;
+}
+
+@keyframes notificationFade {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Log styling */
+#ble-log-container div {
+    border-bottom: 1px solid rgba(229, 231, 235, 0.5);
+    padding: 3px 0;
+}
+
+/* Custom button styles */
+.btn-circle {
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Battery level coloring */
+.battery-level-low {
+    background-color: #ef4444 !important;
+}
+
+.battery-level-medium {
+    background-color: #f59e0b !important;
+}
+
+.battery-level-high {
+    background-color: #10b981 !important;
+}
+
+/* RSSI signal strength indicator */
+.rssi-indicator {
+    display: inline-flex;
+    align-items: center;
+}
+
+.rssi-bar {
+    width: 3px;
+    margin-right: 1px;
+    background-color: #d1d5db;
+    border-radius: 1px;
+}
+
+.rssi-bar-active {
+    background-color: #10b981;
+}
+
+/* Chart container */
+.visualization-container {
+    position: relative;
+}
+
+.visualization-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+}

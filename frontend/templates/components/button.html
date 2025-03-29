@@ -1,0 +1,21 @@
+{#
+  Render a button with various styles
+  
+  Usage:
+  {{ render_button("Submit", "primary", id="submit-btn", icon="check") }}
+  {{ render_button("Cancel", "secondary", size="sm") }}
+#}
+{% macro render_button(text, style="primary", size="", icon="", id="", class="", disabled=false, type="button", attrs={}) %}
+<button 
+    {% if id %}id="{{ id }}"{% endif %}
+    type="{{ type }}"
+    class="btn btn-{{ style }} {% if size %}btn-{{ size }}{% endif %} {{ class }}"
+    {% if disabled %}disabled{% endif %}
+    {% for attr_name, attr_value in attrs.items() %}
+        {{ attr_name }}="{{ attr_value }}"
+    {% endfor %}
+>
+    {% if icon %}<i class="fas fa-{{ icon }} mr-1"></i>{% endif %}
+    {{ text }}
+</button>
+{% endmacro %}

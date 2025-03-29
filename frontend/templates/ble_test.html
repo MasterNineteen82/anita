@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLE API Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-2xl font-bold mb-6">BLE API Test Interface</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Connection Panel -->
+            <div class="bg-gray-800 rounded-lg shadow p-4">
+                <h2 class="text-lg font-semibold mb-4">Connection</h2>
+                
+                <div class="mb-4">
+                    <button id="init-websocket-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded">
+                        <i class="fas fa-plug mr-2"></i>Connect WebSocket
+                    </button>
+                    <div id="ws-status" class="mt-2 text-sm">Not connected</div>
+                </div>
+                
+                <div class="mb-4">
+                    <button id="get-adapters-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded">
+                        <i class="fas fa-microchip mr-2"></i>Get Adapters
+                    </button>
+                    <div id="adapters-list" class="mt-2 text-sm max-h-40 overflow-y-auto"></div>
+                </div>
+            </div>
+            
+            <!-- Scanner Panel -->
+            <div class="bg-gray-800 rounded-lg shadow p-4">
+                <h2 class="text-lg font-semibold mb-4">Device Scanner</h2>
+                
+                <div class="flex space-x-2 mb-4">
+                    <button id="start-scan-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded">
+                        <i class="fas fa-search mr-2"></i>Start Scan
+                    </button>
+                    <button id="stop-scan-btn" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded" disabled>
+                        <i class="fas fa-stop mr-2"></i>Stop Scan
+                    </button>
+                </div>
+                
+                <div id="devices-list" class="mt-2 text-sm max-h-56 overflow-y-auto"></div>
+            </div>
+        </div>
+        
+        <!-- Log Panel -->
+        <div class="mt-6 bg-gray-800 rounded-lg shadow p-4">
+            <h2 class="text-lg font-semibold mb-4">Log</h2>
+            <div id="log" class="bg-gray-900 p-4 rounded font-mono text-sm h-64 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // State
+        let websocket = null;
+        let isScanning = false;
+        
+        // DOM Elements
+        const wsStatusEl = document.getElementById('ws-status');
+        const adaptersListEl = document.getElementById('adapters-list');
+        const devicesListEl = document.getElementById('devices-list');
+        const logEl = document.getElementById('log');
+        const startScanBtn = document.getElementById('start-scan-btn');
+        const stopScanBtn = document.getElementById('stop-scan-btn');
+        
+        // Utility Functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString().substr(11, 8);
+            const entry = document.createElement('div');
+            entry.className = `py-1 ${type === 'error' ? 'text-red-400' : type === 'success' ? 'text-green-400' : 'text-blue-400'}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        async function fetchAPI(endpoint, method = 'GET', data = null) {
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                };
+                
+                if (data && (method === 'POST' || method === 'PUT')) {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const url = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+                const response = await fetch(url, options);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API Error (${response.status}): ${errorText}`);
+                }
+                
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                log(`API Error: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+        
+        // WebSocket Functions
+        function initWebsocket() {
+            if (websocket) {
+                websocket.close();
+            }
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/api/ble/ws/ble`;
+            
+            log(`Connecting to WebSocket: ${wsUrl}`);
+            websocket = new WebSocket(wsUrl);
+            
+            websocket.onopen = () => {
+                wsStatusEl.textContent = 'Connected';
+                wsStatusEl.className = 'mt-2 text-sm text-green-400';
+                log('WebSocket connected', 'success');
+                
+                // Send a ping every 10 seconds to keep the connection alive
+                setInterval(() => {
+                    if (websocket && websocket.readyState === WebSocket.OPEN) {
+                        websocket.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 10000);
+            };
+            
+            websocket.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                log(`WebSocket message: ${message.type || 'unknown'}`);
+                
+                // Handle different message types
+                if (message.type === 'ble.scan') {
+                    handleScanMessage(message);
+                } else if (message.type === 'ble.pong') {
+                    // Ignore pong messages
+                } else {
+                    // Log other message types
+                    console.log('WebSocket message:', message);
+                }
+            };
+            
+            websocket.onclose = () => {
+                wsStatusEl.textContent = 'Disconnected';
+                wsStatusEl.className = 'mt-2 text-sm text-red-400';
+                log('WebSocket disconnected', 'error');
+                websocket = null;
+            };
+            
+            websocket.onerror = (error) => {
+                log(`WebSocket error: ${error}`, 'error');
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        function handleScanMessage(message) {
+            if (message.status === 'started') {
+                log('Scan started');
+                isScanning = true;
+                startScanBtn.disabled = true;
+                stopScanBtn.disabled = false;
+            } else if (message.status === 'completed') {
+                log(`Scan completed. Found ${message.devices?.length || 0} devices.`);
+                isScanning = false;
+                startScanBtn.disabled = false;
+                stopScanBtn.disabled = true;
+                
+                // Update devices list
+                updateDevicesList(message.devices || []);
+            }
+        }
+        
+        // API Calls
+        async function getAdapters() {
+            try {
+                const adapters = await fetchAPI('/api/ble/adapters');
+                log(`Found ${adapters.length} adapters.`);
+                
+                // Update adapters list
+                adaptersListEl.innerHTML = '';
+                adapters.forEach((adapter, index) => {
+                    const adapterEl = document.createElement('div');
+                    adapterEl.className = 'py-2 border-t border-gray-700 first:border-0';
+                    adapterEl.innerHTML = `
+                        <div class="font-medium">${adapter.name || 'Unknown Adapter'}</div>
+                        <div class="text-xs text-gray-400">${adapter.address || 'Unknown Address'}</div>
+                    `;
+                    adaptersListEl.appendChild(adapterEl);
+                });
+            } catch (error) {
+                console.error('Error getting adapters:', error);
+            }
+        }
+        
+        async function startScan() {
+            try {
+                // Clear devices list
+                devicesListEl.innerHTML = '';
+                
+                // Update UI
+                isScanning = true;
+                startScanBtn.disabled = true;
+                stopScanBtn.disabled = false;
+                
+                // If using WebSocket, send a scan request
+                if (websocket && websocket.readyState === WebSocket.OPEN) {
+                    websocket.send(JSON.stringify({
+                        type: 'scan',
+                        scanTime: 5,
+                        active: true
+                    }));
+                    log('Scan request sent via WebSocket');
+                } else {
+                    // Otherwise use REST API
+                    log('Starting scan via REST API');
+                    const result = await fetchAPI('/api/ble/scan', 'POST', {
+                        scan_time: 5,
+                        active: true
+                    });
+                    
+                    // Update devices list
+                    updateDevicesList(result.devices || []);
+                    
+                    // Update UI after scan completes
+                    isScanning = false;
+                    startScanBtn.disabled = false;
+                    stopScanBtn.disabled = true;
+                }
+            } catch (error) {
+                console.error('Error starting scan:', error);
+                isScanning = false;
+                startScanBtn.disabled = false;
+                stopScanBtn.disabled = true;
+            }
+        }
+        
+        async function stopScan() {
+            try {
+                log('Stopping scan');
+                
+                // Update UI
+                isScanning = false;
+                startScanBtn.disabled = false;
+                stopScanBtn.disabled = true;
+                
+                // Stop scan via REST API
+                await fetchAPI('/api/ble/scan/stop', 'POST');
+            } catch (error) {
+                console.error('Error stopping scan:', error);
+            }
+        }
+        
+        function updateDevicesList(devices) {
+            devicesListEl.innerHTML = '';
+            
+            if (!devices || devices.length === 0) {
+                devicesListEl.innerHTML = '<div class="py-2 text-gray-400">No devices found</div>';
+                return;
+            }
+            
+            devices.forEach((device) => {
+                const deviceEl = document.createElement('div');
+                deviceEl.className = 'py-2 border-t border-gray-700 first:border-0';
+                
+                // Format RSSI as signal strength bars
+                const rssi = parseInt(device.rssi) || -100;
+                const rssiClass = rssi > -60 ? 'text-green-400' : 
+                                rssi > -75 ? 'text-yellow-400' : 
+                                rssi > -85 ? 'text-orange-400' : 'text-red-400';
+                
+                deviceEl.innerHTML = `
+                    <div class="font-medium">${device.name || 'Unknown Device'}</div>
+                    <div class="flex justify-between">
+                        <span class="text-xs text-gray-400">${device.address || 'Unknown Address'}</span>
+                        <span class="text-xs ${rssiClass}">${device.rssi || 'Unknown'} dBm</span>
+                    </div>
+                `;
+                devicesListEl.appendChild(deviceEl);
+            });
+        }
+        
+        // Event Listeners
+        document.getElementById('init-websocket-btn').addEventListener('click', initWebsocket);
+        document.getElementById('get-adapters-btn').addEventListener('click', getAdapters);
+        document.getElementById('start-scan-btn').addEventListener('click', startScan);
+        document.getElementById('stop-scan-btn').addEventListener('click', stopScan);
+        
+        // Initialize
+        log('BLE API Test Interface loaded');
+    </script>
+</body>
+</html>
