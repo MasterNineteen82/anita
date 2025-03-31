@@ -28,8 +28,8 @@ import logging
 from typing import Optional
 
 # Import from the utility modules
-from .ble_metrics import BleMetricsCollector
-from .system_monitor import SystemMonitor
+from .ble_metrics import BleMetricsCollector, get_metrics_collector
+from .system_monitor import SystemMonitor, get_system_monitor
 from .ble_persistence import BLEDeviceStorage, get_persistence_service
 from .ble_recovery import BleErrorRecovery
 from .events import BleEventBus, ble_event_bus

@@ -1,38 +1,18 @@
-"""BLE Core Module.
+"""BLE core modules."""
 
-This module provides the core Bluetooth functionality used throughout the BLE package:
-- Device discovery and connection management
-- Service and characteristic operations
-- Adapter management
-- Notification handling
+# Import from core modules
+from .adapter_manager import BleAdapterManager, get_adapter_manager
+from .device_manager import BleDeviceManager, get_device_manager
+from .ble_service import BleService, get_ble_service
+from .scanner import BleScanner, get_scanner
 
-Core Architecture:
-- BleService: High-level facade providing the main API for BLE operations
-- BleDeviceManager: Handles device discovery and connection management
-- BleAdapterManager: Manages Bluetooth adapters and hardware configuration
-- BleServiceManager: Manages GATT services, characteristics, and descriptors
-- BleNotificationManager: Handles notification subscriptions and delivery
-"""
+# Import utilities needed by core components
+from ..utils.ble_metrics import BleMetricsCollector, get_metrics_collector
+from ..utils.system_monitor import SystemMonitor, get_system_monitor
+from ..utils.events import ble_event_bus
 
-# Import the manager classes
-from .adapter_manager import BleAdapterManager
-from .device_manager import BleDeviceManager
-from .service_manager import BleServiceManager
-from .notification_manager import BleNotificationManager
-from .ble_service import BleService
-
-# Import additional utilities
-from .scanner import BleScanner
-from .constants import BLE_CONSTANTS
-
-# Re-export for convenience
-from .exceptions import (
-    BleConnectionError,
-    BleServiceError,
-    BleAdapterError,
-    BleNotSupportedError,
-    BleOperationError
-)
+# Import from utilities that were expected to be in core
+from ..utils.ble_recovery import BleErrorRecovery, get_error_recovery
 
 # Version information
 __version__ = "1.3.0"
@@ -41,31 +21,24 @@ __version__ = "1.3.0"
 __all__ = [
     # Main service 
     "BleService",
+    "get_ble_service",
     
     # Manager classes
     "BleDeviceManager",
+    "get_device_manager",
     "BleAdapterManager", 
-    "BleServiceManager",
-    "BleNotificationManager",
+    "get_adapter_manager",
+    
+    # Utilities now included from utils
+    "BleMetricsCollector",
+    "get_metrics_collector",
+    "SystemMonitor",
+    "get_system_monitor",
+    "BleErrorRecovery",
+    "get_error_recovery",
     
     # Utilities
     "BleScanner",
-    "BLE_CONSTANTS",
-    
-    # Exceptions
-    "BleConnectionError",
-    "BleServiceError", 
-    "BleAdapterError",
-    "BleNotSupportedError",
-    "BleOperationError"
+    "get_scanner",
+    "ble_event_bus"
 ]
-
-# Singleton instances (to be initialized on first use)
-_ble_service = None
-
-def get_ble_service() -> BleService:
-    """Get the singleton BleService instance."""
-    global _ble_service
-    if _ble_service is None:
-        _ble_service = BleService()
-    return _ble_service

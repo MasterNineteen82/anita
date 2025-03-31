@@ -2,13 +2,14 @@
 
 import logging
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, Response
+import json
 
 from backend.dependencies import get_ble_service
 from backend.modules.ble.core.ble_service import BleService
 from backend.modules.ble.models.ble_models import (
     BleService as BleServiceModel,
-    BleCharacteristic, 
+    BleCharacteristic,
     BleDescriptor,
     ServicesResult,
     CharacteristicsResult,
@@ -27,13 +28,13 @@ def ensure_device_connected(ble_service: BleService):
     if not ble_service.is_connected():
         raise HTTPException(status_code=400, detail="No device connected")
 
-@service_router.get("/list")
+@service_router.get("/list", response_model=None)
 async def list_services(ble_service: BleService = Depends(get_ble_service)):
     """Get all services from the connected device."""
     try:
         ensure_device_connected(ble_service)  # Check connection
         services_raw = await ble_service.get_services()
-        
+
         # Convert to Pydantic models
         services = []
         for svc in services_raw:
@@ -45,16 +46,16 @@ async def list_services(ble_service: BleService = Depends(get_ble_service)):
                 ]
             )
             services.append(service)
-        
+
         result = ServicesResult(services=services, count=len(services))
-        return result.dict()
+        return Response(content=json.dumps(result.dict(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error listing services: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@service_router.get("/{service_uuid}")
+@service_router.get("/{service_uuid}", response_model=None)
 async def get_service_info(
     service_uuid: str = Path(..., description="UUID of the service"),
     ble_service: BleService = Depends(get_ble_service)
@@ -63,10 +64,10 @@ async def get_service_info(
     try:
         ensure_device_connected(ble_service)  # Check connection
         service_info = await ble_service.get_service_info(service_uuid)
-        
+
         if not service_info:
             raise HTTPException(status_code=404, detail=f"Service {service_uuid} not found")
-        
+
         # Convert to Pydantic model
         service = BleServiceModel(
             uuid=service_info.get("uuid"),
@@ -75,15 +76,15 @@ async def get_service_info(
                 BleCharacteristic(**char) for char in service_info.get("characteristics", [])
             ]
         )
-        
-        return service.dict()
+
+        return Response(content=json.dumps(service.dict(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting service info: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@service_router.get("/{service_uuid}/characteristics")
+@service_router.get("/{service_uuid}/characteristics", response_model=None)
 async def get_characteristics(
     service_uuid: str = Path(..., description="UUID of the service"),
     ble_service: BleService = Depends(get_ble_service)
@@ -92,7 +93,7 @@ async def get_characteristics(
     try:
         ensure_device_connected(ble_service)  # Check connection
         chars_raw = await ble_service.get_characteristics(service_uuid)
-        
+
         # Convert to Pydantic models
         characteristics = [
             BleCharacteristic(
@@ -102,21 +103,21 @@ async def get_characteristics(
                 handle=char.get("handle")
             ) for char in chars_raw
         ]
-        
+
         result = CharacteristicsResult(
             service_uuid=service_uuid,
             characteristics=characteristics,
             count=len(characteristics)
         )
-        
-        return result.dict()
+
+        return Response(content=json.dumps(result.dict(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting characteristics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@service_router.get("/{service_uuid}/characteristics/{char_uuid}")
+@service_router.get("/{service_uuid}/characteristics/{char_uuid}", response_model=None)
 async def get_characteristic_info(
     service_uuid: str = Path(..., description="UUID of the service"),
     char_uuid: str = Path(..., description="UUID of the characteristic"),
@@ -126,13 +127,13 @@ async def get_characteristic_info(
     try:
         ensure_device_connected(ble_service)  # Check connection
         char_info = await ble_service.get_characteristic_info(service_uuid, char_uuid)
-        
+
         if not char_info:
             raise HTTPException(
-                status_code=404, 
+                status_code=404,
                 detail=f"Characteristic {char_uuid} not found in service {service_uuid}"
             )
-        
+
         # Convert to Pydantic model
         characteristic = BleCharacteristic(
             uuid=char_info.get("uuid"),
@@ -143,15 +144,15 @@ async def get_characteristic_info(
                 BleDescriptor(**desc) for desc in char_info.get("descriptors", [])
             ]
         )
-        
-        return characteristic.dict()
+
+        return Response(content=json.dumps(characteristic.dict(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting characteristic info: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@service_router.get("/{service_uuid}/characteristics/{char_uuid}/descriptors")
+@service_router.get("/{service_uuid}/characteristics/{char_uuid}/descriptors", response_model=None)
 async def get_descriptors(
     service_uuid: str = Path(..., description="UUID of the service"),
     char_uuid: str = Path(..., description="UUID of the characteristic"),
@@ -161,7 +162,7 @@ async def get_descriptors(
     try:
         ensure_device_connected(ble_service)  # Check connection
         desc_raw = await ble_service.get_descriptors(service_uuid, char_uuid)
-        
+
         # Convert to Pydantic models
         descriptors = [
             BleDescriptor(
@@ -170,42 +171,42 @@ async def get_descriptors(
                 description=desc.get("description", "Unknown Descriptor")
             ) for desc in desc_raw
         ]
-        
+
         result = DescriptorsResult(
             service_uuid=service_uuid,
             characteristic_uuid=char_uuid,
             descriptors=descriptors,
             count=len(descriptors)
         )
-        
-        return result.dict()
+
+        return Response(content=json.dumps(result.dict(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting descriptors: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@service_router.get("/active-notifications")
+@service_router.get("/active-notifications", response_model=None)
 async def get_active_notifications(ble_service: BleService = Depends(get_ble_service)):
     """Get a list of characteristics with active notifications."""
     try:
         ensure_device_connected(ble_service)  # Check connection
         notifications_raw = ble_service.get_active_notifications()
-        
+
         # Create response model
         result = NotificationsResult(
             characteristics=notifications_raw,
             count=len(notifications_raw)
         )
-        
-        return result.dict()
+
+        return Response(content=json.dumps(result.dict(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting active notifications: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@service_router.get("/known-services")
+@service_router.get("/known-services", response_model=None)
 async def get_known_services():
     """Get a list of known BLE service UUIDs and their descriptions."""
     try:
@@ -255,61 +256,61 @@ async def get_known_services():
             "183C": "Emergency Configuration",
             "FEF5": "Apple Continuity Service"
         }
-        
+
         # Format for response
         services = [
             {"uuid": f"0000{uuid}-0000-1000-8000-00805f9b34fb", "name": name, "shortId": uuid}
             for uuid, name in known_services.items()
         ]
-        
-        return {"services": services, "count": len(services)}
+
+        return Response(content=json.dumps({"services": services, "count": len(services)}, default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error getting known services: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@service_router.get("/battery")
+@service_router.get("/battery", response_model=None)
 async def get_battery_service(ble_service: BleService = Depends(get_ble_service)):
     """Get battery service information from the connected device."""
     try:
         ensure_device_connected(ble_service)  # Check connection
-        
+
         try:
             # Try to find and read battery level
             battery_info = await ble_service.get_battery_info()
-            return battery_info
+            return Response(content=json.dumps(battery_info, default=str), media_type="application/json")
         except Exception as battery_err:
             logger.warning(f"Error reading battery service: {battery_err}")
-            return {
+            return Response(content=json.dumps({
                 "available": False,
                 "error": "Battery service not available or couldn't be read",
                 "level": None
-            }
+            }, default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error accessing battery service: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@service_router.get("/device-info")
+@service_router.get("/device-info", response_model=None)
 async def get_device_info_service(ble_service: BleService = Depends(get_ble_service)):
     """Get device information service details from the connected device."""
     try:
         ensure_device_connected(ble_service)  # Check connection
-        
+
         try:
             # Try to find and read device information service
             device_info = await ble_service.get_device_information()
-            return device_info
+            return Response(content=json.dumps(device_info, default=str), media_type="application/json")
         except Exception as info_err:
             logger.warning(f"Error reading device information service: {info_err}")
-            return {
+            return Response(content=json.dumps({
                 "available": False,
                 "error": "Device Information service not available or couldn't be read",
                 "manufacturer": None,
                 "model": None,
                 "serial": None,
                 "firmware": None
-            }
+            }, default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:

@@ -8,6 +8,7 @@ error conditions in a structured way.
 
 import traceback
 from typing import Dict, Any, Optional
+import json
 
 class BleError(Exception):
     """Base exception for all BLE-related errors."""
@@ -40,11 +41,21 @@ class BleError(Exception):
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert the exception to a dictionary for serialization."""
+        
+        # Make sure context is serializable
+        serializable_context = {}
+        for key, value in self.context.items():
+            try:
+                json.dumps(value)  # Test if serializable
+                serializable_context[key] = value
+            except TypeError:
+                serializable_context[key] = str(value)  # Convert to string
+        
         return {
             "type": self.__class__.__name__,
             "message": self.message,
             "device_address": self.device_address,
-            "context": self.context,
+            "context": serializable_context,
             "traceback": self.traceback
         }
 

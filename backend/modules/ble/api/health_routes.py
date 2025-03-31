@@ -9,8 +9,9 @@ This module provides routes for health monitoring and diagnostics of the BLE sys
 
 import logging
 from typing import Optional, Dict, Any, List
-from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, Response
 from pydantic import BaseModel, Field
+import json
 
 from backend.dependencies import get_ble_service, get_ble_metrics
 from backend.modules.ble.core.ble_service import BleService
@@ -26,7 +27,7 @@ health_router = APIRouter(prefix="/health", tags=["BLE Health & Diagnostics"])
 # Get logger
 logger = logging.getLogger(__name__)
 
-@health_router.get("/report", response_model=BluetoothHealthReport)
+@health_router.get("/report", response_model=None)
 async def get_health_report(
     ble_service: BleService = Depends(get_ble_service),
     ble_metrics: BleMetricsCollector = Depends(get_ble_metrics)
@@ -87,12 +88,12 @@ async def get_health_report(
             recommendations=report_raw.get("recommendations", [])
         )
         
-        return report
+        return Response(content=json.dumps(report.dict(), default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error generating health report: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@health_router.get("/stack", response_model=StackInfo)
+@health_router.get("/stack", response_model=None)
 async def get_bluetooth_stack_info(ble_service: BleService = Depends(get_ble_service)):
     """
     Get information about the Bluetooth stack.
@@ -119,12 +120,12 @@ async def get_bluetooth_stack_info(ble_service: BleService = Depends(get_ble_ser
             capabilities=stack_info_raw.get("capabilities", [])
         )
         
-        return stack_info
+        return Response(content=json.dumps(stack_info.dict(), default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error getting Bluetooth stack info: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@health_router.post("/reset", response_model=ResetResponse)
+@health_router.post("/reset", response_model=None)
 async def reset_bluetooth(ble_service: BleService = Depends(get_ble_service)):
     """
     Attempt to reset the Bluetooth stack.
@@ -148,12 +149,12 @@ async def reset_bluetooth(ble_service: BleService = Depends(get_ble_service)):
             actions_taken=reset_result_raw.get("actions_taken", [])
         )
         
-        return reset_result
+        return Response(content=json.dumps(reset_result.dict(), default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error resetting Bluetooth: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@health_router.get("/metrics", response_model=MetricsResponse)
+@health_router.get("/metrics", response_model=None)
 async def get_ble_metrics(
     metric_type: Optional[str] = Query(None, description="Type of metrics to retrieve (operations, devices, adapters, all)"),
     limit: int = Query(100, description="Maximum number of metrics to return"),
@@ -202,14 +203,14 @@ async def get_ble_metrics(
             summary=metrics_raw.get("summary", {})
         )
         
-        return metrics_response
+        return Response(content=json.dumps(metrics_response.dict(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting BLE metrics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@health_router.post("/diagnostics", response_model=DiagnosticResult)
+@health_router.post("/diagnostics", response_model=None)
 async def run_diagnostics(
     request: DiagnosticRequest = None,
     ble_service: BleService = Depends(get_ble_service)
@@ -251,12 +252,12 @@ async def run_diagnostics(
             recommendations=diagnostics_raw.get("recommendations", [])
         )
         
-        return diagnostics_result
+        return Response(content=json.dumps(diagnostics_result.dict(), default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error running diagnostics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@health_router.get("/system")
+@health_router.get("/system", response_model=None)
 async def get_system_metrics(ble_metrics: BleMetricsCollector = Depends(get_ble_metrics)):
     """
     Get system resource metrics.
@@ -289,12 +290,12 @@ async def get_system_metrics(ble_metrics: BleMetricsCollector = Depends(get_ble_
             network_recv=metrics_raw.get("network_recv")
         )
         
-        return system_metric
+        return Response(content=json.dumps(system_metric.dict(), default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error getting system metrics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@health_router.post("/clear-metrics")
+@health_router.post("/clear-metrics", response_model=None)
 async def clear_metrics(
     metric_type: Optional[str] = Query(None, description="Type of metrics to clear (operations, devices, adapters, all)"),
     ble_metrics: BleMetricsCollector = Depends(get_ble_metrics)
@@ -326,10 +327,10 @@ async def clear_metrics(
         else:
             raise HTTPException(status_code=400, detail=f"Unknown metric type: {metric_type}")
         
-        return {
+        return Response(content=json.dumps({
             "status": "success",
             "message": message
-        }
+        }, default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:

@@ -151,12 +151,6 @@ class ScanParams(BaseModel):
     real_scan: bool = False
 
 
-class ConnectParams(BaseModel):
-    """BLE connection parameters model."""
-    address: str
-    timeout: Optional[float] = None
-
-
 class CharacteristicParams(BaseModel):
     """BLE characteristic parameters model."""
     characteristic_uuid: str
@@ -256,10 +250,27 @@ class ScanResultMessage(BaseMessage):
     count: int
 
 
+class ConnectionParams(BaseModel):
+    """BLE connection parameters model."""
+    address: Optional[str] = None
+    timeout: float = 10.0
+    auto_reconnect: bool = True
+    remember_device: bool = True
+    use_cached_services: bool = True
+    retry_count: int = 3
+    retry_interval: float = 2.0
+    max_reconnect_attempts: int = 5
+    use_bluetooth_le_device: bool = True  # Windows-specific
+
+    model_config = {
+        'protected_namespaces': ()
+    }
+
+
 class ConnectRequestMessage(BaseMessage):
     """WebSocket connect request message."""
     type: MessageType = MessageType.CONNECT
-    data: ConnectParams
+    data: ConnectionParams
 
 
 class ConnectResultMessage(BaseMessage):
@@ -467,6 +478,10 @@ class DeviceInfoServiceData(BaseModel):
     software_revision: Optional[str] = None
     system_id: Optional[str] = None
     last_updated: float = Field(default_factory=time.time)
+
+    model_config = {
+        'protected_namespaces': ()
+    }
 
 
 # ============================================================================
@@ -810,3 +825,33 @@ class ConnectionParams(BaseModel):
     model_config = {
         'protected_namespaces': ()  # Fix for the warning about model_number
     }
+
+# Ensure this is in the models file to clarify the naming
+# Use ConnectionParams as the standard name since this appears to be used more widely
+class ConnectionParams(BaseModel):
+    """BLE connection parameters model."""
+    address: Optional[str] = None
+    timeout: float = 10.0
+    auto_reconnect: bool = True
+    remember_device: bool = True
+    use_cached_services: bool = True
+    retry_count: int = 3
+    retry_interval: float = 2.0
+    max_reconnect_attempts: int = 5
+    use_bluetooth_le_device: bool = True  # Windows-specific
+    
+    model_config = {
+        'protected_namespaces': ()
+    }
+
+
+class DeviceResponse (BaseModel):
+    """Response model for device operations."""
+    status: str
+    address: Optional[str] = None
+    services: List[BleService] = Field(default_factory=list)
+    service_count: int = 0
+    error: Optional[str] = None
+
+# Add ConnectParams as an alias for backward compatibility
+ConnectParams = ConnectionParams

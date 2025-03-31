@@ -73,7 +73,9 @@ async def ble_websocket_frontend(websocket: WebSocket):
 # Keep the original WebSocket endpoint for backward compatibility
 @app.websocket("/api/ws/ble")
 async def ble_websocket(websocket: WebSocket):
-    await ble_routes.websocket_endpoint(websocket)
+    # Import function directly rather than trying to access it from the router
+    from backend.modules.ble.comms.websocket import websocket_endpoint
+    await websocket_endpoint(websocket)
 
 # Add this new endpoint that matches the path our JS client expects
 @app.websocket("/api/ble/ws")
@@ -122,25 +124,49 @@ known_routers = {
     "rfid_routes": rfid_routes.router,
     "security_routes": security_routes.router,
     "monitoring_router": monitoring_router.router,
-    "ble_routes": ble_routes.router
+    "ble_routes": ble_routes.routes
 }
 
-# Include both the backend and frontend BLE routers
-# Include the existing backend BLE router (original)
-try:
-    logger.info("Including router: ble_backend")
-    app.include_router(ble_router, prefix="/api" if not getattr(ble_router, "prefix", "") else "")
-    logger.info("Successfully included router: ble_backend")
-except Exception as e:
-    logger.error("Error including BLE backend router: {e}")
+# Update the router registration section:
 
-# Include the new frontend-facing BLE router (with mapped endpoints)
+# Get BLE router
 try:
-    logger.info("Including router: ble_frontend")
-    app.include_router(frontend_api_router)
-    logger.info("Successfully included router: ble_frontend")
-except Exception as e:
-    logger.error(f"Error including BLE frontend router: {e}")
+    from backend.modules.ble.api.ble_routes import router as ble_router
+    has_ble = True
+except ImportError:
+    has_ble = False
+    logger.warning("BLE module could not be imported")
+
+# Try importing frontend_api_router
+try:
+    from backend.modules.ble.api.route_mapper import frontend_api_router
+    has_frontend_api = True
+except ImportError:
+    has_frontend_api = False
+    logger.warning("BLE frontend API router could not be imported")
+
+# Include API router
+try:
+    app.include_router(api_package.router, prefix="/api")
+    logger.info("Main API router registered successfully")
+except AttributeError:
+    logger.error("Main API router not found - check backend/routes/api/__init__.py")
+
+# Include frontend API router if available
+if has_frontend_api:
+    try:
+        app.include_router(frontend_api_router)
+        logger.info("BLE frontend API router registered successfully")
+    except Exception as e:
+        logger.error(f"Failed to register BLE frontend API router: {e}")
+
+# Include BLE router if available
+if has_ble:
+    try:
+        app.include_router(ble_router, prefix="/api")
+        logger.info("BLE routes registered successfully")
+    except Exception as e:
+        logger.error(f"Failed to register BLE routes: {e}")
 
 # Include other routers
 for router_name, router in known_routers.items():

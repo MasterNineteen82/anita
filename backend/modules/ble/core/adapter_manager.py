@@ -19,6 +19,14 @@ from backend.modules.ble.models import (
 )
 from .exceptions import BleAdapterError, BleNotSupportedError
 
+def get_bleak_version():
+    """Get the Bleak version safely."""
+    try:
+        from importlib.metadata import version
+        return version("bleak")
+    except (ImportError, Exception):
+        return "Unknown"
+
 class BleAdapterManager:
     """
     Manages Bluetooth adapters on the system.
@@ -86,10 +94,15 @@ class BleAdapterManager:
                 self._current_adapter = adapters[0]["address"]
             
             # Emit event
-            ble_event_bus.emit("adapters_discovered", {
-                "adapters": adapters,
-                "count": len(adapters)
-            })
+            try:
+                # Use create_task to properly handle the coroutine
+                asyncio.create_task(ble_event_bus.emit("adapters_discovered", {
+                    "adapters": adapters,
+                    "count": len(adapters)
+                }))
+            except RuntimeError:
+                # If not in an event loop, log but don't crash
+                self.logger.debug("Could not emit adapters_discovered event - no running event loop")
             
             return adapters
         except Exception as e:
@@ -961,7 +974,7 @@ class BleAdapterManager:
             "platform": platform.system(),
             "platform_version": platform.version(),
             "python_version": platform.python_version(),
-            "bleak_version": bleak.__version__,
+            "bleak_version": get_bleak_version(),
             "os_details": {
                 "release": platform.release(),
                 "machine": platform.machine()

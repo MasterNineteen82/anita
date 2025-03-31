@@ -1,10 +1,4 @@
-"""BLE WebSocket communication handler.
-
-This module provides WebSocket functionality for BLE operations:
-- Real-time device notifications
-- Command execution
-- Scan result broadcasting
-"""
+"""BLE WebSocket communication module."""
 
 import asyncio
 import json
@@ -23,7 +17,127 @@ from backend.modules.ble.models.ble_models import (
     PingMessage, PongMessage, ErrorMessage, ScanParams, ConnectionParams
 )
 
+
 logger = logging.getLogger(__name__)
+
+# Track active connections
+active_connections: List[WebSocket] = []
+
+async def websocket_endpoint(websocket: WebSocket):
+    """Primary WebSocket endpoint for BLE notifications."""
+    try:
+        await websocket.accept()
+        active_connections.append(websocket)
+        logger.info(f"WebSocket connection accepted: {websocket.client}")
+        
+        # Send initial connection message
+        await websocket.send_json({
+            "type": "connection_established",
+            "message": "Connected to BLE notification service"
+        })
+        
+        # Also send connection_status for compatibility with frontend
+        await websocket.send_json({
+            "type": "connection_status", 
+            "status": "connected",
+            "message": "WebSocket connected"
+        })
+        
+        # Process messages until disconnection
+        while True:
+            try:
+                # Wait for the next message with a timeout
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                
+                # Parse and process the message
+                try:
+                    message = json.loads(data)
+                    await process_message(websocket, message)
+                except json.JSONDecodeError:
+                    logger.warning(f"Received invalid JSON: {data}")
+            except asyncio.TimeoutError:
+                # Keep-alive if no message received
+                try:
+                    # Send a ping to check connection
+                    await websocket.send_json({"type": "ping"})
+                    logger.debug("Sent ping to client")
+                except Exception:
+                    # If sending ping fails, connection is probably closed
+                    logger.info(f"Connection lost during keep-alive: {websocket.client}")
+                    break
+            except WebSocketDisconnect:
+                logger.info(f"WebSocket disconnected: {websocket.client}")
+                break
+        
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}", exc_info=True)
+    finally:
+        # Clean up on disconnection
+        if websocket in active_connections:
+            active_connections.remove(websocket)
+        logger.info(f"WebSocket connection closed. Active connections: {len(active_connections)}")
+
+async def process_message(websocket: WebSocket, message: Dict[str, Any]):
+    """Process incoming WebSocket messages."""
+    try:
+        message_type = message.get("type", "unknown")
+        logger.debug(f"Received WebSocket message: {message_type}")
+        
+        # Handle different message types
+        if message_type == "ping":
+            # Respond to ping with pong
+            await websocket.send_json({
+                "type": "pong", 
+                "timestamp": int(time.time() * 1000)
+            })
+        elif message_type == "get_adapters":
+            # Send adapter information
+            try:
+                from backend.modules.ble.core.ble_service import get_ble_service
+                ble_service = get_ble_service()
+                adapters = await ble_service.get_adapters()
+                
+                await websocket.send_json({
+                    "type": "adapter_list",
+                    "adapters": adapters,
+                    "count": len(adapters)
+                })
+            except Exception as adapter_error:
+                logger.error(f"Error getting adapters: {adapter_error}")
+                await websocket.send_json({
+                    "type": "error",
+                    "context": "get_adapters",
+                    "message": str(adapter_error)
+                })
+        elif message_type == "scan_request":
+            # Handle scan request
+            # ... implementation for scanning ...
+            pass
+        else:
+            logger.debug(f"Unhandled message type: {message_type}")
+    except Exception as e:
+        logger.error(f"Error processing message {message.get('type', 'unknown')}: {e}")
+        await websocket.send_json({
+            "type": "error",
+            "message": f"Failed to process message: {str(e)}"
+        })
+
+async def broadcast_message(message: Dict[str, Any]):
+    """Broadcast a message to all connected clients."""
+    if not active_connections:
+        return
+        
+    disconnected_clients = []
+    for connection in active_connections:
+        try:
+            await connection.send_json(message)
+        except Exception:
+            disconnected_clients.append(connection)
+    
+    # Clean up any failed connections
+    for connection in disconnected_clients:
+        if connection in active_connections:
+            active_connections.remove(connection)
 
 class BleWebSocketManager:
     """
@@ -572,7 +686,8 @@ class BleWebSocketManager:
                 
             # Check if this is the first subscription for this characteristic
             start_notifications = False
-            if char_uuid not in self._active_notifications:
+            if (char_uuid not in self._active_notifications or
+                not self._active_notifications[char_uuid]):
                 self._active_notifications[char_uuid] = []
                 start_notifications = True
                 

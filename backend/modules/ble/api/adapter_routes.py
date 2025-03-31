@@ -1,9 +1,10 @@
-"""Bluetooth adapter-related routes."""
+"""BLE adapter routes."""
 
 import logging
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Response
 from pydantic import BaseModel, Field
+import json
 
 from backend.dependencies import get_ble_service, get_ble_metrics
 from backend.modules.ble.core.ble_service import BleService
@@ -20,7 +21,7 @@ adapter_router = APIRouter(prefix="/adapter", tags=["BLE Adapters"])
 # Get logger
 logger = logging.getLogger(__name__)
 
-@adapter_router.get("/adapters")
+@adapter_router.get("/adapters", response_model=None)
 async def list_adapters(ble_service: BleService = Depends(get_ble_service)):
     """Get a list of all Bluetooth adapters on the system."""
     try:
@@ -42,38 +43,38 @@ async def list_adapters(ble_service: BleService = Depends(get_ble_service)):
         
         result = AdapterResult(adapters=adapters)
         
-        return {
+        return Response(content=json.dumps({
             "status": "success",
             "adapters": [adapter.dict() for adapter in adapters],
             "count": len(adapters)
-        }
+        }, default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error listing adapters: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve adapters")
 
-@adapter_router.get("/info")
+@adapter_router.get("/info", response_model=None)
 async def get_adapter_info(ble_service: BleService = Depends(get_ble_service)):
-    """Get information about the current Bluetooth adapter."""
+    """Get information about the Bluetooth adapters."""
     try:
-        adapter_info_raw = await ble_service.get_adapter_info()
+        # Get all available adapters
+        adapters = await ble_service.get_adapters()
         
-        # Convert to Pydantic model
-        adapter_info = BleAdapter(
-            id=adapter_info_raw.get("id", "unknown"),
-            name=adapter_info_raw.get("name", "Unknown Adapter"),
-            available=adapter_info_raw.get("available", False),
-            status=adapter_info_raw.get("status"),
-            error=adapter_info_raw.get("error"),
-            system=adapter_info_raw.get("system"),
-            version=adapter_info_raw.get("version")
-        )
-        
-        return adapter_info.dict()
+        # Return formatted response
+        return Response(content=json.dumps({
+            "status": "success",
+            "adapters": adapters,
+            "count": len(adapters),
+            "current": await ble_service.get_current_adapter()
+        }, default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error getting adapter info: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        return Response(content=json.dumps({
+            "status": "error",
+            "message": str(e),
+            "adapters": []
+        }, default=str), media_type="application/json", status_code=500)
 
-@adapter_router.post("/select")
+@adapter_router.post("/select", response_model=None)
 async def select_adapter(
     request: AdapterSelectionRequest = Body(...),
     ble_service: BleService = Depends(get_ble_service)
@@ -100,18 +101,18 @@ async def select_adapter(
             error=result.get("error")
         )
         
-        return {
+        return Response(content=json.dumps({
             "status": "success",
             "message": f"Adapter {adapter_id} selected",
             "adapter": adapter_info.dict()
-        }
+        }, default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error selecting adapter: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@adapter_router.post("/reset")
+@adapter_router.post("/reset", response_model=None)
 async def reset_adapter(
     request: AdapterResetRequest = Body(...),
     ble_service: BleService = Depends(get_ble_service)
@@ -123,18 +124,18 @@ async def reset_adapter(
         if result.get("status") == "error":
             raise HTTPException(status_code=400, detail=result.get("message"))
         
-        return {
+        return Response(content=json.dumps({
             "status": "success",
             "message": f"Adapter {request.adapter_id or 'current'} reset successfully",
             "details": result
-        }
+        }, default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error resetting adapter: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@adapter_router.get("/metrics")
+@adapter_router.get("/metrics", response_model=None)
 async def get_adapter_metrics(
     adapter_id: Optional[str] = None,
     ble_metrics: BleMetricsCollector = Depends(get_ble_metrics)
@@ -156,17 +157,17 @@ async def get_adapter_metrics(
             )
             metrics.append(adapter_metric)
         
-        return {
+        return Response(content=json.dumps({
             "adapter_id": adapter_id or "all",
             "metrics": [metric.dict() for metric in metrics],
             "count": len(metrics),
             "summary": metrics_raw.get("summary", {})
-        }
+        }, default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error getting adapter metrics: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get adapter metrics: {str(e)}")
 
-@adapter_router.get("/health")
+@adapter_router.get("/health", response_model=None)
 async def get_bluetooth_health(
     ble_service: BleService = Depends(get_ble_service)
 ):
@@ -191,12 +192,12 @@ async def get_bluetooth_health(
             recommendations=report_raw.get("recommendations", [])
         )
         
-        return report.dict()
+        return Response(content=json.dumps(report.dict(), default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error generating Bluetooth health report: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate health report: {str(e)}")
 
-@adapter_router.post("/power/{state}")
+@adapter_router.post("/power/{state}", response_model=None)
 async def set_adapter_power(
     state: str,
     adapter_id: Optional[str] = None,
@@ -211,11 +212,11 @@ async def set_adapter_power(
         result = await ble_service.set_adapter_power(power_on, adapter_id)
         
         if result.get("success"):
-            return {
+            return Response(content=json.dumps({
                 "status": "success",
                 "message": f"Adapter power set to {state}",
                 "adapter_id": adapter_id or "current"
-            }
+            }, default=str), media_type="application/json")
         else:
             raise HTTPException(
                 status_code=400, 
@@ -227,7 +228,7 @@ async def set_adapter_power(
         logger.error(f"Error setting adapter power: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@adapter_router.get("/system-info")
+@adapter_router.get("/system-info", response_model=None)
 async def get_system_info(ble_service: BleService = Depends(get_ble_service)):
     """Get system information related to Bluetooth."""
     try:
@@ -248,11 +249,11 @@ async def get_system_info(ble_service: BleService = Depends(get_ble_service)):
             network_recv=system_info.get("network_recv")
         )
         
-        return {
+        return Response(content=json.dumps({
             "system": system_info.get("system", {}),
             "bluetooth": system_info.get("bluetooth", {}),
             "resources": system_metric.dict()
-        }
+        }, default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error getting system info: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get system info: {str(e)}")

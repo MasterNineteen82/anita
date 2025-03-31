@@ -127,6 +127,72 @@ class BleService:
             self.logger.error(f"Error resetting adapter: {e}", exc_info=True)
             raise BleAdapterError(f"Error resetting adapter: {e}")
     
+    async def get_adapters(self):
+        """Get all available BLE adapters.
+        
+        Returns:
+            list: A list of adapter information dictionaries
+        """
+        try:
+            # Check if we have a device manager with the method
+            if hasattr(self, 'device_manager') and hasattr(self.device_manager, 'get_available_adapters'):
+                return self.device_manager.get_available_adapters()
+            
+            # Fallback implementation
+            if hasattr(self, 'ble_manager') and hasattr(self.ble_manager, 'get_adapters'):
+                return self.ble_manager.get_adapters()
+                
+            # Last resort fallback
+            return [{
+                "id": "default",
+                "name": "Default Adapter",
+                "address": "00:00:00:00:00:00", 
+                "available": True,
+                "status": "active"
+            }]
+        except Exception as e:
+            self.logger.error(f"Error getting adapters: {e}")
+            # Return a minimal adapter list in case of error
+            return [{
+                "id": "default",
+                "name": "Default Adapter (Error)",
+                "address": "00:00:00:00:00:00",
+                "available": False,
+                "status": "error",
+                "error": str(e)
+            }]
+
+    async def get_current_adapter(self):
+        """Get the currently selected adapter.
+        
+        Returns:
+            dict: Information about the current adapter
+        """
+        try:
+            # Try to get from device manager
+            if hasattr(self, 'device_manager') and hasattr(self.device_manager, 'get_current_adapter'):
+                return self.device_manager.get_current_adapter()
+                
+            # Try to get from BLE manager
+            if hasattr(self, 'ble_manager') and hasattr(self.ble_manager, 'get_current_adapter'):
+                return self.ble_manager.get_current_adapter()
+                
+            # Fallback
+            return {
+                "id": "default",
+                "name": "Default Adapter",
+                "address": "00:00:00:00:00:00",
+                "status": "active"
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting current adapter: {e}")
+            return {
+                "id": "unknown",
+                "name": "Unknown Adapter",
+                "status": "error",
+                "error": str(e)
+            }
+    
     # ======================================================================
     # Device Discovery and Connection Methods
     # ======================================================================

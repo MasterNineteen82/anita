@@ -1,6 +1,6 @@
 import { BleEvents } from './ble-events.js';
 import { BleUI } from './ble-ui.js';
-import { MessageType } from './ble-types.js';
+import { MessageType } from './ble-constants.js';
 
 /**
  * Singleton instance for global access

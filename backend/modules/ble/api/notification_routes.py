@@ -9,7 +9,8 @@ This module provides API endpoints for managing BLE characteristic notifications
 
 import logging
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Query, Body, Path, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, Path, WebSocket, WebSocketDisconnect, Response
+import json
 
 from backend.dependencies import get_ble_service
 from backend.modules.ble.core.ble_service import BleService
@@ -25,7 +26,7 @@ notification_router = APIRouter(prefix="/notification", tags=["BLE Notifications
 # Get logger
 logger = logging.getLogger(__name__)
 
-@notification_router.post("/subscribe")
+@notification_router.post("/subscribe", response_model=None)
 async def subscribe_to_characteristic(
     request: NotificationRequest,
     ble_service: BleService = Depends(get_ble_service)
@@ -53,18 +54,18 @@ async def subscribe_to_characteristic(
             enable=request.enable
         )
         
-        return {
+        return Response(content=json.dumps({
             "status": "success" if result else "error",
             "characteristic": request.characteristic,
             "subscribed": result
-        }
+        }, default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error subscribing to characteristic: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@notification_router.post("/unsubscribe")
+@notification_router.post("/unsubscribe", response_model=None)
 async def unsubscribe_from_characteristic(
     request: NotificationRequest,
     ble_service: BleService = Depends(get_ble_service)
@@ -94,18 +95,18 @@ async def unsubscribe_from_characteristic(
             enable=False
         )
         
-        return {
+        return Response(content=json.dumps({
             "status": "success" if result else "error",
             "characteristic": unsubscribe_request.characteristic,
             "unsubscribed": result
-        }
+        }, default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error unsubscribing from characteristic: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@notification_router.get("/active")
+@notification_router.get("/active", response_model=None)
 async def get_active_notifications(ble_service: BleService = Depends(get_ble_service)):
     """
     Get a list of characteristics with active notifications.
@@ -128,14 +129,14 @@ async def get_active_notifications(ble_service: BleService = Depends(get_ble_ser
             count=len(notifications)
         )
         
-        return result.dict()
+        return Response(content=json.dumps(result.dict(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting active notifications: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@notification_router.get("/history")
+@notification_router.get("/history", response_model=None)
 async def get_notification_history(
     characteristic: Optional[str] = Query(None, description="Filter history by characteristic UUID"),
     limit: int = Query(100, description="Maximum number of events to return"),
@@ -190,14 +191,14 @@ async def get_notification_history(
             characteristic_uuid=characteristic
         )
         
-        return history.dict()
+        return Response(content=json.dumps(history.dict(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting notification history: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@notification_router.delete("/history")
+@notification_router.delete("/history", response_model=None)
 async def clear_notification_history(
     characteristic: Optional[str] = Query(None, description="Clear history for specific characteristic only"),
     ble_service: BleService = Depends(get_ble_service)
@@ -220,10 +221,10 @@ async def clear_notification_history(
         
         ble_service.clear_notification_history(characteristic)
         
-        return {
+        return Response(content=json.dumps({
             "status": "success", 
             "message": f"Notification history cleared{f' for {characteristic}' if characteristic else ''}"
-        }
+        }, default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error clearing notification history: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

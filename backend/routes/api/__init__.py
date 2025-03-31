@@ -1,50 +1,19 @@
-"""API routes for ANITA backend."""
-# Import all route modules here so they're available when importing the package
+"""API routes package."""
 
-# Import all route modules
-from . import alerts_routes
-from . import auth_routes
-from . import biometric_routes
-from . import cache_routes
-from . import card_routes
-from . import device_routes
-from . import hardware_routes
-from . import mifare_routes
-from . import monitoring_router
-from . import mqtt_routes
-from . import nfc_routes
-from . import rfid_routes
-from . import security_routes
-from . import smartcard_routes
-from . import smartcard
-from . import system_routes
-from . import uwb_routes
-from . import simulation_routes
+from fastapi import APIRouter
+# Import all route modules to make them available
+from . import (
+    device_routes, smartcard_routes, nfc_routes, mifare_routes, biometric_routes,
+    card_routes, system_routes, uwb_routes, auth_routes, cache_routes,
+    hardware_routes, mqtt_routes, rfid_routes, security_routes
+)
 
+# Create the main API router that will include all sub-routers
+router = APIRouter()
 
+# Include all route modules' routers
+router.include_router(mqtt_routes.router)  # Add this line to use mqtt_routes
+# Add similar lines for other route modules if they're not already included elsewhere
 
-
-# Export routers from each module
-__all__ = [
-    "alerts_routes",
-    "auth_routes",
-    "biometric_routes",
-    "cache_routes",
-    "card_routes",
-    "device_routes",
-    "hardware_routes",
-    "mifare_routes",
-    "monitoring_router",
-    "mqtt_routes",
-    "nfc_routes",
-    "rfid_routes",  # Added
-    "security_routes",  # Added
-    "smartcard_routes",
-    "smartcard",
-    "system_routes",
-    "simulation_routes"
-    "uwb_routes",
-    "simulation_routes",
-
-
-    ]
+# Export the router
+__all__ = ["router", "mqtt_routes"]  # Add mqtt_routes to __all__

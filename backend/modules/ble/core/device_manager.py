@@ -6,6 +6,7 @@ import platform
 import time
 from typing import Dict, Any, List, Optional, Tuple, Set, Union, Callable
 import uuid
+from threading import Lock
 
 import bleak
 from bleak import BleakScanner, BleakClient, BleakError
@@ -83,6 +84,11 @@ class BleDeviceManager:
         Returns:
             List of discovered devices
         """
+        # Use the BleScanner implementation instead of direct BleakScanner usage
+        from .scanner import get_scanner
+        scanner = get_scanner()
+        scanner.set_client(self.client)
+        
         # Convert dict to model if necessary
         if isinstance(params, dict):
             params = ScanParams(**params)
@@ -813,12 +819,52 @@ class BleDeviceManager:
         # Clear discovered devices
         self._discovered_devices = {}
 
+    def set_logger(self, logger):
+        """Set the logger instance to use."""
+        self.logger = logger
+
+    def get_available_adapters(self):
+        """Get a list of available BLE adapters.
+        
+        Returns:
+            list: A list of adapter information dictionaries
+        """
+        try:
+            # Delegate to the adapter manager if it exists
+            if hasattr(self, '_adapter_manager') and self._adapter_manager:
+                return self._adapter_manager.get_adapters()
+            
+            # Fallback implementation
+            return [{
+                "id": "default",
+                "name": "Default Adapter",
+                "address": "00:00:00:00:00:00", 
+                "available": True,
+                "status": "active"
+            }]
+        except Exception as e:
+            self.logger.error(f"Error getting available adapters: {e}")
+            # Return a minimal adapter list in case of error
+            return [{
+                "id": "default",
+                "name": "Default Adapter (Error)",
+                "address": "00:00:00:00:00:00",
+                "available": False,
+                "status": "error",
+                "error": str(e)
+            }]
+
 # Singleton instance (to be initialized on first use)
+from threading import Lock
+
 _device_manager = None
+_device_manager_lock = Lock()
 
 def get_device_manager() -> BleDeviceManager:
     """Get the singleton device manager instance."""
     global _device_manager
-    if _device_manager is None:
-        _device_manager = BleDeviceManager()
+    if (_device_manager is None):
+        with _device_manager_lock:
+            if _device_manager is None:  # Double-checked locking
+                _device_manager = BleDeviceManager()
     return _device_manager

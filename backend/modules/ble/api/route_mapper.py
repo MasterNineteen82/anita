@@ -62,3 +62,59 @@ async def scan_devices(params: ScanParams, ble_service: BleService = Depends(get
     except Exception as e:
         logger.error(f"Error scanning for devices: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+"""Frontend API route mapping for BLE module."""
+
+from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi.responses import JSONResponse
+
+# Create router for frontend-specific BLE API endpoints
+frontend_api_router = APIRouter(prefix="/frontend/api/ble", tags=["BLE Frontend API"])
+
+@frontend_api_router.get("/status")
+async def ble_status():
+    """Get BLE module status for frontend."""
+    try:
+        # Import BLE dependencies here to avoid circular imports
+        from backend.modules.ble.core.ble_service import get_ble_service
+        
+        ble_service = get_ble_service()
+        
+        # Get basic status information
+        return {
+            "status": "active",
+            "available": True,
+            "supported": True,
+            "message": "BLE module is active"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "available": False,
+            "supported": True,
+            "message": f"BLE module error: {str(e)}"
+        }
+
+@frontend_api_router.get("/adapter/info")
+async def get_frontend_adapter_info():
+    """Get adapter information formatted for frontend use."""
+    try:
+        # Import BLE dependencies here to avoid circular imports
+        from backend.modules.ble.core.ble_service import get_ble_service
+        
+        ble_service = get_ble_service()
+        adapters = await ble_service.get_adapters()
+        
+        return {
+            "status": "success",
+            "adapters": adapters,
+            "count": len(adapters)
+        }
+    except Exception as e:
+        # Return a friendly error response
+        return {
+            "status": "error",
+            "message": f"Failed to get adapter information: {str(e)}",
+            "adapters": [],
+            "count": 0
+        }

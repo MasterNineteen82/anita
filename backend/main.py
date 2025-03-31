@@ -11,8 +11,9 @@ import uvicorn
 from backend.routes.api import (
     auth_routes, biometric_routes, cache_routes, card_routes, device_routes,
     hardware_routes, mifare_routes, mqtt_routes, nfc_routes, rfid_routes,
-    security_routes, smartcard_routes, system_routes, uwb_routes, ble_routes
+    security_routes, smartcard_routes, system_routes, uwb_routes
 )
+# Remove direct import of ble_routes here
 from backend.routes.api.monitoring_router import router as monitoring_router
 from backend.logging.logging_config import setup_logging
 from backend.modules.monitors import setup_monitoring, monitoring_manager
@@ -46,7 +47,7 @@ app.mount("/static", StaticFiles(directory=os.path.join(base_dir, "frontend", "s
 # Setup templates
 templates = Jinja2Templates(directory=os.path.join(base_dir, "frontend", "templates"))
 
-# Include routers
+# Include non-BLE routers first
 routers = {
     "auth": auth_routes.router,
     "biometric": biometric_routes.router,
@@ -62,26 +63,46 @@ routers = {
     "smartcard": smartcard_routes.router,
     "system": system_routes.router,
     "uwb": uwb_routes.router,
-    "ble": ble_routes.router,
     "monitoring": monitoring_router
 }
+
 for name, router in routers.items():
     app.include_router(router, prefix="/api" if not router.prefix else "", tags=[name.capitalize()])
-
-# Add WebSocket endpoints
-app.add_websocket_route("/ws/ble", ble_routes.ble_endpoint.endpoint, name="ble_websocket")
 
 # Setup monitoring
 setup_monitoring(app)
 
+# Modify the startup event to check if the BLE router is already registered
 @app.on_event("startup")
 async def startup_event():
-    await monitoring_manager.start_monitor("ble_device_monitor", room_name="ble_notifications")
-    logger.info("Application startup complete, BLE monitor started")
+    # Only initialize BLE module if not already initialized in app.py
+    if not any(route.path.startswith("/api/ble") for route in app.routes if hasattr(route, "path")):
+        try:
+            # Import BLE components only at startup time
+            from backend.routes.api import ble_routes
+            from backend.modules.ble.api.ble_routes import router as ble_router
+            
+            # Register BLE router with proper error handling
+            app.include_router(
+                ble_router, 
+                prefix="/api" if not ble_router.prefix else "", 
+                tags=["BLE"]
+            )
+            
+            logger.info("BLE module initialized successfully")
+            
+        except Exception as ble_error:
+            logger.error(f"Failed to initialize BLE module: {ble_error}", exc_info=True)
+            logger.warning("Application will continue without BLE functionality")
+
+    logger.info("Application startup complete")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    await monitoring_manager.stop_monitor("ble_device_monitor")
+    try:
+        await monitoring_manager.stop_monitor("ble_device_monitor")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
     logger.info("Application shutdown complete")
 
 # Frontend routes
