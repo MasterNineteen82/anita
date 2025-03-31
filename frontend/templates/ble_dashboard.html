@@ -28,78 +28,115 @@
         <!-- Row 1: Adapter Information + Device Scanner -->
         
         {% call render_card(title="Adapter Information", icon="bluetooth", id="ble-adapter-info-card") %}
-            <div id="adapter-info-content" class="space-y-2 p-4">
-                <div class="text-gray-500">Fetching adapter information...</div>
-                <div class="mb-3" id="adapter-status">
-                    <div class="flex items-center">
-                        <div class="w-3 h-3 rounded-full bg-gray-400 mr-2" id="adapter-status-indicator"></div>
-                        <span id="adapter-status-text">Checking adapter...</span>
-                    </div>
-                </div>
-                
+        <div id="adapter-info-content" class="space-y-4 p-4">
+            <div class="text-gray-500">Fetching adapter information...</div>
+            
+            <div id="adapter-info-content" class="space-y-4 p-4">
+                <!-- Adapter Name -->
                 <div class="mb-3">
                     <label class="block text-sm text-gray-400 mb-1">Name</label>
                     <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-name">Loading...</div>
                 </div>
-                
+            
+                <!-- Adapter Address -->
                 <div class="mb-3">
                     <label class="block text-sm text-gray-400 mb-1">Address</label>
                     <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-address">Loading...</div>
                 </div>
-                
+            
+                <!-- Adapter Type -->
                 <div class="mb-3">
                     <label class="block text-sm text-gray-400 mb-1">Type</label>
                     <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-type">Loading...</div>
                 </div>
+            
+                <!-- Adapter Status -->
+                <div class="mb-3">
+                    <label class="block text-sm text-gray-400 mb-1">Status</label>
+                    <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-status-text">Loading...</div>
+                </div>
+            
+                <!-- Adapter Manufacturer -->
+                <div class="mb-3">
+                    <label class="block text-sm text-gray-400 mb-1">Manufacturer</label>
+                    <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-manufacturer">Loading...</div>
+                </div>
+            
+                <!-- Adapter Platform -->
+                <div class="mb-3">
+                    <label class="block text-sm text-gray-400 mb-1">Platform</label>
+                    <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-platform">Loading...</div>
+                </div>
             </div>
+            
+            <!-- Refresh Button -->
+            <div class="mt-4 flex justify-end">
+                <button id="refresh-adapter-btn" class="ble-btn ble-btn-secondary">
+                    <i class="fas fa-sync mr-2"></i> Refresh Adapter Info
+                </button>
+            </div>
+        </div>
         {% endcall %}
         
         {% call render_card(title="Device Scanner", icon="search", id="ble-scanner-card") %}
-            <div id="scan-container" class="p-4">
-                <div class="flex items-center justify-between mb-2">
-                    <div class="flex items-center">
-                        <span id="scan-status" class="mr-2 inline-flex items-center">
-                            <span class="w-3 h-3 rounded-full bg-gray-500 mr-2"></span>
-                            <span class="text-gray-400">Inactive</span>
-                        </span>
-                    </div>
-                    <div class="flex space-x-2">
-                        <button id="scan-btn" class="ble-btn ble-btn-primary">
-                            <i class="fas fa-search mr-2"></i>Scan for Devices
-                        </button>
-                    </div>
+        <div id="scan-container" class="p-4">
+            <!-- Scan Status -->
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center">
+                    <span id="scan-status" class="mr-2 inline-flex items-center">
+                        <span class="w-3 h-3 rounded-full bg-gray-500 mr-2"></span>
+                        <span class="text-gray-400">Inactive</span>
+                    </span>
                 </div>
-                
-                <div class="mb-4">
-                    <label for="scan-time" class="block text-sm text-gray-400 mb-1">Scan Duration</label>
-                    <select id="scan-time" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
-                        <option value="3">3 seconds</option>
-                        <option value="5" selected>5 seconds</option>
-                        <option value="10">10 seconds</option>
-                        <option value="15">15 seconds</option>
-                    </select>
-                </div>
-                
-                <div class="mb-4">
-                    <label class="inline-flex items-center">
-                        <input type="checkbox" id="active-scanning" class="form-checkbox h-5 w-5 text-blue-600 rounded" checked>
-                        <span class="ml-2 text-gray-400">Active scanning</span>
-                    </label>
-                </div>
-                
-                <div class="mb-4">
-                    <label for="filter-type" class="block text-sm text-gray-400 mb-1">Filter Devices</label>
-                    <select id="filter-type" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
-                        <option value="all" selected>All Devices</option>
-                        <option value="paired">Paired Only</option>
-                        <option value="custom">Custom Filter</option>
-                    </select>
-                </div>
-                
-                <div id="devices-list" class="mt-4">
-                    <div class="text-gray-500">No devices found. Click the scan button to start scanning.</div>
+                <div class="flex space-x-2">
+                    <button id="scan-btn" class="ble-btn ble-btn-primary">
+                        <i class="fas fa-search mr-2"></i>Scan for Devices
+                    </button>
+                    <button id="stop-scan-btn" class="ble-btn ble-btn-secondary hidden">
+                        <i class="fas fa-stop mr-2"></i>Stop Scan
+                    </button>
                 </div>
             </div>
+            
+            <!-- Scan Progress -->
+            <div class="mb-4">
+                <label class="block text-sm text-gray-400 mb-1">Scan Progress</label>
+                <div class="relative w-full bg-gray-700 rounded-full h-2">
+                    <div id="scan-progress" class="absolute bg-blue-500 h-2 rounded-full" style="width: 0%;"></div>
+                </div>
+            </div>
+            
+            <!-- Scan Duration -->
+            <div class="mb-4">
+                <label for="scan-time" class="block text-sm text-gray-400 mb-1">Scan Duration</label>
+                <select id="scan-time" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
+                    <option value="3">3 seconds</option>
+                    <option value="5" selected>5 seconds</option>
+                    <option value="10">10 seconds</option>
+                    <option value="15">15 seconds</option>
+                </select>
+            </div>
+            
+            <!-- Active Scanning Toggle -->
+            <div class="mb-4">
+                <label class="inline-flex items-center">
+                    <input type="checkbox" id="active-scanning" class="form-checkbox h-5 w-5 text-blue-600 rounded" checked>
+                    <span class="ml-2 text-gray-400">Active scanning</span>
+                </label>
+            </div>
+            
+            <!-- Device List -->
+            <div id="devices-list" class="mt-4">
+                <div class="text-gray-500">No devices found. Click the scan button to start scanning.</div>
+            </div>
+            
+            <!-- Clear Devices Button -->
+            <div class="mt-4 flex justify-end">
+                <button id="clear-devices-btn" class="ble-btn ble-btn-tertiary">
+                    <i class="fas fa-trash mr-2"></i> Clear Devices
+                </button>
+            </div>
+        </div>
         {% endcall %}
 
         <!-- Row 2: Connected Device + Device Services -->

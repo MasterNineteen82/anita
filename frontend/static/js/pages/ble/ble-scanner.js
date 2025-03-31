@@ -1,212 +1,249 @@
 import { BleUI } from './ble-ui.js';
 import { BleEvents, BLE_EVENTS } from './ble-events.js';
-import { sendWebSocketCommand, BleWebSocket } from './ble-websocket.js';
+import { BleWebSocket } from './ble-websocket.js';
 
 /**
- * BLE Scanner Module
  * Handles scanning for nearby BLE devices
  */
 export class BleScanner {
-    constructor(state = {}) {
-        this.state = state;
+    constructor() {
         this.scanning = false;
-        this.scanResults = new Map();
+        this.scanResults = [];
         this.uiElements = {
             scanBtn: null,
             stopScanBtn: null,
-            deviceList: null,
-            scanIndicator: null
+            scanProgress: null,
+            deviceList: null
         };
     }
-
+    
     /**
      * Initialize the scanner module
      */
     async initialize() {
         console.log('Initializing BLE Scanner module');
-
+        
         // Get UI elements
         this.uiElements.scanBtn = document.getElementById('scan-btn');
         this.uiElements.stopScanBtn = document.getElementById('stop-scan-btn');
-        this.uiElements.deviceList = document.getElementById('device-list');
-        this.uiElements.scanIndicator = document.getElementById('scan-indicator');
-
-        // Check if UI elements are available, and create them if they are missing
-        if (!this.uiElements.scanBtn) {
-            this.uiElements.scanBtn = this.createButton('scan-btn', 'Scan', 'ble-btn ble-btn-primary', '<i class="fas fa-play"></i> Scan');
+        this.uiElements.scanProgress = document.getElementById('scan-progress');
+        this.uiElements.deviceList = document.getElementById('devices-list');
+        
+        // Register event listeners
+        if (this.uiElements.scanBtn) {
+            this.uiElements.scanBtn.addEventListener('click', () => this.startScan());
         }
-        if (!this.uiElements.stopScanBtn) {
-            this.uiElements.stopScanBtn = this.createButton('stop-scan-btn', 'Stop', 'ble-btn ble-btn-secondary', '<i class="fas fa-stop"></i> Stop');
+        
+        if (this.uiElements.stopScanBtn) {
+            this.uiElements.stopScanBtn.addEventListener('click', () => this.stopScan());
         }
-        if (!this.uiElements.scanIndicator) {
-            this.uiElements.scanIndicator = this.createScanIndicator('scan-indicator', 'Scanning...');
-        }
-        if (!this.uiElements.deviceList) {
-            this.uiElements.deviceList = this.createDeviceList('device-list');
-        }
-
-        // Add event listeners
-        this.uiElements.scanBtn.addEventListener('click', () => this.startScan());
-        this.uiElements.stopScanBtn.addEventListener('click', () => this.stopScan());
-
-        // Register event handlers
+        
+        // Register for events
         BleEvents.on(BLE_EVENTS.SCAN_RESULT, (result) => this.handleScanResult(result));
-        BleEvents.on(BLE_EVENTS.SCAN_COMPLETED, (result) => this.handleScanCompleted(result));
+        BleEvents.on(BLE_EVENTS.SCAN_COMPLETED, () => this.handleScanCompleted());
 
-        console.log('BLE Scanner module created');
+        // Register for scan-related events
+        BleEvents.on(BleEvents.SCAN_RESULT, (data) => {
+            console.log('Real-time scan result received:', data);
+            if (data.device && !data.device.isMock) {
+                this.addDevice(data.device);
+                this.updateDeviceList();
+            }
+        });
+        
+        console.log('BLE Scanner module initialized');
     }
-
-    /**
-     * Create a button element
-     * @param {string} id - The ID of the button
-     * @param {string} text - The text of the button
-     * @param {string} className - The class name of the button
-     * @param {string} innerHTML - The inner HTML of the button
-     * @returns {HTMLElement} - The button element
-     */
-    createButton(id, text, className, innerHTML) {
-        const button = document.createElement('button');
-        button.id = id;
-        button.className = className;
-        button.innerHTML = innerHTML;
-        return button;
-    }
-
-    /**
-     * Create a scan indicator element
-     * @param {string} id - The ID of the scan indicator
-     * @param {string} text - The text of the scan indicator
-     * @returns {HTMLElement} - The scan indicator element
-     */
-    createScanIndicator(id, text) {
-        const span = document.createElement('span');
-        span.id = id;
-        span.className = 'hidden text-green-500';
-        span.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${text}`;
-        return span;
-    }
-
-    /**
-     * Create a device list element
-     * @param {string} id - The ID of the device list
-     * @returns {HTMLElement} - The device list element
-     */
-    createDeviceList(id) {
-        const ul = document.createElement('ul');
-        ul.id = id;
-        ul.className = 'divide-y divide-gray-700';
-        return ul;
-    }
-
+    
     /**
      * Start scanning for BLE devices
      */
     async startScan() {
+        console.log('Starting BLE scan');
+        
         if (this.scanning) {
             BleUI.showToast('Scan already in progress', 'warning');
             return;
         }
-
-        if (!BleWebSocket.isConnected) {
-            BleUI.showToast('WebSocket not connected. Please wait...', 'warning');
-            return;
-        }
-
+        
         this.scanning = true;
-        this.scanResults.clear();
-        this.updateScanIndicator(true);
+        this.scanResults = [];
+        this.updateScanUI(true);
         BleUI.showToast('Scanning for devices...', 'info');
-
-        // Send command to start scan
-        sendWebSocketCommand('ble.scan.start', { duration: 10 });
+        
+        try {
+            // Updated parameter names to match new ScanParams model
+            const response = await fetch('/api/ble/device/scan', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    scan_time: parseFloat(document.getElementById('scan-time')?.value || 5),
+                    active: document.getElementById('active-scanning')?.checked || true,
+                    filter_duplicates: true,
+                    service_uuids: [] // Optional service UUID filtering
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Scan failed');
+            }
+            
+            const result = await response.json();
+            this.scanResults = result.devices || [];
+            
+            // Process and display results
+            this.updateDeviceList();
+            BleUI.showToast(`Found ${this.scanResults.length} devices`, 'success');
+        } catch (error) {
+            console.error('Scan error:', error);
+            BleUI.showToast(`Scan failed: ${error.message}`, 'error');
+        } finally {
+            this.scanning = false;
+            this.updateScanUI(false);
+        }
     }
-
+    
     /**
      * Stop scanning for BLE devices
      */
-    async stopScan() {
+    stopScan() {
         if (!this.scanning) {
-            BleUI.showToast('No scan in progress', 'warning');
             return;
         }
-
+        
         this.scanning = false;
-        this.updateScanIndicator(false);
-        BleUI.showToast('Stopping scan...', 'info');
-
-        // Send command to stop scan
-        sendWebSocketCommand('ble.scan.stop');
+        this.updateScanUI(false);
+        BleUI.showToast('Scanning stopped', 'info');
+        
+        // If WebSocket is connected, send stop command
+        if (BleWebSocket.isConnected) {
+            BleWebSocket.sendCommand('ble.scan.stop');
+        }
     }
-
+    
     /**
-     * Handle a scan result
-     * @param {object} result - Scan result data
+     * Update scan UI elements
+     */
+    updateScanUI(scanning) {
+        if (this.uiElements.scanBtn) {
+            this.uiElements.scanBtn.classList.toggle('hidden', scanning);
+        }
+        
+        if (this.uiElements.stopScanBtn) {
+            this.uiElements.stopScanBtn.classList.toggle('hidden', !scanning);
+        }
+        
+        if (this.uiElements.scanProgress) {
+            if (scanning) {
+                this.uiElements.scanProgress.style.width = '0%';
+                this.startProgressAnimation();
+            } else {
+                this.uiElements.scanProgress.style.width = '100%';
+                setTimeout(() => {
+                    if (this.uiElements.scanProgress) {
+                        this.uiElements.scanProgress.style.width = '0%';
+                    }
+                }, 1000);
+            }
+        }
+    }
+    
+    /**
+     * Start progress bar animation
+     */
+    startProgressAnimation() {
+        let progress = 0;
+        const interval = setInterval(() => {
+            if (!this.scanning) {
+                clearInterval(interval);
+                return;
+            }
+            
+            progress += 2;
+            if (progress > 100) {
+                clearInterval(interval);
+                return;
+            }
+            
+            if (this.uiElements.scanProgress) {
+                this.uiElements.scanProgress.style.width = `${progress}%`;
+            }
+        }, 100);
+    }
+    
+    /**
+     * Add a device to scan results
+     */
+    addDevice(device) {
+        // Check if device already exists
+        const index = this.scanResults.findIndex(d => d.address === device.address);
+        if (index >= 0) {
+            // Update existing device
+            this.scanResults[index] = device;
+        } else {
+            // Add new device
+            this.scanResults.push(device);
+        }
+    }
+    
+    /**
+     * Handle scan result event
      */
     handleScanResult(result) {
-        const { device, timestamp } = result;
-
-        if (!device || !device.address) {
-            console.warn('Invalid scan result:', result);
-            return;
+        if (result && result.device) {
+            this.addDevice(result.device);
+            this.updateDeviceList();
         }
-
-        // Format address
-        device.formattedAddress = BleUI.formatAddress(device.address);
-
-        // Format signal strength
-        device.signalStrengthFormatted = BleUI.formatSignalStrength(device.rssi);
-
-        // Add or update device in scan results
-        this.scanResults.set(device.address, device);
-
-        // Update device list
-        this.updateDeviceList();
     }
-
+    
     /**
-     * Handle scan completion
-     * @param {object} result - Scan completion data
+     * Handle scan completed event
      */
-    handleScanCompleted(result) {
+    handleScanCompleted() {
         this.scanning = false;
-        this.updateScanIndicator(false);
-        BleUI.showToast(`Scan completed. Found ${this.scanResults.size} devices`, 'success');
+        this.updateScanUI(false);
+        BleUI.showToast(`Scan completed. Found ${this.scanResults.length} devices.`, 'success');
     }
-
+    
     /**
-     * Update the scan indicator
-     * @param {boolean} scanning - Whether scanning is in progress
-     */
-    updateScanIndicator(scanning) {
-        if (scanning) {
-            this.uiElements.scanIndicator.classList.remove('hidden');
-        } else {
-            this.uiElements.scanIndicator.classList.add('hidden');
-        }
-    }
-
-    /**
-     * Update the device list in the UI
+     * Update device list in UI
      */
     updateDeviceList() {
+        if (!this.uiElements.deviceList) {
+            return;
+        }
+        
         // Clear existing list
         this.uiElements.deviceList.innerHTML = '';
-
+        
         // Sort devices by signal strength (strongest first)
-        const sortedDevices = Array.from(this.scanResults.values()).sort((a, b) => b.rssi - a.rssi);
-
-        // Add devices to the list
+        const sortedDevices = [...this.scanResults].sort((a, b) => (b.rssi || -100) - (a.rssi || -100));
+        
+        if (sortedDevices.length === 0) {
+            this.uiElements.deviceList.innerHTML = '<div class="text-gray-500">No devices found</div>';
+            return;
+        }
+        
+        // Add devices to list
         sortedDevices.forEach(device => {
-            const listItem = document.createElement('li');
-            listItem.className = 'ble-device-item';
-            listItem.innerHTML = `
-                <div class="ble-device-info">
-                    <div class="ble-device-name">${device.name || 'Unknown Device'}</div>
-                    <div class="ble-device-address">${device.formattedAddress}</div>
+            const deviceEl = document.createElement('div');
+            deviceEl.className = 'bg-gray-700 rounded p-3 mb-2 flex justify-between items-center';
+            deviceEl.innerHTML = `
+                <div class="flex-1">
+                    <div class="font-medium">${device.name || 'Unknown Device'}</div>
+                    <div class="text-gray-400 text-sm">${device.address || 'Unknown Address'}</div>
                 </div>
-                <div class="ble-device-signal">${device.signalStrengthFormatted}</div>
+                <div class="text-right">
+                    <div class="text-sm font-medium">${device.rssi || 'N/A'} dBm</div>
+                    <div class="w-16 bg-gray-600 rounded-full h-1.5 mt-1">
+                        <div class="bg-blue-500 h-1.5 rounded-full" style="width: ${Math.min(100, Math.max(0, ((device.rssi || -100) + 100) / 0.7))}%"></div>
+                    </div>
+                </div>
             `;
-            this.uiElements.deviceList.appendChild(listItem);
+            
+            this.uiElements.deviceList.appendChild(deviceEl);
         });
     }
 }

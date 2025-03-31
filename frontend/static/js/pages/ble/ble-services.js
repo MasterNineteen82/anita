@@ -136,32 +136,41 @@ export class BleServices {
     
     /**
      * Discover services for a device
-     * @param {string} deviceAddress - Device address
+     * @param {string} deviceId - Device ID
      */
-    async discoverServices(deviceAddress) {
+    async discoverServices(deviceId) {
         try {
-            const response = await fetch(`/api/ble/device/${deviceAddress}/services`, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
+            BleUI.showToast('Discovering services...', 'info');
+            
+            // Updated endpoint for the new service manager
+            const response = await fetch('/api/ble/services');
             
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.detail || 'Failed to discover services');
             }
             
-            const data = await response.json();
-            this.services = data.services || [];
+            const result = await response.json();
             
-            // Render services
-            this.renderServices();
+            // Handle the new ServicesResult format
+            this.services = result.services || [];
+            
+            // Update UI
+            this.updateServicesUI();
+            
+            BleUI.showToast(`Discovered ${this.services.length} services`, 'success');
+            
+            // Emit event for other components
+            BleEvents.emit(BleEvents.DEVICE_SERVICES_DISCOVERED, {
+                device: deviceId,
+                services: this.services,
+                count: this.services.length
+            });
             
             return this.services;
         } catch (error) {
             console.error('Error discovering services:', error);
-            this.showServicesError(error);
+            BleUI.showToast(`Service discovery failed: ${error.message}`, 'error');
             throw error;
         }
     }

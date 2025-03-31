@@ -24,33 +24,37 @@ export class BleNotifications {
      * @param {String} charUuid - Characteristic UUID
      * @returns {Promise<boolean>} - Success status
      */
-    async subscribeToNotifications(serviceUuid, charUuid) {
+    async subscribeToNotifications(characteristic_uuid) {
         try {
-            const response = await fetch(`/api/ble/services/${serviceUuid}/characteristics/${charUuid}/notify`, {
+            // Updated endpoint for the notification manager
+            const response = await fetch('/api/ble/notifications/subscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ notify: true })
+                body: JSON.stringify({ 
+                    characteristic_uuid: characteristic_uuid,
+                    enable: true 
+                })
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Failed to subscribe to characteristic: ${errorText}`);
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to subscribe to characteristic');
             }
 
             await response.json();
-            this.subscribedCharacteristics.add(charUuid);
-            logMessage(`Subscribed to notifications for ${charUuid}`, 'success');
-
-            // Emit event using BleEvents instead of window.bleEvents
-            BleEvents.emit(BLE_EVENTS.NOTIFICATION_SUBSCRIBED, {
-                serviceUuid,
-                charUuid,
-                timestamp: Date.now()
+            this.subscribedCharacteristics.add(characteristic_uuid);
+            
+            BleUI.showToast(`Subscribed to ${characteristic_uuid}`, 'success');
+            
+            // Emit event
+            BleEvents.emit(BleEvents.NOTIFICATION_SUBSCRIBED, {
+                characteristic: characteristic_uuid
             });
-
+            
             return true;
         } catch (error) {
-            logMessage(`Subscription error: ${error.message}`, 'error');
+            console.error('Error subscribing to characteristic:', error);
+            BleUI.showToast(`Subscription failed: ${error.message}`, 'error');
             return false;
         }
     }

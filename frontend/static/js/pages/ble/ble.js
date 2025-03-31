@@ -32,7 +32,8 @@ class BLECore {
         }
 
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${wsProtocol}//${window.location.host}/api/ws/ble`;
+        // Update to use the correct path
+        const wsUrl = `${wsProtocol}//${window.location.host}/api/ble/ws`;
 
         console.log(`Connecting to WebSocket at ${wsUrl}`);
 

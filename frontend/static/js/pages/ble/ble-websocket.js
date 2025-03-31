@@ -1,11 +1,21 @@
 import { BleEvents } from './ble-events.js';
 import { BleUI } from './ble-ui.js';
+import { MessageType } from './ble-types.js';
+
+/**
+ * Singleton instance for global access
+ */
+let instance = null;
 
 /**
  * Handles WebSocket communication for BLE functionality
  */
 export class BleWebSocket {
     constructor() {
+        if (instance) {
+            return instance;
+        }
+        
         this.socket = null;
         this.isConnected = false;
         this.reconnectAttempts = 0;
@@ -14,6 +24,8 @@ export class BleWebSocket {
         this.heartbeatInterval = null;
         this.pendingPings = 0;
         this.maxPendingPings = 5; // Increased max pending pings
+        
+        instance = this;
     }
 
     /**
@@ -160,15 +172,71 @@ export class BleWebSocket {
      * @param {Object} data - Message data
      */
     handleMessage(data) {
-        switch (data.type) {
-            case 'pong':
-                // Handle pong
-                this.pendingPings = Math.max(0, this.pendingPings - 1);
-                break;
-            default:
-                // Handle other messages
-                BleEvents.handleWebSocketMessage(data);
-                break;
+        // Handle different message types from the new backend
+        console.log('WebSocket message received:', data);
+        
+        try {
+            // Emit general websocket message event
+            BleEvents.emit(BleEvents.WEBSOCKET_MESSAGE, data);
+            
+            switch (data.type) {
+                case MessageType.SCAN_RESULT:
+                    // Handle scan results
+                    BleEvents.emit(BleEvents.SCAN_RESULT, {
+                        device: data.device,
+                        timestamp: data.timestamp
+                    });
+                    break;
+                    
+                case MessageType.NOTIFICATION:
+                    // Handle notifications with new CharacteristicValue format
+                    BleEvents.emit(BleEvents.CHARACTERISTIC_NOTIFICATION, {
+                        characteristic: data.characteristic,
+                        value: data.value,
+                        timestamp: data.timestamp
+                    });
+                    break;
+                    
+                case MessageType.DEVICE_CONNECTED:
+                    // Handle device connected event
+                    BleEvents.emit(BleEvents.DEVICE_CONNECTED, {
+                        device: data.device,
+                        services: data.services || [],
+                        timestamp: data.timestamp
+                    });
+                    break;
+                    
+                case MessageType.DEVICE_DISCONNECTED:
+                    // Handle device disconnected event
+                    BleEvents.emit(BleEvents.DEVICE_DISCONNECTED, {
+                        device: data.device,
+                        reason: data.reason,
+                        timestamp: data.timestamp
+                    });
+                    break;
+                    
+                case MessageType.ERROR:
+                    // Handle error messages
+                    BleEvents.emit(BleEvents.ERROR, {
+                        message: data.message,
+                        type: data.error_type,
+                        details: data.details,
+                        timestamp: data.timestamp
+                    });
+                    
+                    BleUI.showToast(`BLE Error: ${data.message}`, 'error');
+                    break;
+                    
+                case 'pong':
+                    // Handle pong response (heartbeat)
+                    this.lastPongTime = Date.now();
+                    break;
+                    
+                default:
+                    console.log('Unknown message type:', data.type);
+            }
+        } catch (error) {
+            console.error('Error handling WebSocket message:', error);
         }
     }
 
@@ -190,14 +258,74 @@ export class BleWebSocket {
             BleUI.showToast('Not connected to BLE service', 'warning');
         }
     }
+    
+    /**
+     * Get connection status
+     * @returns {boolean} Whether WebSocket is connected
+     */
+    isWebSocketConnected() {
+        return this.isConnected;
+    }
 }
 
+// Create singleton instance
+const bleWebSocketInstance = new BleWebSocket();
+
 /**
- * Send a command to the WebSocket server
+ * Static methods that forward to the singleton instance
+ * This allows both patterns:
+ * - BleWebSocket.staticMethod()
+ * - const ws = new BleWebSocket(); ws.instanceMethod()
+ */
+
+/**
+ * Initialize the WebSocket connection (static method)
+ */
+BleWebSocket.initialize = async function() {
+    return await bleWebSocketInstance.initialize();
+};
+
+/**
+ * Connect to the WebSocket server (static method)
+ */
+BleWebSocket.connect = async function() {
+    return await bleWebSocketInstance.connect();
+};
+
+/**
+ * Send a command to the WebSocket server (static method)
+ */
+BleWebSocket.sendCommand = function(command, payload = {}) {
+    return bleWebSocketInstance.sendCommand(command, payload);
+};
+
+/**
+ * Get connection status (static method)
+ */
+BleWebSocket.isConnected = function() {
+    return bleWebSocketInstance.isConnected;
+};
+
+// Add static property for compatibility
+Object.defineProperty(BleWebSocket, 'isConnected', {
+    get: function() {
+        return bleWebSocketInstance.isConnected;
+    }
+});
+
+/**
+ * Send a command to the WebSocket server (convenience function)
  * @param {string} command - Command to send
  * @param {object} payload - Command payload
  */
 export const sendWebSocketCommand = (command, payload = {}) => {
-    const bleWebSocket = new BleWebSocket();
-    bleWebSocket.sendCommand(command, payload);
+    return bleWebSocketInstance.sendCommand(command, payload);
 };
+
+// Initialize WebSocket when module is loaded
+bleWebSocketInstance.initialize().catch(error => {
+    console.error('Failed to initialize WebSocket on module load:', error);
+});
+
+// Export singleton instance directly
+export const bleWebSocket = bleWebSocketInstance;

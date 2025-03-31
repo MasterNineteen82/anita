@@ -38,11 +38,19 @@ export class BleConnection {
             this.connecting = true;
             BleUI.showToast(`Connecting to device ${deviceId}...`, 'info');
 
-            const response = await fetch(`/api/ble/device/${deviceId}/connect`, {
+            // Updated to use new ConnectionParams format
+            const response = await fetch(`/api/ble/device/connect`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({
+                    address: deviceId,
+                    timeout: 15.0,
+                    auto_reconnect: localStorage.getItem('bleAutoReconnect') === 'true',
+                    remember_device: true,
+                    use_cached_services: true
+                })
             });
 
             if (!response.ok) {
@@ -51,18 +59,22 @@ export class BleConnection {
             }
 
             const result = await response.json();
-
-            // Update state
-            this.state.connectedDevice = deviceId;
-
-            // Emit connection event
-            BleEvents.emit('DEVICE_CONNECTED', {
-                deviceId,
-                details: result
-            });
-
-            BleUI.showToast('Connected successfully', 'success');
-            return true;
+            // Updated to use new ConnectionResult structure
+            if (result.status === 'connected') {
+                this.state.connectedDevice = deviceId;
+                BleUI.showToast(`Connected to ${deviceId}`, 'success');
+                
+                // Emit connected event for other components
+                BleEvents.emit(BleEvents.DEVICE_CONNECTED, {
+                    device: deviceId,
+                    services: result.services || [],
+                    service_count: result.service_count || 0
+                });
+                
+                return true;
+            } else {
+                throw new Error(result.message || 'Failed to establish connection');
+            }
         } catch (error) {
             console.error('Connection error:', error);
             BleUI.showToast(`Connection failed: ${error.message}`, 'error');

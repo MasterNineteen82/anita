@@ -30,13 +30,13 @@ from backend.logging.logging_config import setup_logging, print_colorful_traceba
 from backend.routes import api as api_package
 
 # Import the WebSocket endpoint directly
-from backend.modules.ble.websocket import websocket_endpoint
+from backend.modules.ble.comms.websocket import websocket_endpoint
 
 # Import existing BLE router
-from backend.modules.ble.ble_routes import router as ble_router
+from backend.modules.ble.api.ble_routes import router as ble_router
 
 # Add import for the route mapper (to be created)
-from backend.modules.ble.route_mapper import frontend_api_router
+from backend.modules.ble.api.route_mapper import frontend_api_router
 
 logger = setup_logging()
 
@@ -74,6 +74,14 @@ async def ble_websocket_frontend(websocket: WebSocket):
 @app.websocket("/api/ws/ble")
 async def ble_websocket(websocket: WebSocket):
     await ble_routes.websocket_endpoint(websocket)
+
+# Add this new endpoint that matches the path our JS client expects
+@app.websocket("/api/ble/ws")
+async def ble_websocket_main(websocket: WebSocket):
+    """Primary WebSocket endpoint for BLE notifications"""
+    # Import the websocket handler from our new notification module
+    from backend.modules.ble.comms.websocket import websocket_endpoint
+    await websocket_endpoint(websocket)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

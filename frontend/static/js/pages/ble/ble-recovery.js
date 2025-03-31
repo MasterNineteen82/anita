@@ -25,17 +25,21 @@ export class BleRecovery {
     async handleError(error) {
         console.warn('Handling BLE error:', error);
 
-        switch (error.message) {
-            case 'Device connection was lost':
-                BleUI.showToast('Device connection lost. Attempting to reconnect...', 'warning');
-                await this.reconnectDevice();
-                break;
-            case 'GATT operation failed':
-                BleUI.showToast('GATT operation failed. Resetting connection...', 'warning');
-                await this.resetConnection();
-                break;
-            default:
-                BleUI.showToast(`Unhandled BLE error: ${error.message}`, 'error');
+        // Check error type based on new backend error classification
+        if (error.type === 'BleConnectionError') {
+            BleUI.showToast('Device connection lost. Attempting to reconnect...', 'warning');
+            await this.reconnectDevice();
+        } else if (error.type === 'BleServiceError') {
+            BleUI.showToast('GATT operation failed. Resetting connection...', 'warning');
+            await this.resetConnection();
+        } else if (error.type === 'BleAdapterError') {
+            BleUI.showToast('Bluetooth adapter error. Attempting to reset...', 'warning');
+            await this.resetAdapter();
+        } else {
+            BleUI.showToast(`Unhandled BLE error: ${error.message}`, 'error');
+            
+            // Log additional details for debugging
+            console.error('Detailed error information:', error);
         }
     }
 
