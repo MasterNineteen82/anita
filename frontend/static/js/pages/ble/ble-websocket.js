@@ -1,6 +1,7 @@
-import { BleEvents } from './ble-events.js';
+import { BleEvents, BLE_EVENTS } from './ble-events.js';
 import { BleUI } from './ble-ui.js';
 import { MessageType } from './ble-constants.js';
+import { BleLogger } from './ble-logger.js';
 
 /**
  * Singleton instance for global access
@@ -11,260 +12,539 @@ let instance = null;
  * Handles WebSocket communication for BLE functionality
  */
 export class BleWebSocket {
-    constructor() {
-        if (instance) {
-            return instance;
-        }
-        
+    constructor(endpoint = '/api/ble/ws') {
+        this.endpoint = endpoint;
         this.socket = null;
-        this.isConnected = false;
-        this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 2000;
-        this.heartbeatInterval = null;
-        this.pendingPings = 0;
-        this.maxPendingPings = 5; // Increased max pending pings
-        
-        instance = this;
+        this.isConnecting = false;
+        this.retryCount = 0;
+        this.pingInterval = null;
+        this.maxRetries = 5;
     }
-
+    
     /**
      * Initialize the WebSocket connection
      */
     async initialize() {
-        console.log('Initializing BLE WebSocket');
-        
+        console.log('Initializing BLE WebSocket connection');
         try {
-            await this.connect();
-            return true;
+            return await this.connect();
         } catch (error) {
             console.error('WebSocket initialization failed:', error);
-            return false;
-        }
-    }
-
-    /**
-     * Connect to the WebSocket server
-     */
-    async connect() {
-        return new Promise((resolve, reject) => {
-            try {
-                if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
-                    console.log('WebSocket already connected or connecting');
-                    resolve(true);
-                    return;
-                }
-                
-                // Create WebSocket URL based on current location
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsUrl = `${protocol}//${window.location.host}/api/ws/ble`;
-                
-                console.log(`Connecting to WebSocket at ${wsUrl}`);
-                
-                this.socket = new WebSocket(wsUrl);
-                
-                // Setup event handlers
-                this.socket.onopen = () => {
-                    console.log('WebSocket connected');
-                    this.isConnected = true;
-                    this.reconnectAttempts = 0;
-                    
-                    // Start heartbeat
-                    this.startHeartbeat();
-                    
-                    // Emit connection event
-                    BleEvents.emit(BleEvents.WEBSOCKET_CONNECTED, { timestamp: Date.now() });
-                    
-                    BleUI.showToast('Connected to BLE service', 'success');
-                    resolve(true);
-                };
-                
-                this.socket.onmessage = (event) => {
-                    // Parse message data
-                    try {
-                        const data = JSON.parse(event.data);
-                        this.handleMessage(data);
-                    } catch (error) {
-                        console.error('Error parsing WebSocket message:', error);
-                    }
-                };
-
-                this.socket.onclose = (event) => {
-                    console.log('WebSocket disconnected:', event.code, event.reason);
-                    this.isConnected = false;
-                    clearInterval(this.heartbeatInterval);
-                    this.heartbeatInterval = null;
-                    
-                    // Emit disconnection event
-                    BleEvents.emit(BleEvents.WEBSOCKET_DISCONNECTED, { timestamp: Date.now() });
-                    
-                    BleUI.showToast('Disconnected from BLE service', 'warning');
-                    
-                    // Attempt to reconnect
-                    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                        this.reconnectAttempts++;
-                        console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-                        setTimeout(() => this.connect().then(resolve).catch(reject), this.reconnectDelay);
-                    } else {
-                        console.error('Max reconnect attempts reached. Giving up.');
-                        BleUI.showToast('Connection to BLE service lost', 'error');
-                        reject(new Error('WebSocket disconnected'));
-                    }
-                };
-
-                this.socket.onerror = (error) => {
-                    console.error('WebSocket error:', error);
-                    this.isConnected = false;
-                    clearInterval(this.heartbeatInterval);
-                    this.heartbeatInterval = null;
-                    
-                    // Emit disconnection event
-                    BleEvents.emit(BleEvents.WEBSOCKET_DISCONNECTED, { timestamp: Date.now() });
-                    
-                    BleUI.showToast('Error in BLE service', 'error');
-                    reject(error);
-                };
-            } catch (error) {
-                console.error('WebSocket connection error:', error);
-                reject(error);
-            }
-        });
-    }
-
-    /**
-     * Start the heartbeat to keep the connection alive
-     */
-    startHeartbeat() {
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
-        }
-        
-        this.heartbeatInterval = setInterval(() => {
-            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                // Send ping
-                this.sendPing();
-            } else {
-                // Clear interval if socket is not open
-                clearInterval(this.heartbeatInterval);
-                this.heartbeatInterval = null;
-            }
-        }, 10000); // Increased interval to 10 seconds
-    }
-
-    /**
-     * Send a ping message to the server
-     */
-    sendPing() {
-        if (this.pendingPings >= this.maxPendingPings) {
-            console.warn('Too many pending pings. Closing connection.');
-            this.socket.close(4000, 'Too many pings without response');
-            return;
-        }
-        
-        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            this.pendingPings++;
-            this.socket.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
-        }
-    }
-
-    /**
-     * Handle incoming messages from the WebSocket server
-     * @param {Object} data - Message data
-     */
-    handleMessage(data) {
-        // Handle different message types from the new backend
-        console.log('WebSocket message received:', data);
-        
-        try {
-            // Emit general websocket message event
-            BleEvents.emit(BleEvents.WEBSOCKET_MESSAGE, data);
-            
-            switch (data.type) {
-                case MessageType.SCAN_RESULT:
-                    // Handle scan results
-                    BleEvents.emit(BleEvents.SCAN_RESULT, {
-                        device: data.device,
-                        timestamp: data.timestamp
-                    });
-                    break;
-                    
-                case MessageType.NOTIFICATION:
-                    // Handle notifications with new CharacteristicValue format
-                    BleEvents.emit(BleEvents.CHARACTERISTIC_NOTIFICATION, {
-                        characteristic: data.characteristic,
-                        value: data.value,
-                        timestamp: data.timestamp
-                    });
-                    break;
-                    
-                case MessageType.DEVICE_CONNECTED:
-                    // Handle device connected event
-                    BleEvents.emit(BleEvents.DEVICE_CONNECTED, {
-                        device: data.device,
-                        services: data.services || [],
-                        timestamp: data.timestamp
-                    });
-                    break;
-                    
-                case MessageType.DEVICE_DISCONNECTED:
-                    // Handle device disconnected event
-                    BleEvents.emit(BleEvents.DEVICE_DISCONNECTED, {
-                        device: data.device,
-                        reason: data.reason,
-                        timestamp: data.timestamp
-                    });
-                    break;
-                    
-                case MessageType.ERROR:
-                    // Handle error messages
-                    BleEvents.emit(BleEvents.ERROR, {
-                        message: data.message,
-                        type: data.error_type,
-                        details: data.details,
-                        timestamp: data.timestamp
-                    });
-                    
-                    BleUI.showToast(`BLE Error: ${data.message}`, 'error');
-                    break;
-                    
-                case 'pong':
-                    // Handle pong response (heartbeat)
-                    this.lastPongTime = Date.now();
-                    break;
-                    
-                default:
-                    console.log('Unknown message type:', data.type);
-            }
-        } catch (error) {
-            console.error('Error handling WebSocket message:', error);
-        }
-    }
-
-    /**
-     * Send a command to the WebSocket server
-     * @param {string} command - Command to send
-     * @param {object} payload - Command payload
-     */
-    sendCommand(command, payload = {}) {
-        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            const message = {
-                type: command,
-                payload: payload,
-                timestamp: Date.now()
-            };
-            this.socket.send(JSON.stringify(message));
-        } else {
-            console.warn('WebSocket not connected. Cannot send command:', command);
-            BleUI.showToast('Not connected to BLE service', 'warning');
+            throw error;
         }
     }
     
     /**
-     * Get connection status
-     * @returns {boolean} Whether WebSocket is connected
+     * Connect to the WebSocket server
      */
-    isWebSocketConnected() {
-        return this.isConnected;
+    async connect() {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            console.log('WebSocket already connected');
+            return this.socket;
+        }
+        
+        if (this.isConnecting) {
+            console.log('WebSocket connection already in progress');
+            return null;
+        }
+        
+        this.isConnecting = true;
+        
+        try {
+            // Use consistent WebSocket URL format
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}${this.endpoint}`;
+            
+            console.log(`Connecting to WebSocket: ${wsUrl}`);
+            
+            return new Promise((resolve, reject) => {
+                const socket = new WebSocket(wsUrl);
+                
+                socket.onopen = () => {
+                    console.log('WebSocket connection established');
+                    this.socket = socket;
+                    this.isConnecting = false;
+                    this.retryCount = 0;
+                    this.startPingInterval();
+                    
+                    // Emit connection event
+                    if (window.BleEvents) {
+                        window.BleEvents.emit(BleEvents.WEBSOCKET_CONNECTED, { timestamp: Date.now() });
+                    }
+                    
+                    resolve(socket);
+                };
+                
+                socket.onerror = (error) => {
+                    console.error('WebSocket connection error:', error);
+                    this.isConnecting = false;
+                    
+                    // Emit error event
+                    if (window.BleEvents) {
+                        window.BleEvents.emit(BleEvents.WEBSOCKET_ERROR, { error, timestamp: Date.now() });
+                    }
+                    
+                    reject(error);
+                };
+                
+                socket.onclose = (event) => {
+                    console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
+                    this.isConnecting = false;
+                    this.socket = null;
+                    
+                    // Clear ping interval
+                    if (this.pingInterval) {
+                        clearInterval(this.pingInterval);
+                        this.pingInterval = null;
+                    }
+                    
+                    // Emit disconnection event
+                    if (window.BleEvents) {
+                        window.BleEvents.emit(BleEvents.WEBSOCKET_DISCONNECTED, { 
+                            code: event.code,
+                            reason: event.reason,
+                            timestamp: Date.now()
+                        });
+                    }
+                    
+                    // Schedule reconnection if not manually closed
+                    if (event.code !== 1000) {
+                        this.scheduleReconnect();
+                    }
+                };
+                
+                socket.onmessage = this.handleMessage.bind(this);
+            });
+        } catch (error) {
+            console.error('Error creating WebSocket connection:', error);
+            this.isConnecting = false;
+            throw error;
+        }
+    }
+    
+    /**
+     * Schedule a reconnection attempt
+     */
+    scheduleReconnect() {
+        if (this.retryCount >= this.maxRetries) {
+            console.log('Max reconnect attempts reached');
+            return;
+        }
+        
+        this.retryCount++;
+        const delay = Math.min(30000, 1000 * Math.pow(1.5, this.retryCount - 1));
+        
+        console.log(`Scheduling reconnect attempt ${this.retryCount} in ${delay}ms`);
+        
+        setTimeout(() => {
+            console.log(`Attempting reconnect ${this.retryCount}/${this.maxRetries}`);
+            this.connect().catch(error => {
+                console.error('Reconnection failed:', error);
+            });
+        }, delay);
+    }
+    
+    /**
+     * Clean up WebSocket resources
+     */
+    cleanup() {
+        if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+            this.pingInterval = null;
+        }
+        
+        if (this.socket) {
+            // Remove all event listeners
+            this.socket.onopen = null;
+            this.socket.onmessage = null;
+            this.socket.onclose = null;
+            this.socket.onerror = null;
+            
+            // Close the socket if it's still open
+            if (this.socket.readyState === WebSocket.OPEN) {
+                this.socket.close();
+            }
+            
+            this.socket = null;
+        }
+        
+        this.isConnecting = false;
+    }
+    
+    /**
+     * Start the ping interval to keep the connection alive
+     */
+    startPingInterval() {
+        // Clear any existing interval
+        if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+        }
+        
+        // Send a ping every 30 seconds
+        this.pingInterval = setInterval(() => {
+            this.sendCommand('ping', { timestamp: Date.now() });
+        }, 30000);
+    }
+    
+    /**
+     * Handle incoming WebSocket messages
+     */
+    handleMessage(event) {
+        try {
+            const message = JSON.parse(event.data);
+            
+            if (!message || !message.type) {
+                console.warn('Invalid WebSocket message format', message);
+                return;
+            }
+            
+            // Log incoming message for debugging
+            console.log('WebSocket message received:', message);
+            
+            // Handle different message types
+            switch (message.type) {
+                case 'ping':
+                    console.log('ping received');
+                    // Respond with pong
+                    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                        this.socket.send(JSON.stringify({
+                            type: 'pong',
+                            timestamp: Date.now()
+                        }));
+                    }
+                    break;
+                    
+                case 'pong':
+                    console.log('pong received');
+                    // Update connection health metrics
+                    if (this.lastPingSent) {
+                        const latency = Date.now() - this.lastPingSent;
+                        this.lastPingLatency = latency;
+                        
+                        if (window.BleEvents) {
+                            window.BleEvents.emit('websocket.latency', { latency });
+                        }
+                    }
+                    this.lastPingSent = null;
+                    break;
+                    
+                case 'scan':
+                    this.handleScanMessage(message);
+                    break;
+                    
+                case 'device':
+                    this.handleDeviceMessage(message);
+                    break;
+                    
+                case 'service':
+                    this.handleServiceMessage(message);
+                    break;
+                    
+                case 'characteristic':
+                    this.handleCharacteristicMessage(message);
+                    break;
+                    
+                case 'notification':
+                    this.handleNotificationMessage(message);
+                    break;
+                    
+                case 'error':
+                    this.handleErrorMessage(message);
+                    break;
+                    
+                default:
+                    console.warn('Unknown message type:', message.type);
+                    if (window.BleLogger) {
+                        window.BleLogger.warn('WebSocket', 'message', `Unknown message type: ${message.type}`);
+                    }
+            }
+            
+            // Emit general message event
+            if (window.BleEvents) {
+                window.BleEvents.emit('websocket.message', { message });
+            }
+            
+        } catch (error) {
+            console.error('Error handling WebSocket message:', error);
+            if (window.BleLogger) {
+                window.BleLogger.error('WebSocket', 'message', 'Error parsing message', { 
+                    error: error.message,
+                    data: event.data
+                });
+            }
+        }
+    }
+    
+    /**
+     * Handle scan status updates
+     */
+    handleScanStatus(data) {
+        switch (data.status) {
+            case 'starting':
+                BleEvents.emit(BLE_EVENTS.SCAN_STARTED, {
+                    timestamp: data.timestamp,
+                    config: data.config || {}
+                });
+                break;
+                
+            case 'scanning':
+                // Handle ongoing scan status, e.g. for progress updates
+                BleEvents.emit(BLE_EVENTS.SCAN_PROGRESS, {
+                    progress: data.progress || 0,
+                    discoveredDevices: data.discovered_devices || 0,
+                    timestamp: data.timestamp
+                });
+                break;
+                
+            case 'error':
+                BleEvents.emit(BLE_EVENTS.SCAN_ERROR, {
+                    error: data.message || 'Unknown scan error',
+                    timestamp: data.timestamp
+                });
+                break;
+                
+            default:
+                console.log('Unknown scan status:', data.status);
+                BleEvents.emit(BLE_EVENTS.SCAN_STATUS, {
+                    status: data.status,
+                    timestamp: data.timestamp
+                });
+                break;
+        }
+    }
+    
+    /**
+     * Handle scan results
+     */
+    handleScanResults(data) {
+        BleEvents.emit(BLE_EVENTS.SCAN_COMPLETED, {
+            devices: data.devices || [],
+            count: data.count || 0,
+            timestamp: data.timestamp
+        });
+    }
+    
+    /**
+     * Handle connection status updates
+     */
+    handleConnectStatus(data) {
+        if (data.status === 'connected') {
+            BleEvents.emit(BLE_EVENTS.DEVICE_CONNECTED, {
+                device: data.device,
+                timestamp: data.timestamp
+            });
+        } else if (data.status === 'disconnected') {
+            BleEvents.emit(BLE_EVENTS.DEVICE_DISCONNECTED, {
+                device: data.device,
+                reason: data.reason,
+                timestamp: data.timestamp
+            });
+        } else if (data.status === 'services_discovered') {
+            BleEvents.emit(BLE_EVENTS.DEVICE_SERVICES_DISCOVERED, {
+                device: data.device,
+                services: data.services,
+                timestamp: data.timestamp
+            });
+        }
+    }
+    
+    /**
+     * Handle device notifications
+     */
+    handleDeviceNotification(data) {
+        BleEvents.emit(BLE_EVENTS.CHARACTERISTIC_NOTIFICATION, {
+            deviceId: data.device_id,
+            serviceUuid: data.service_uuid,
+            characteristicUuid: data.characteristic_uuid,
+            value: data.value,
+            timestamp: data.timestamp
+        });
+    }
+    
+    /**
+     * Handle error messages
+     */
+    handleError(data) {
+        console.error('WebSocket error:', data.message, data.context);
+        
+        BleEvents.emit(BLE_EVENTS.ERROR, {
+            message: data.message,
+            context: data.context,
+            timestamp: data.timestamp
+        });
+        
+        // Show error toast
+        BleUI.showToast(data.message, 'error');
+    }
+    
+    /**
+     * Handle adapter status updates
+     */
+    handleAdapterStatus(data) {
+        BleEvents.emit(BLE_EVENTS.ADAPTER_CHANGED, {
+            adapter: data.adapter,
+            status: data.status
+        });
+    }
+    
+    /**
+     * Handle adapter information
+     */
+    handleAdapterInfo(data) {
+        BleEvents.emit(BLE_EVENTS.ADAPTER_INFO, {
+            adapters: data.adapters,
+            count: data.count
+        });
+    }
+    
+    /**
+     * Send a command to the WebSocket server
+     */
+    sendCommand(command, payload = {}) {
+        const message = {
+            type: command,
+            ...payload,
+            timestamp: Date.now()
+        };
+        
+        return this.sendMessage(message);
+    }
+    
+    /**
+     * Send a command and wait for a response
+     */
+    async sendCommandWithResponse(command, payload = {}, timeout = 10000) {
+        const commandId = Date.now() + '-' + (this.commandCounter++);
+        
+        const message = {
+            type: command,
+            command_id: commandId,
+            ...payload,
+            timestamp: Date.now()
+        };
+        
+        // Create a promise that will be resolved when the response is received
+        const responsePromise = new Promise((resolve, reject) => {
+            // Store the resolve and reject functions
+            this.commandCallbacks.set(commandId, { resolve, reject });
+            
+            // Set a timeout to reject the promise if no response is received
+            setTimeout(() => {
+                if (this.commandCallbacks.has(commandId)) {
+                    this.commandCallbacks.delete(commandId);
+                    reject(new Error(`Command ${command} timed out`));
+                }
+            }, timeout);
+        });
+        
+        // Send the message
+        this.sendMessage(message);
+        
+        // Return the promise
+        return responsePromise;
+    }
+    
+    /**
+     * Send a message to the WebSocket server
+     */
+    sendMessage(message) {
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            console.log('WebSocket not connected, queueing message');
+            this.messageQueue.push(message);
+            
+            // Try to reconnect
+            if (!this.connected && this.reconnectAttempts < this.maxReconnectAttempts) {
+                this.connect().catch(error => {
+                    console.error('WebSocket connection error:', error);
+                });
+            }
+            
+            return false;
+        }
+        
+        try {
+            this.socket.send(JSON.stringify(message));
+            return true;
+        } catch (error) {
+            console.error('Error sending WebSocket message:', error);
+            this.messageQueue.push(message);
+            return false;
+        }
+    }
+    
+    /**
+     * Flush the message queue
+     */
+    flushMessageQueue() {
+        if (!this.connected || !this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            return;
+        }
+        
+        console.log(`Flushing ${this.messageQueue.length} queued messages`);
+        
+        while (this.messageQueue.length > 0) {
+            const message = this.messageQueue.shift();
+            try {
+                this.socket.send(JSON.stringify(message));
+            } catch (error) {
+                console.error('Error sending queued message:', error);
+                // Put the message back in the queue
+                this.messageQueue.unshift(message);
+                break;
+            }
+        }
+    }
+    
+    /**
+     * Check if the WebSocket is connected
+     */
+    isConnected() {
+        return this.connected && this.socket && this.socket.readyState === WebSocket.OPEN;
+    }
+    
+    /**
+     * Disconnect the WebSocket
+     */
+    disconnect() {
+        this.cleanup();
+    }
+
+    // Add stub methods for each message type handler
+    handleScanMessage(message) {
+        console.log('Scan message received:', message);
+        // Implement scan message handling
+    }
+
+    handleDeviceMessage(message) {
+        console.log('Device message received:', message);
+        // Implement device message handling
+    }
+
+    handleServiceMessage(message) {
+        console.log('Service message received:', message);
+        // Implement service message handling
+    }
+
+    handleCharacteristicMessage(message) {
+        console.log('Characteristic message received:', message);
+        // Implement characteristic message handling
+    }
+
+    handleNotificationMessage(message) {
+        console.log('Notification message received:', message);
+        // Implement notification message handling
+    }
+
+    handleErrorMessage(message) {
+        console.error('Error message from server:', message.error || message);
+        if (window.BleLogger) {
+            window.BleLogger.error('WebSocket', 'error', message.error || 'Server error', message);
+        }
+        
+        // Display error in UI
+        if (window.BleUI && window.BleUI.showToast) {
+            window.BleUI.showToast(message.error || 'Server error', 'error');
+        }
     }
 }
 
@@ -281,51 +561,65 @@ const bleWebSocketInstance = new BleWebSocket();
 /**
  * Initialize the WebSocket connection (static method)
  */
-BleWebSocket.initialize = async function() {
+BleWebSocket.initialize = async function () {
     return await bleWebSocketInstance.initialize();
 };
 
 /**
  * Connect to the WebSocket server (static method)
  */
-BleWebSocket.connect = async function() {
+BleWebSocket.connect = async function () {
     return await bleWebSocketInstance.connect();
 };
 
 /**
  * Send a command to the WebSocket server (static method)
  */
-BleWebSocket.sendCommand = function(command, payload = {}) {
+BleWebSocket.sendCommand = function (command, payload = {}) {
     return bleWebSocketInstance.sendCommand(command, payload);
+};
+
+/**
+ * Send a command and wait for a response (static method)
+ */
+BleWebSocket.sendCommandWithResponse = async function (command, payload = {}, timeout = 10000) {
+    return await bleWebSocketInstance.sendCommandWithResponse(command, payload, timeout);
 };
 
 /**
  * Get connection status (static method)
  */
-BleWebSocket.isConnected = function() {
-    return bleWebSocketInstance.isConnected;
+BleWebSocket.isConnected = function () {
+    return bleWebSocketInstance.isConnected();
 };
-
-// Add static property for compatibility
-Object.defineProperty(BleWebSocket, 'isConnected', {
-    get: function() {
-        return bleWebSocketInstance.isConnected;
-    }
-});
 
 /**
- * Send a command to the WebSocket server (convenience function)
- * @param {string} command - Command to send
- * @param {object} payload - Command payload
+ * Disconnect the WebSocket (static method)
  */
-export const sendWebSocketCommand = (command, payload = {}) => {
-    return bleWebSocketInstance.sendCommand(command, payload);
+BleWebSocket.disconnect = function () {
+    return bleWebSocketInstance.disconnect();
 };
 
-// Initialize WebSocket when module is loaded
-bleWebSocketInstance.initialize().catch(error => {
-    console.error('Failed to initialize WebSocket on module load:', error);
-});
+/**
+ * Send a WebSocket command with the given type and data
+ * @param {string} type The command type
+ * @param {object} data The command data
+ * @param {number} timeout Timeout in milliseconds
+ * @returns {Promise<object>} The response from the server
+ */
+export async function sendWebSocketCommand(type, data = {}, timeout = 10000) {
+    if (!window.bleWebSocket) {
+        throw new Error('WebSocket not initialized');
+    }
+    
+    try {
+        const result = await window.bleWebSocket.sendCommand(type, data, timeout);
+        return result;
+    } catch (error) {
+        console.error(`Error sending WebSocket command ${type}:`, error);
+        throw error;
+    }
+}
 
-// Export singleton instance directly
-export const bleWebSocket = bleWebSocketInstance;
+// Export the BleWebSocket class
+export default BleWebSocket;

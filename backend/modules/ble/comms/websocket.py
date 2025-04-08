@@ -83,44 +83,207 @@ async def process_message(websocket: WebSocket, message: Dict[str, Any]):
         message_type = message.get("type", "unknown")
         logger.debug(f"Received WebSocket message: {message_type}")
         
-        # Handle different message types
-        if message_type == "ping":
-            # Respond to ping with pong
-            await websocket.send_json({
-                "type": "pong", 
-                "timestamp": int(time.time() * 1000)
-            })
-        elif message_type == "get_adapters":
-            # Send adapter information
-            try:
-                from backend.modules.ble.core.ble_service import get_ble_service
-                ble_service = get_ble_service()
-                adapters = await ble_service.get_adapters()
-                
-                await websocket.send_json({
-                    "type": "adapter_list",
-                    "adapters": adapters,
-                    "count": len(adapters)
-                })
-            except Exception as adapter_error:
-                logger.error(f"Error getting adapters: {adapter_error}")
-                await websocket.send_json({
-                    "type": "error",
-                    "context": "get_adapters",
-                    "message": str(adapter_error)
-                })
-        elif message_type == "scan_request":
-            # Handle scan request
-            # ... implementation for scanning ...
-            pass
+        # Map of message types to handler functions
+        handlers = {
+            "ping": handle_ping,
+            "get_adapters": handle_get_adapters,
+            "scan_request": handle_scan_request,
+            "connect_request": handle_connect_request,
+            "disconnect_request": handle_disconnect_request,
+            "get_services": handle_get_services,
+            "connection_status": handle_connection_status,  # Add handler for connection_status
+        }
+        
+        # Call the appropriate handler if it exists
+        if message_type in handlers:
+            await handlers[message_type](websocket, message)
         else:
-            logger.debug(f"Unhandled message type: {message_type}")
+            logger.debug(f"No handler for message type: {message_type}")
     except Exception as e:
         logger.error(f"Error processing message {message.get('type', 'unknown')}: {e}")
         await websocket.send_json({
             "type": "error",
             "message": f"Failed to process message: {str(e)}"
         })
+
+# Add these functions after process_message but before handle_connection_status
+
+async def handle_ping(websocket: WebSocket, message: Dict[str, Any]):
+    """Handle ping message by sending pong response immediately."""
+    try:
+        # Echo back the same timestamp from request or generate one
+        timestamp = message.get("timestamp", int(time.time() * 1000))
+        await websocket.send_json({
+            "type": "pong",
+            "timestamp": timestamp
+        })
+        logger.debug("Sent pong response to client ping")
+    except Exception as e:
+        logger.error(f"Error handling ping: {e}")
+
+async def handle_get_adapters(websocket: WebSocket, message: Dict[str, Any]):
+    """Handle request for adapter information."""
+    try:
+        # Get BLE service
+        from backend.modules.ble.core.ble_service import get_ble_service
+        ble_service = get_ble_service()
+        
+        # Fetch adapters
+        adapters = await ble_service.get_adapters()
+        
+        # Send response to client
+        await websocket.send_json({
+            "type": "adapter_list",
+            "adapters": adapters,
+            "count": len(adapters),
+            "timestamp": int(time.time() * 1000)
+        })
+    except Exception as e:
+        logger.error(f"Error getting adapters: {e}")
+        await websocket.send_json({
+            "type": "error",
+            "context": "get_adapters",
+            "message": str(e),
+            "timestamp": int(time.time() * 1000)
+        })
+
+async def handle_scan_request(websocket: WebSocket, message: Dict[str, Any]):
+    """Handle request to scan for BLE devices."""
+    try:
+        # Get scan parameters using the correct field names
+        scan_time = message.get("scan_time", 10.0)  # Changed from timeout to scan_time
+        service_uuids = message.get("service_uuids", None)
+        continuous = message.get("continuous", False)
+        
+        # Send acknowledgment
+        await websocket.send_json({
+            "type": "scan_status",
+            "status": "starting",
+            "timestamp": int(time.time() * 1000)
+        })
+        
+        # Start scan
+        from backend.modules.ble.core.ble_service import get_ble_service
+        ble_service = get_ble_service()
+        
+        # Use scan_for_devices with correct parameter names
+        result = await ble_service.scan_for_devices(
+            scan_time=scan_time,  # Changed from timeout to scan_time
+            active=True,
+            service_uuids=service_uuids,
+            mock=None,
+            real_scan=True
+        )
+        
+        # Send results
+        await websocket.send_json({
+            "type": "scan_results",
+            "devices": result.get("devices", []),
+            "count": len(result.get("devices", [])),
+            "timestamp": int(time.time() * 1000)
+        })
+    except Exception as e:
+        logger.error(f"Error handling scan request: {e}")
+        await websocket.send_json({
+            "type": "error",
+            "context": "scan_request",
+            "message": str(e),
+            "timestamp": int(time.time() * 1000)
+        })
+
+from backend.modules.ble.core.ble_service_factory import get_ble_service
+
+async def handle_connect_request(websocket: WebSocket, message: Dict[str, Any]):
+    """Handle request to connect to a BLE device."""
+    try:
+        address = message.get("address")
+        if not address:
+            raise ValueError("Device address is required")
+
+        ble_service = get_ble_service()
+        result = await ble_service.connect_device(address)
+
+        await websocket.send_json({
+            "type": "connect_result",
+            "status": result.get("status", "error"),
+            "address": address
+        })
+    except Exception as e:
+        logger.error(f"Error handling connect request: {e}")
+        await websocket.send_json({"type": "error", "message": str(e)})
+
+async def handle_disconnect_request(websocket: WebSocket, message: Dict[str, Any]):
+    """Handle request to disconnect from a BLE device."""
+    try:
+        # Get device address
+        address = message.get("address")
+        
+        # Send acknowledgment
+        await websocket.send_json({
+            "type": "disconnect_status",
+            "status": "disconnecting",
+            "timestamp": int(time.time() * 1000)
+        })
+        
+        # Disconnect from device
+        from backend.modules.ble.core.ble_service import get_ble_service
+        ble_service = get_ble_service()
+        await ble_service.disconnect_device(address)
+        
+        # Send result
+        await websocket.send_json({
+            "type": "disconnect_result",
+            "status": "disconnected",
+            "timestamp": int(time.time() * 1000)
+        })
+    except Exception as e:
+        logger.error(f"Error handling disconnect request: {e}")
+        await websocket.send_json({
+            "type": "error",
+            "context": "disconnect_request",
+            "message": str(e),
+            "timestamp": int(time.time() * 1000)
+        })
+
+async def handle_get_services(websocket: WebSocket, message: Dict[str, Any]):
+    """Handle request to get services for a connected device."""
+    try:
+        # Delay import to avoid circular dependency
+        from backend.modules.ble.core.ble_service_factory import get_ble_service
+        ble_service = get_ble_service()
+        services = await ble_service.get_services()
+        
+        # Send results
+        await websocket.send_json({
+            "type": "services_result",
+            "services": services,
+            "count": len(services),
+            "timestamp": int(time.time() * 1000)
+        })
+    except Exception as e:
+        logger.error(f"Error handling get services request: {e}")
+        await websocket.send_json({
+            "type": "error",
+            "context": "get_services",
+            "message": str(e),
+            "timestamp": int(time.time() * 1000)
+        })
+
+async def handle_connection_status(websocket: WebSocket, message: Dict[str, Any]):
+    """Handle connection status updates from clients."""
+    try:
+        # Log the status
+        status = message.get("status", "unknown")
+        logger.debug(f"Client connection status: {status}")
+        
+        # Acknowledge receipt
+        await websocket.send_json({
+            "type": "connection_ack",
+            "status": "received",
+            "timestamp": int(time.time() * 1000)
+        })
+    except Exception as e:
+        logger.error(f"Error handling connection status: {e}")
 
 async def broadcast_message(message: Dict[str, Any]):
     """Broadcast a message to all connected clients."""
@@ -154,7 +317,7 @@ class BleWebSocketManager:
         self.active_connections: Set[WebSocket] = set()
         self.device_manager = None  # Will be initialized lazily
         self._message_handlers = {
-            MessageType.SCAN: self._handle_scan,
+            MessageType.SCAN: self._handle_scan_request,  # Fixed method name
             MessageType.CONNECT: self._handle_connect,
             MessageType.DISCONNECT: self._handle_disconnect,
             MessageType.GET_SERVICES: self._handle_get_services,
@@ -178,8 +341,21 @@ class BleWebSocketManager:
     def _get_device_manager(self) -> BleDeviceManager:
         """Get or create the device manager instance."""
         if self.device_manager is None:
-            # Lazy initialization to avoid circular imports
-            self.device_manager = BleDeviceManager(logger=logger)
+            try:
+                # Lazy initialization
+                from backend.modules.ble.core.device_manager import BleDeviceManager
+                self.device_manager = BleDeviceManager(logger=logger)
+            except Exception as e:
+                logger.error(f"Error creating device manager: {e}")
+                # Create a simple stub instead of a complex fallback
+                from types import SimpleNamespace
+                self.device_manager = SimpleNamespace()
+                self.device_manager.info = logger
+                self.device_manager.get_available_adapters = lambda: [{
+                    "id": "error", "name": "Error Adapter", 
+                    "available": False, "status": "error"
+                }]
+                
         return self.device_manager
         
     async def connect(self, websocket: WebSocket):
@@ -307,46 +483,100 @@ class BleWebSocketManager:
             )
             await self.send_message(websocket, error_msg)
     
-    async def _handle_scan(self, websocket: WebSocket, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle BLE scan request."""
+    # Fix from line 363-367 (error in logger reference)
+    async def _handle_scan_request(self, websocket: WebSocket, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle request to scan for BLE devices."""
         try:
-            # Convert to Pydantic model for validation
-            scan_params = ScanParams(
-                scan_time=data.get("scan_time", 5.0),
-                active=data.get("active", True),
-                service_uuids=data.get("service_uuids"),
-                mock=data.get("mock"),
-                real_scan=data.get("real_scan", False)
-            )
+            # Get scan parameters - note we use scan_time not timeout
+            scan_time = data.get("scan_time", 10.0)
+            service_uuids = data.get("service_uuids", [])
+            continuous = data.get("continuous", False)
+            active = data.get("active", True)
             
-            # Send scan start notification
+            # Send acknowledgment
             await self.send_message(websocket, {
                 "type": "scan_status",
-                "status": "started"
+                "status": "starting",
+                "timestamp": int(time.time() * 1000),
+                "command_id": data.get("command_id")  # Return command_id if present
             })
             
-            # Perform the scan
-            devices = await self._get_device_manager().scan_devices(
-                scan_time=scan_params.effective_scan_time,
-                active=scan_params.active,
-                service_uuids=scan_params.service_uuids,
-                mock=scan_params.mock,
-                real_scan=scan_params.effective_real_scan
-            )
+            # Log the scan request
+            logger.info(f"Scan request: time={scan_time}s, active={active}, services={service_uuids}")
             
-            # Build and return the response using Pydantic model
-            result = ScanResultMessage(
-                type=MessageType.SCAN_RESULT,
-                devices=devices,
-                count=len(devices)
-            )
-            
-            return result.dict()
+            try:
+                # Get BLE service and call scan method
+                from backend.modules.ble.core.ble_service import get_ble_service
+                ble_service = get_ble_service()
+                
+                # Check if device_manager exists
+                if not hasattr(ble_service, 'device_manager'):
+                    raise AttributeError("BleService is missing the device_manager attribute. Please check the service implementation.")
+                
+                # Call the scan_devices method with proper parameters
+                devices = await ble_service.scan_devices(
+                    scan_time=scan_time,
+                    service_uuids=service_uuids,
+                    active=active,
+                    continuous=continuous
+                )
+                
+                # Convert devices to serializable format
+                serialized_devices = []
+                for device in devices:
+                    try:
+                        if isinstance(device, dict):
+                            serialized_devices.append(device)
+                        else:
+                            # Convert BLEDeviceInfo or similar object to dict
+                            serialized_devices.append(device.dict())
+                    except Exception as e:
+                        logger.error(f"Error serializing device: {e}")
+                        # Try a basic conversion
+                        serialized_devices.append({
+                            "address": getattr(device, "address", "unknown"),
+                            "name": getattr(device, "name", "Unknown Device"),
+                            "rssi": getattr(device, "rssi", None)
+                        })
+                
+                # Log result summary
+                logger.info(f"Scan completed: found {len(serialized_devices)} devices")
+                
+                # Send results
+                return {
+                    "type": "scan_results",
+                    "devices": serialized_devices,
+                    "count": len(serialized_devices),
+                    "timestamp": int(time.time() * 1000),
+                    "command_id": data.get("command_id")  # Return command_id if present
+                }
+            except AttributeError as attr_error:
+                logger.error(f"Attribute error during scan: {attr_error}", exc_info=True)
+                return {
+                    "type": "scan_status",
+                    "status": "error",
+                    "message": f"Backend service configuration error: {str(attr_error)}",
+                    "timestamp": int(time.time() * 1000),
+                    "command_id": data.get("command_id")  # Return command_id if present
+                }
+            except Exception as scan_error:
+                logger.error(f"Error during scan operation: {scan_error}", exc_info=True)
+                # Send error response specific to the scan failure
+                return {
+                    "type": "scan_status",
+                    "status": "error",
+                    "message": f"Scan failed: {str(scan_error)}",
+                    "timestamp": int(time.time() * 1000),
+                    "command_id": data.get("command_id")  # Return command_id if present
+                }
         except Exception as e:
-            logger.error(f"Error during scan: {e}")
+            logger.error(f"Error handling scan request: {e}", exc_info=True)
             return {
-                "type": MessageType.SCAN_ERROR,
-                "error": str(e)
+                "type": "error",
+                "context": "scan_request",
+                "message": str(e),
+                "timestamp": int(time.time() * 1000),
+                "command_id": data.get("command_id")  # Return command_id if present
             }
     
     async def _handle_connect(self, websocket: WebSocket, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -846,26 +1076,43 @@ class BleWebSocketManager:
         )
         return pong.dict()
 
+    async def send_adapter_status(websocket, ble_service):
+        """Send current adapter status to the client."""
+        try:
+            # Don't use await - get_adapter_status is not async
+            status = ble_service.get_adapter_status()
+            
+            await websocket.send_json({
+                "type": "adapter_status",
+                "status": status
+            })
+        except Exception as e:
+            logger.error(f"Error getting adapter status: {e}", exc_info=True)
+            await websocket.send_json({
+                "type": "error",
+                "message": f"Failed to get adapter status: {str(e)}"
+            })
+
+    async def websocket_endpoint(websocket: WebSocket):
+        """
+        Primary WebSocket endpoint for BLE communications.
+        
+        This function should be used in FastAPI app websocket routes.
+        """
+        try:
+            # Accept the connection
+            await websocket_manager.connect(websocket)
+            
+            # Handle messages
+            while True:
+                message = await websocket.receive_json()
+                await websocket_manager.process_message(websocket, message)
+                
+        except WebSocketDisconnect:
+            websocket_manager.disconnect(websocket)
+        except Exception as e:
+            logger.error(f"WebSocket error: {e}")
+            websocket_manager.disconnect(websocket)
+
 # Create a singleton instance
 websocket_manager = BleWebSocketManager()
-
-async def websocket_endpoint(websocket: WebSocket):
-    """
-    Primary WebSocket endpoint for BLE communications.
-    
-    This function should be used in FastAPI app websocket routes.
-    """
-    try:
-        # Accept the connection
-        await websocket_manager.connect(websocket)
-        
-        # Handle messages
-        while True:
-            message = await websocket.receive_json()
-            await websocket_manager.process_message(websocket, message)
-            
-    except WebSocketDisconnect:
-        websocket_manager.disconnect(websocket)
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}")
-        websocket_manager.disconnect(websocket)

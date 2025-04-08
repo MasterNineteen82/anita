@@ -5,6 +5,12 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Body, Response
 from pydantic import BaseModel, Field
 import json
+import traceback
+import time
+import platform
+import importlib.metadata
+import pkg_resources
+
 
 from backend.dependencies import get_ble_service, get_ble_metrics
 from backend.modules.ble.core.ble_service import BleService
@@ -12,14 +18,33 @@ from backend.modules.ble.core.ble_metrics import BleMetricsCollector, SystemMoni
 from backend.modules.ble.models.ble_models import (
     BleAdapter, AdapterResult, AdapterStatus, 
     AdapterSelectionRequest, AdapterResetRequest,
-    SystemMetric, AdapterMetric, BluetoothHealthReport
+    SystemMetric, AdapterMetric, BluetoothHealthReport, AdapterSelectRequest, AdapterSelectResponse
 )
+# Fix the import - likely the broadcast function is in the websocket module
+from backend.modules.ble.comms.websocket import broadcast_message as broadcast_ble_event
 
 # Create router
 adapter_router = APIRouter(prefix="/adapter", tags=["BLE Adapters"])
 
 # Get logger
 logger = logging.getLogger(__name__)
+
+def get_bleak_version():
+    """Get the installed Bleak version."""
+    try:
+        # First try using importlib.metadata (Python 3.8+)
+        try:
+            return importlib.metadata.version("bleak")
+        except (importlib.metadata.PackageNotFoundError, AttributeError):
+            # Fall back to pkg_resources
+            return pkg_resources.get_distribution("bleak").version
+    except Exception:
+        # If all else fails, try to import bleak directly
+        try:
+            import bleak
+            return getattr(bleak, "__version__", "unknown")
+        except ImportError:
+            return "not installed"
 
 @adapter_router.get("/adapters", response_model=None)
 async def list_adapters(ble_service: BleService = Depends(get_ble_service)):
@@ -52,65 +77,44 @@ async def list_adapters(ble_service: BleService = Depends(get_ble_service)):
         logger.error(f"Error listing adapters: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve adapters")
 
+
 @adapter_router.get("/info", response_model=None)
-async def get_adapter_info(ble_service: BleService = Depends(get_ble_service)):
+async def get_adapter_info(
+    ble_service: BleService = Depends(get_ble_service)
+):
     """Get information about the Bluetooth adapters."""
     try:
+        logger.info("Getting adapter info")
+        
         # Get all available adapters
         adapters = await ble_service.get_adapters()
         
-        # Return formatted response
+        # Get the current adapter
+        current_adapter = await ble_service.get_current_adapter()
+        
+        # Create response with both all adapters and the primary one
         return Response(content=json.dumps({
             "status": "success",
+            "primary_adapter": current_adapter,
             "adapters": adapters,
             "count": len(adapters),
-            "current": await ble_service.get_current_adapter()
+            "timestamp": time.time()
         }, default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error getting adapter info: {e}", exc_info=True)
         return Response(content=json.dumps({
             "status": "error",
             "message": str(e),
-            "adapters": []
-        }, default=str), media_type="application/json", status_code=500)
-
-@adapter_router.post("/select", response_model=None)
-async def select_adapter(
-    request: AdapterSelectionRequest = Body(...),
-    ble_service: BleService = Depends(get_ble_service)
-):
-    """Select a specific Bluetooth adapter for use."""
-    try:
-        # Get the adapter ID
-        adapter_id = request.id
-        
-        if not adapter_id:
-            raise HTTPException(status_code=400, detail="Missing adapter ID")
-        
-        result = await ble_service.select_adapter(adapter_id)
-        
-        if result.get("status") == "error":
-            raise HTTPException(status_code=400, detail=result.get("message"))
-        
-        # Convert to Pydantic model
-        adapter_info = BleAdapter(
-            id=result.get("id", adapter_id),
-            name=result.get("name", "Unknown Adapter"),
-            available=result.get("available", True),
-            status=result.get("status", "selected"),
-            error=result.get("error")
-        )
-        
-        return Response(content=json.dumps({
-            "status": "success",
-            "message": f"Adapter {adapter_id} selected",
-            "adapter": adapter_info.dict()
-        }, default=str), media_type="application/json")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error selecting adapter: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+            "adapters": [{
+                "id": "error",
+                "name": "Error Adapter",
+                "address": "00:00:00:00:00:00",
+                "available": False,
+                "status": "error",
+                "error": str(e)
+            }],
+            "count": 1
+        }, default=str), media_type="application/json", status_code=200)  # Return 200 instead of 500
 
 @adapter_router.post("/reset", response_model=None)
 async def reset_adapter(
@@ -257,3 +261,102 @@ async def get_system_info(ble_service: BleService = Depends(get_ble_service)):
     except Exception as e:
         logger.error(f"Error getting system info: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get system info: {str(e)}")
+    
+@adapter_router.post("/select", response_model=AdapterSelectResponse)
+async def select_adapter(request: AdapterSelectRequest, ble_service: BleService = Depends(get_ble_service)):
+    """Select a specific Bluetooth adapter by ID or address."""
+    try:
+        logger.info(f"Selecting adapter: {request.id}")
+        
+        # Check if we need to disconnect first
+        try:
+            if hasattr(ble_service, 'is_connected') and callable(ble_service.is_connected):
+                is_connected = ble_service.is_connected()
+                if is_connected:
+                    logger.info("Disconnecting current device before adapter change")
+                    await ble_service.disconnect_device()
+            else:
+                logger.debug("is_connected method not available, assuming not connected")
+        except Exception as e:
+            logger.warning(f"Error checking connection status: {e}")
+            
+        # Select the adapter
+        result = await ble_service.select_adapter(request.id)
+        
+        if result:
+            # Get current adapter status
+            adapter = await ble_service.get_current_adapter()
+            
+            return AdapterSelectResponse(
+                status="success",
+                adapter=adapter,
+                message="Adapter selected successfully"
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to select adapter {request.id}"
+            )
+    except Exception as e:
+        logger.error(f"Error selecting adapter: {e}", exc_info=True)
+        
+        # Provide a more helpful response with potential fixes
+        error_msg = str(e)
+        suggestions = []
+        
+        if "not found" in error_msg.lower():
+            suggestions.append("Ensure the adapter ID is correct")
+            suggestions.append("Check if the adapter is connected to your system")
+        elif "permission" in error_msg.lower() or "access" in error_msg.lower():
+            suggestions.append("Try running the application with administrator privileges")
+        
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": f"Failed to select adapter: {str(e)}",
+                "suggestions": suggestions
+            }
+        )
+
+# Add this new endpoint
+@adapter_router.get("/diagnostics", response_model=None)
+async def get_adapter_diagnostics(
+    ble_service: BleService = Depends(get_ble_service)
+):
+    """Run comprehensive adapter diagnostics."""
+    try:
+        # Get system monitor
+        from backend.modules.ble.utils.system_monitor import get_system_monitor
+        system_monitor = get_system_monitor()
+        
+        # Run diagnostics
+        diagnostics = await system_monitor.run_diagnostics(deep_check=True)
+        
+        # Get adapter information
+        adapters = await ble_service.get_adapters()
+        
+        # Combine results
+        result = {
+            "timestamp": time.time(),
+            "adapters": adapters,
+            "system_diagnostics": diagnostics,
+            "bleak_version": get_bleak_version(),
+            "platform": platform.system(),
+            "recommendations": []
+        }
+        
+        # Add recommendations based on findings
+        if not diagnostics.get("bluetooth_available", True):
+            result["recommendations"].append("Ensure Bluetooth is enabled in your system settings")
+            
+        if platform.system() == "Windows" and not diagnostics.get("admin_privileges", False):
+            result["recommendations"].append("Run with administrator privileges for full access")
+            
+        return Response(content=json.dumps(result, default=str), 
+                      media_type="application/json")
+    except Exception as e:
+        logger.error(f"Error running adapter diagnostics: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Diagnostics failed: {str(e)}"
+        )

@@ -2,12 +2,13 @@
 import logging
 import asyncio
 import json
+import time
 from bleak import BleakScanner
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, Path, Response
 from pydantic import BaseModel, Field
 
-from backend.dependencies import get_ble_service, get_ble_metrics
+from backend.dependencies import get_ble_metrics
 from backend.modules.ble.core.ble_service import BleService
 from backend.modules.ble.core.ble_metrics import BleMetricsCollector
 from backend.modules.ble.models.ble_models import (
@@ -17,9 +18,10 @@ from backend.modules.ble.models.ble_models import (
     CharacteristicValue, ReadResult
 )
 from backend.modules.ble.models.ble_models import DeviceResponse
+from backend.modules.ble.core.ble_service_factory import get_ble_service
 
 # Create a single router definition
-device_router = APIRouter(prefix="/devices", tags=["BLE Devices"])
+device_router = APIRouter(prefix="/device", tags=["BLE Devices"])  # Change from "/devices" to "/device"
 
 # Get logger
 logger = logging.getLogger(__name__)
@@ -53,56 +55,19 @@ async def list_bonded_devices(ble_service: BleService = Depends(get_ble_service)
         raise HTTPException(status_code=500, detail=str(e))
 
 @device_router.post("/scan", response_model=None)
-async def scan_devices(
+async def start_scan(
     params: ScanParams = Body(...),
     ble_service: BleService = Depends(get_ble_service)
 ):
-    """Scan for BLE devices."""
+    """Start scanning for BLE devices."""
     try:
-        # Use the model's property for consistent access
-        real_scan = params.effective_real_scan
-        
-        # Log exact parameters
-        logger.info(f"Scan request received with params: scanTime={params.effective_scan_time}, active={params.active}, mock={params.mock}, real_scan={real_scan}")
-        
-        # Perform the scan
-        devices = await ble_service.scan_for_devices(
-            scan_time=params.effective_scan_time,
+        devices = await ble_service.scan_devices(
+            scan_time=params.scan_time,
             active=params.active,
-            mock=params.mock,
-            real_scan=real_scan
+            name_prefix=params.name_prefix,
+            services=params.service_uuids
         )
-        
-        return Response(content=json.dumps({
-            "devices": devices,
-            "count": len(devices),
-            "mock": params.mock,
-            "real_scan": real_scan
-        }, default=str), media_type="application/json")
-    except Exception as e:
-        logger.error(f"Error during scan: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-@device_router.post("/scan", response_model=None)
-async def start_scan(
-    params: ScanParams = Body(default_factory=lambda: ScanParams()),
-    ble_service: BleService = Depends(get_ble_service)
-):
-    """Start a BLE device scan."""
-    try:
-        # Start the scan with parameters
-        result = await ble_service.start_scan(
-            timeout=params.timeout,
-            service_uuids=params.service_uuids,
-            continuous=params.continuous
-        )
-        
-        return Response(content=json.dumps({
-            "status": "started",
-            "message": "Scan started successfully",
-            "timeout": params.timeout,
-            "continuous": params.continuous
-        }, default=str), media_type="application/json")
+        return {"status": "success", "devices": devices}
     except Exception as e:
         logger.error(f"Error starting scan: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -189,43 +154,27 @@ async def list_devices(
 # Device connection and management endpoints
 @device_router.post("/connect", response_model=None)
 async def connect_device(
-    params: ConnectionParams,
+    params: ConnectionParams = Body(...),
     ble_service: BleService = Depends(get_ble_service)
 ):
     """Connect to a BLE device."""
     try:
-        result = await ble_service.connect_device(
-            address=params.address,
-            timeout=params.timeout
-        )
-        
-        # Convert result to Pydantic model
-        connection_result = ConnectionResult(
-            status=ConnectionStatus(result.get("status", "error")),
-            address=result.get("address", ""),
-            services=result.get("services", []),
-            service_count=result.get("service_count", 0),
-            error=result.get("error")
-        )
-        
-        return Response(content=json.dumps(connection_result.dict(), default=str), media_type="application/json")
+        result = await ble_service.connect_device(address=params.address)
+        return {"status": "success", "result": result}
     except Exception as e:
         logger.error(f"Error connecting to device: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @device_router.post("/disconnect", response_model=None)
-async def disconnect_device(ble_service: BleService = Depends(get_ble_service)):
+async def disconnect_device(
+    ble_service: BleService = Depends(get_ble_service)
+):
     """Disconnect from the currently connected device."""
     try:
-        if not ble_service.is_connected():
-            return Response(content=json.dumps({"status": "not_connected", "message": "No device is currently connected"}, default=str), media_type="application/json")
-        
-        device_address = ble_service.get_connected_device_address()
-        await ble_service.disconnect_device()
-        
-        return Response(content=json.dumps({"status": "disconnected", "device": device_address}, default=str), media_type="application/json")
+        result = await ble_service.disconnect_device()
+        return {"status": "success", "result": result}
     except Exception as e:
-        logger.error(f"Disconnect error: {e}", exc_info=True)
+        logger.error(f"Error disconnecting from device: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @device_router.get("/status", response_model=None)
@@ -457,3 +406,35 @@ async def get_device_info(ble_service: BleService = Depends(get_ble_service)):
     except Exception as e:
         logger.error(f"Error getting device info: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@device_router.post("/scan/stop", response_model=None)
+async def stop_scan(ble_service: BleService = Depends(get_ble_service)):
+    """Stop an ongoing BLE scan."""
+    try:
+        logger.info("Request to stop scan received")
+        result = await ble_service.stop_scan()
+        
+        # Send WebSocket update if possible
+        try:
+            from backend.modules.ble.comms.websocket import broadcast_message
+            await broadcast_message({
+                "type": "scan_status",
+                "status": "stopped",
+                "message": "Scan stopped by user request",
+                "timestamp": int(time.time() * 1000)
+            })
+        except Exception as ws_err:
+            logger.warning(f"Could not broadcast scan stop event: {ws_err}")
+        
+        return Response(content=json.dumps(result, default=str), 
+                        media_type="application/json")
+    except Exception as e:
+        logger.error(f"Error stopping scan: {e}", exc_info=True)
+        return Response(
+            content=json.dumps({
+                "status": "error",
+                "message": f"Failed to stop scan: {str(e)}"
+            }, default=str),
+            media_type="application/json",
+            status_code=500
+        )

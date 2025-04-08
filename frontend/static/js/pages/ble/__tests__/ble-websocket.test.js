@@ -168,6 +168,9 @@ export function handleWebSocketMessage(state, event) {
             case "pong":
                 // Received response to our ping
                 break;
+            case 'ping': // Add this case
+                console.log('Ping received');
+                break;
             default:
                 console.warn("Unknown WebSocket message type:", data.type);
         }

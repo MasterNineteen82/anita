@@ -44,6 +44,7 @@ export function initializeAdapterInfo(state) {
  */
 export async function getAdapterInfo() {
     try {
+        // CHANGE THIS TO MATCH:
         const response = await fetch('/api/ble/adapter-info');
         if (!response.ok) {
             const errorText = await response.text();

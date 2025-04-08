@@ -18,3 +18,10 @@
   {% endif %}
 </div>
 {% endmacro %}
+
+{% macro render_toggle_control(id, checked=False) %}
+<label class="switch">
+    <input type="checkbox" id="{{ id }}" {% if checked %}checked{% endif %}>
+    <span class="slider round"></span>
+</label>
+{% endmacro %}

@@ -160,6 +160,14 @@ if has_frontend_api:
     except Exception as e:
         logger.error(f"Failed to register BLE frontend API router: {e}")
 
+# Near where you register other routers
+if has_frontend_api:
+    try:
+        app.include_router(frontend_api_router)
+        logger.info("BLE frontend API router registered successfully")
+    except Exception as e:
+        logger.error(f"Failed to register BLE frontend API router: {e}")
+
 # Include BLE router if available
 if has_ble:
     try:
@@ -358,6 +366,11 @@ async def nfc_write_text_modal(request: Request):
 @app.get("/modals/nfc-write-url-modal", response_class=HTMLResponse)
 async def nfc_write_url_modal(request: Request):
     return templates.TemplateResponse("modals/nfc-write-url-modal.html", {"request": request})
+
+@app.get("/ble_logging", response_class=HTMLResponse)
+async def ble_logging_page(request: Request):
+    """Render the BLE Logging Dashboard page"""
+    return templates.TemplateResponse("ble_logging.html", {"request": request})
 
 # Exception handlers
 @app.exception_handler(Exception)

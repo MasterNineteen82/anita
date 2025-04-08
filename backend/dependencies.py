@@ -5,39 +5,48 @@ from fastapi import Depends
 import logging
 
 # Import the modules we need
-from backend.modules.ble.ble_manager import BLEManager
-from backend.modules.ble.ble_service import BleService
-from backend.modules.ble.ble_metrics import BleMetricsCollector
+from backend.modules.ble.core.adapter_manager import BleAdapterManager
+from backend.modules.ble.core.device_manager import BleDeviceManager
+from backend.modules.ble.core.ble_service_factory import get_ble_service  # Import from factory
+from backend.modules.ble.utils.ble_metrics import BleMetricsCollector
+from backend.modules.ble.core.ble_service import BleService  # Import BleService
 
 # Set up logger
 logger = logging.getLogger(__name__)
 
 # Singleton instances
-_ble_manager = None
-_ble_service = None
+_adapter_manager = None
+_device_manager = None
 _ble_metrics = None
 
-def get_ble_manager() -> BLEManager:
-    """Get the BLE manager singleton instance."""
-    global _ble_manager
-    if _ble_manager is None:
-        from backend.modules.ble.ble_manager import BLEManager
-        logger.info("Initializing BLE Manager")
-        _ble_manager = BLEManager()
-    return _ble_manager
+def get_adapter_manager() -> BleAdapterManager:
+    """Get the BLE adapter manager singleton instance."""
+    global _adapter_manager
+    if _adapter_manager is None:
+        from backend.modules.ble.core.adapter_manager import BleAdapterManager
+        logger.info("Initializing BLE Adapter Manager")
+        _adapter_manager = BleAdapterManager()
+        
+        # Create a task to initialize adapters if needed
+        # This fixes the "coroutine never awaited" warning
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(_adapter_manager.discover_adapters())
+        except RuntimeError:
+            # Ignore if no event loop is available, manager will initialize on demand
+            pass
+    return _adapter_manager
 
-def get_ble_service():
-    """
-    Get a singleton BleService instance.
-    """
-    global _ble_service
-    if _ble_service is None:
-        # Import here to avoid circular imports
-        from backend.modules.ble.ble_service import BleService 
-        manager = get_ble_manager()
-        logger.info("Initializing BLE Service")
-        _ble_service = BleService(manager)
-    return _ble_service
+def get_device_manager() -> BleDeviceManager:
+    """Get the BLE device manager singleton instance."""
+    global _device_manager
+    if _device_manager is None:
+        from backend.modules.ble.core.device_manager import BleDeviceManager
+        logger.info("Initializing BLE Device Manager")
+        _device_manager = BleDeviceManager()
+    return _device_manager
 
 def get_ble_metrics():
     """
@@ -45,11 +54,11 @@ def get_ble_metrics():
     """
     global _ble_metrics
     if _ble_metrics is None:
-        from backend.modules.ble.ble_metrics import BleMetricsCollector
+        from backend.modules.ble.utils.ble_metrics import BleMetricsCollector
         logger.info("Initializing BLE Metrics Collector")
         _ble_metrics = BleMetricsCollector()
     return _ble_metrics
 
 # FastAPI dependency annotations
-BleServiceDep = Annotated[BleService, Depends(get_ble_service)]
+BleServiceDep = Annotated[BleService, Depends(get_ble_service)]  # Use factory function
 BleMetricsDep = Annotated[BleMetricsCollector, Depends(get_ble_metrics)]

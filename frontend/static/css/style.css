@@ -3006,3 +3006,111 @@ video {
     padding-right: 2rem;
   }
 }
+
+/* Basic styling for BLE Scanner */
+.device-card {
+  border: 1px solid #ddd;
+  margin-bottom: 10px;
+  padding: 10px;
+}
+
+.device-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.device-title {
+  font-size: 1.2em;
+  margin-bottom: 0.2em;
+}
+
+.device-subtitle {
+  font-size: 0.9em;
+  color: #777;
+}
+
+.device-text {
+  font-size: 1em;
+}
+
+.device-actions button {
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  background-color: #eee;
+  cursor: pointer;
+  margin-right: 5px;
+}
+
+.device-details-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: none; /* Hidden by default */
+  z-index: 1000;
+}
+
+.device-details-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: white;
+  padding: 20px;
+  border-radius: 5px;
+  width: 80%;
+  max-width: 600px;
+}
+
+.device-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.device-details-title {
+  font-size: 1.3em;
+}
+
+.device-details-close {
+  cursor: pointer;
+  font-size: 1.2em;
+}
+
+.device-details-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.device-details-table th,
+.device-details-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.device-details-footer {
+  text-align: right;
+  margin-top: 10px;
+}
+
+.device-details-footer button {
+  padding: 8px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.scanning {
+  background-color: #ffc107; /* Yellow */
+}
+
+.not-scanning {
+  background-color: #007bff; /* Blue */
+  color: white;
+}

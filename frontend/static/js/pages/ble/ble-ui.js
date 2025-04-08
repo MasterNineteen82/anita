@@ -8,8 +8,22 @@ export class BleUI {
      * Initialize the UI
      */
     static async initialize() {
-        console.log('Initializing BLE UI module');
-        // Any UI initialization logic here
+        console.log('Initializing BleUI');
+        
+        // Fix card layouts
+        this.fixCardLayouts();
+        
+        // Set up a mutation observer to fix layouts when DOM changes
+        const observer = new MutationObserver(() => {
+            this.fixCardLayouts();
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        
+        return true;
     }
 
     /**
@@ -301,6 +315,69 @@ export class BleUI {
     }
 
     /**
+     * Hide all loading spinners
+     */
+    static hideLoadingSpinners() {
+        // Find all loading spinners and hide them
+        const spinners = document.querySelectorAll('.loading-spinner');
+        spinners.forEach(spinner => {
+            spinner.classList.add('hidden');
+        });
+        
+        // Also look for loading indicators in cards
+        const loadingIndicators = document.querySelectorAll('.card-loading');
+        loadingIndicators.forEach(indicator => {
+            indicator.classList.add('hidden');
+        });
+        
+        console.log('All loading spinners hidden');
+        
+        // Find and remove loading messages
+        const loadingElements = document.querySelectorAll('.text-gray-500:contains("Loading")');
+        loadingElements.forEach(el => {
+            el.style.display = 'none';
+        });
+    }
+
+    /**
+     * Show a loading spinner in a specific element
+     * @param {string} elementId - The ID of the element to show the spinner in
+     */
+    static showLoadingSpinner(elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            // Create spinner if it doesn't exist
+            let spinner = element.querySelector('.loading-spinner');
+            if (!spinner) {
+                spinner = document.createElement('div');
+                spinner.className = 'loading-spinner';
+                spinner.innerHTML = `
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                `;
+                element.appendChild(spinner);
+            } else {
+                spinner.classList.remove('hidden');
+            }
+        }
+    }
+
+    /**
+     * Hide a loading spinner in a specific element
+     * @param {string} elementId - The ID of the element to hide the spinner in
+     */
+    static hideLoadingSpinner(elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            const spinner = element.querySelector('.loading-spinner');
+            if (spinner) {
+                spinner.classList.add('hidden');
+            }
+        }
+    }
+
+    /**
      * Format a BLE address for display
      * @param {string} address - The BLE address
      * @returns {string} Formatted address
@@ -354,6 +431,335 @@ export class BleUI {
 
     // Example usage:
     // BleUI.addPassiveEventListener(document.getElementById('my-element'), 'touchstart', myHandler);
+    
+    /**
+     * Creates Adapter Info card content
+     */
+    createAdapterInfoContent(adapter) {
+        if (!adapter) {
+            return `
+                <div class="text-gray-500 text-center p-4">
+                    No adapter information available
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="space-y-4">
+                <!-- Adapter Name -->
+                <div class="mb-3">
+                    <div class="text-sm text-gray-400 mb-1">Name</div>
+                    <div id="adapter-name" class="font-medium">${adapter.name || 'Unknown'}</div>
+                </div>
+                
+                <!-- Adapter Address -->
+                <div class="mb-3">
+                    <div class="text-sm text-gray-400 mb-1">Address</div>
+                    <div id="adapter-address" class="font-medium font-mono">${adapter.address || 'Unknown'}</div>
+                </div>
+                
+                <!-- Adapter Type -->
+                <div class="mb-3">
+                    <div class="text-sm text-gray-400 mb-1">Type</div>
+                    <div id="adapter-type" class="font-medium">${adapter.hardware?.model || adapter.description || 'Standard'}</div>
+                </div>
+                
+                <!-- Adapter Status -->
+                <div class="mb-3">
+                    <div class="text-sm text-gray-400 mb-1">Status</div>
+                    <div id="adapter-status" class="font-medium flex items-center">
+                        <div class="w-3 h-3 rounded-full ${adapter.available ? 'bg-green-500' : 'bg-red-500'} mr-2"></div>
+                        <span id="adapter-status-text">${adapter.available ? 'Available' : 'Unavailable'}</span>
+                    </div>
+                </div>
+                
+                <!-- Adapter Manufacturer -->
+                <div class="mb-3">
+                    <div class="text-sm text-gray-400 mb-1">Manufacturer</div>
+                    <div id="adapter-manufacturer" class="font-medium">${adapter.hardware?.vendor || adapter.manufacturer || 'Unknown'}</div>
+                </div>
+                
+                <!-- Adapter Platform -->
+                <div class="mb-3">
+                    <div class="text-sm text-gray-400 mb-1">Platform</div>
+                    <div id="adapter-platform" class="font-medium">${adapter.platform || 'Unknown'}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Creates scan controls for Scanner card
+     */
+    createScanControls() {
+        return `
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center">
+                    <div id="scan-status" class="flex items-center">
+                        <span class="w-3 h-3 rounded-full bg-green-500 mr-2"></span>
+                        <span class="text-green-500">Ready</span>
+                    </div>
+                    <div id="scan-spinner" class="hidden ml-3">
+                        <div class="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-500"></div>
+                    </div>
+                </div>
+                
+                <div>
+                    <span class="text-sm text-gray-400 mr-2">Devices:</span>
+                    <span id="device-counter" class="text-white font-medium">0</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <button id="scan-btn" class="ble-btn ble-btn-primary">
+                        <i class="fas fa-search mr-1"></i> Scan for Devices
+                    </button>
+                    <button id="stop-scan-btn" class="ble-btn ble-btn-danger hidden">
+                        <i class="fas fa-stop mr-1"></i> Stop Scan
+                    </button>
+                </div>
+                
+                <div class="flex items-center">
+                    <label class="text-sm text-gray-400 mr-2">Time:</label>
+                    <input type="number" id="scan-time" min="1" max="30" value="5" 
+                        class="w-16 bg-gray-700 border border-gray-600 rounded py-1 px-2 text-center text-white">
+                    <span class="text-sm text-gray-400 ml-1">sec</span>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <div class="flex items-center justify-between">
+                    <label for="active-scanning" class="flex items-center cursor-pointer">
+                        <div class="relative">
+                            <input type="checkbox" id="active-scanning" class="sr-only" checked>
+                            <div class="block bg-gray-600 w-10 h-6 rounded-full"></div>
+                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition"></div>
+                        </div>
+                        <div class="ml-3 text-gray-300 text-sm">Active Scanning</div>
+                    </label>
+                    
+                    <button id="clear-devices-btn" class="text-sm text-gray-400 hover:text-gray-300">
+                        <i class="fas fa-trash-alt mr-1"></i> Clear
+                    </button>
+                </div>
+            </div>
+            
+            <div class="relative h-1 mb-4 bg-gray-700 rounded-full overflow-hidden">
+                <div id="scan-progress" class="absolute top-0 left-0 h-full w-0 bg-blue-500 rounded-full"></div>
+            </div>
+        `;
+    }
+
+    /**
+     * Creates device info content for Device card
+     */
+    createDeviceInfoContent(device) {
+        if (!device) {
+            return `
+                <div class="text-gray-500 text-center p-4">
+                    Not connected to any device
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="space-y-4">
+                <!-- Device Name -->
+                <div class="mb-3">
+                    <div class="text-sm text-gray-400 mb-1">Name</div>
+                    <div id="device-name" class="font-medium">${device.name || 'Unknown Device'}</div>
+                </div>
+                
+                <!-- Device Address -->
+                <div class="mb-3">
+                    <div class="text-sm text-gray-400 mb-1">Address</div>
+                    <div id="device-address" class="font-medium font-mono">${device.address || 'Unknown'}</div>
+                </div>
+                
+                <!-- Device RSSI -->
+                <div class="mb-3">
+                    <div class="text-sm text-gray-400 mb-1">Signal Strength</div>
+                    <div id="device-rssi" class="font-medium flex items-center">
+                        ${this.createRssiIndicator(device.rssi || -100)}
+                        <span class="ml-2">${device.rssi || 'Unknown'} dBm</span>
+                    </div>
+                </div>
+                
+                <!-- Connection Status -->
+                <div class="mb-3">
+                    <div class="text-sm text-gray-400 mb-1">Status</div>
+                    <div id="device-status" class="font-medium flex items-center">
+                        <div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+                        <span>Connected</span>
+                    </div>
+                </div>
+                
+                <!-- Connect/Disconnect Button -->
+                <div class="mt-4 flex justify-end">
+                    <button id="disconnect-btn" class="ble-btn ble-btn-danger">
+                        <i class="fas fa-times mr-1"></i> Disconnect
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Creates RSSI signal indicator
+     */
+    createRssiIndicator(rssi) {
+        const bars = [];
+        const maxBars = 4;
+        
+        // Determine how many bars to show based on RSSI value
+        let activeBars;
+        if (rssi >= -60) {
+            activeBars = 4;
+        } else if (rssi >= -70) {
+            activeBars = 3;
+        } else if (rssi >= -80) {
+            activeBars = 2;
+        } else if (rssi >= -90) {
+            activeBars = 1;
+        } else {
+            activeBars = 0;
+        }
+        
+        // Determine color based on signal strength
+        let color;
+        if (activeBars >= 3) {
+            color = 'bg-green-500';
+        } else if (activeBars >= 2) {
+            color = 'bg-yellow-500';
+        } else {
+            color = 'bg-red-500';
+        }
+        
+        // Create the bars
+        let html = `<div class="flex items-end h-4 space-x-1" title="Signal Strength: ${rssi} dBm">`;
+        
+        for (let i = 0; i < maxBars; i++) {
+            const height = 3 + i * 3; // Increasing heights: 3px, 6px, 9px, 12px
+            const isActive = i < activeBars;
+            html += `<div class="w-1 h-${height}px ${isActive ? color : 'bg-gray-600'}"></div>`;
+        }
+        
+        html += `</div>`;
+        return html;
+    }
+
+    /**
+     * Show a fatal error message that prevents further use of the application
+     * @param {string} title - The error title
+     * @param {Error|string} error - The error object or message
+     */
+    static showFatalError(title, error) {
+        console.error('Fatal error:', title, error);
+        
+        // Create error container if it doesn't exist
+        let errorContainer = document.getElementById('ble-fatal-error');
+        if (!errorContainer) {
+            errorContainer = document.createElement('div');
+            errorContainer.id = 'ble-fatal-error';
+            errorContainer.className = 'fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-90 z-50';
+            document.body.appendChild(errorContainer);
+        }
+        
+        // Format the error message
+        const errorMessage = error instanceof Error ? 
+            `${error.message}\n\n${error.stack || ''}` : 
+            error;
+        
+        // Add the error content
+        errorContainer.innerHTML = `
+            <div class="bg-gray-800 rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl border border-red-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-red-500">
+                        <i class="fas fa-exclamation-triangle mr-2"></i> ${title}
+                    </h3>
+                    <button id="ble-error-close" class="text-gray-400 hover:text-white focus:outline-none">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="border-t border-gray-700 pt-4">
+                    <p class="text-gray-300 mb-4">A critical error has occurred that prevents the BLE dashboard from functioning properly.</p>
+                    <div class="bg-gray-900 p-3 rounded font-mono text-sm text-red-400 overflow-auto max-h-60">
+                        ${errorMessage.replace(/\n/g, '<br>')}
+                    </div>
+                    <div class="mt-6 flex justify-between">
+                        <button id="ble-retry-btn" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
+                            <i class="fas fa-sync-alt mr-1"></i> Retry
+                        </button>
+                        <a href="/" class="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded">
+                            <i class="fas fa-home mr-1"></i> Go to Homepage
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add event listeners
+        const closeBtn = document.getElementById('ble-error-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                errorContainer.remove();
+            });
+        }
+        
+        const retryBtn = document.getElementById('ble-retry-btn');
+        if (retryBtn) {
+            retryBtn.addEventListener('click', () => {
+                errorContainer.remove();
+                window.location.reload();
+            });
+        }
+    }
+    
+    static fixCardLayouts() {
+        console.log('Fixing card layouts...');
+        
+        // Find all cards
+        const cards = document.querySelectorAll('.card, [id$="-card"]');
+        
+        cards.forEach(card => {
+            // Ensure card has proper layout classes
+            card.classList.add('flex', 'flex-col');
+            
+            // Find content and footer areas
+            const titleArea = card.querySelector('.card-header') || card.querySelector('h3') || null;
+            const contentArea = card.querySelector('.card-content') || 
+                               card.querySelector('.p-4:not(.card-footer)') || 
+                               card.querySelector('div:not(.card-header):not(.card-footer)');
+            
+            const footerArea = card.querySelector('.card-footer') || card.querySelector('.mt-4.flex.justify-end');
+            
+            // Fix content area if it exists
+            if (contentArea) {
+                // Ensure content takes available space
+                contentArea.classList.add('flex-1');
+                
+                // Ensure correct ordering: title -> content -> footer
+                if (titleArea && contentArea.previousElementSibling !== titleArea) {
+                    titleArea.insertAdjacentElement('afterend', contentArea);
+                }
+            }
+            
+            // Move footer to the end if needed
+            if (footerArea && footerArea.nextElementSibling) {
+                card.appendChild(footerArea);
+            }
+            
+            // Remove loading spinner if there's actual content
+            const spinner = card.querySelector('.animate-spin');
+            const loadingText = card.querySelector('text-gray-400:contains("Loading")');
+            
+            if ((spinner || loadingText) && card.textContent.trim().length > 30) {
+                if (spinner) spinner.parentElement.remove();
+                if (loadingText) loadingText.remove();
+            }
+        });
+    }
 }
 
 // Export the logMessage function

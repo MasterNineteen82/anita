@@ -25,7 +25,7 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData # noqa: F401
 from fastapi import HTTPException # noqa: F401
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("backend.modules.ble.core.ble_manager")
 class BLEManager:
     def __init__(self, logger=None, bonded_devices_file="bonded_devices.txt"):
         self.logger = logger or logging.getLogger(__name__)

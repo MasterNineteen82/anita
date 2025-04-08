@@ -3,7 +3,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
 
-from backend.dependencies import get_ble_service
+from backend.modules.ble.core.ble_service_factory import get_ble_service
 from backend.modules.ble.core.ble_service import BleService
 # Update imports to use Pydantic models
 from backend.modules.ble.models.ble_models import (
@@ -118,3 +118,9 @@ async def get_frontend_adapter_info():
             "adapters": [],
             "count": 0
         }
+
+# Add this function to create the alternative endpoint
+@frontend_api_router.get("/adapter-info")
+async def get_frontend_adapter_info_alt():
+    """Alternative endpoint for adapter information to match frontend expectations."""
+    return await get_frontend_adapter_info()

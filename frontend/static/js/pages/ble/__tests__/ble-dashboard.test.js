@@ -136,35 +136,32 @@ function setupEventListeners() {
                 logMessage('Scan already in progress', 'warning');
                 return;
             }
-            
+
             try {
                 state.scanningActive = true;
+                // Disable the scan button
+                scanButton.disabled = true;
                 updateScanStatus(state, 'scanning', 'Scanning for devices...');
-                
+
                 // Clear previous results
                 const deviceList = state.domElements.deviceList;
                 if (deviceList) deviceList.innerHTML = '';
-                
+
                 // Execute scan
                 const devices = await scanDevicesWithErrorHandling(5, true);
-                
+
                 // Display results
                 displayDevices(devices);
-                
+
                 updateScanStatus(state, 'complete', `Found ${devices.length} devices`);
             } catch (error) {
                 console.error('Scanning error:', error);
                 logMessage(`Scanning error: ${error.message}`, 'error');
-                updateScanStatus(state, 'error', 'Scan failed');
-                
-                // Emit scan error event
-                if (window.bleEvents) {
-                    window.bleEvents.emit(BLE_EVENTS.SCAN_ERROR, {
-                        error: error.message
-                    });
-                }
+                updateScanStatus(state, 'error', `Scan failed: ${error.message}`);
             } finally {
                 state.scanningActive = false;
+                // Re-enable the scan button
+                scanButton.disabled = false;
             }
         });
     }

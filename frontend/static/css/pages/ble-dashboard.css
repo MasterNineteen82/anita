@@ -238,3 +238,500 @@
     width: 100% !important;
     height: 100% !important;
 }
+
+/* Basic styling for BLE Scanner */
+.device-card {
+    border: 1px solid #ddd;
+    margin-bottom: 10px;
+    padding: 10px;
+}
+
+.device-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.device-title {
+    font-size: 1.2em;
+    margin-bottom: 0.2em;
+}
+
+.device-subtitle {
+    font-size: 0.9em;
+    color: #777;
+}
+
+.device-text {
+    font-size: 1em;
+}
+
+.device-actions button {
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    background-color: #eee;
+    cursor: pointer;
+    margin-right: 5px;
+}
+
+.device-details-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: none; /* Hidden by default */
+    z-index: 1000;
+}
+
+.device-details-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 600px;
+}
+
+.device-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.device-details-title {
+    font-size: 1.3em;
+}
+
+.device-details-close {
+    cursor: pointer;
+    font-size: 1.2em;
+}
+
+.device-details-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.device-details-table th,
+.device-details-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.device-details-footer {
+    text-align: right;
+    margin-top: 10px;
+}
+
+.device-details-footer button {
+    padding: 8px 15px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+.scanning {
+    background-color: #ffc107; /* Yellow */
+}
+
+.not-scanning {
+    background-color: #007bff; /* Blue */
+    color: white;
+}
+
+/* BLE Dashboard Styles */
+
+/* Card Styling */
+.ble-card {
+    transition: all 0.2s ease-in-out;
+    position: relative;
+    overflow: hidden;
+}
+
+.ble-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Button Styles */
+.ble-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    border-radius: 0.375rem;
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+
+.ble-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ble-btn-primary {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.ble-btn-primary:hover:not(:disabled) {
+    background-color: #2563eb;
+}
+
+.ble-btn-secondary {
+    background-color: #4b5563;
+    color: white;
+}
+
+.ble-btn-secondary:hover:not(:disabled) {
+    background-color: #374151;
+}
+
+.ble-btn-danger {
+    background-color: #ef4444;
+    color: white;
+}
+
+.ble-btn-danger:hover:not(:disabled) {
+    background-color: #dc2626;
+}
+
+.ble-btn-success {
+    background-color: #10b981;
+    color: white;
+}
+
+.ble-btn-success:hover:not(:disabled) {
+    background-color: #059669;
+}
+
+/* Toggle Switch Styling */
+input[type="checkbox"].toggle {
+    height: 0;
+    width: 0;
+    visibility: hidden;
+    position: absolute;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    width: 50px;
+    height: 26px;
+    background: #4b5563;
+    border-radius: 100px;
+    position: relative;
+    transition: background-color 0.2s;
+}
+
+.toggle-label .toggle-dot {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border-radius: 45px;
+    transition: 0.2s;
+    box-shadow: 0 0 2px 0 rgba(10, 10, 10, 0.29);
+}
+
+input[type="checkbox"].toggle:checked + .toggle-label {
+    background: #3b82f6;
+}
+
+input[type="checkbox"].toggle:checked + .toggle-label .toggle-dot {
+    left: calc(100% - 3px);
+    transform: translateX(-100%);
+}
+
+/* Toasts Styling */
+.ble-toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 9999;
+}
+
+.ble-toast {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    animation: slideIn 0.3s ease-out forwards;
+    max-width: 24rem;
+}
+
+.ble-toast.hide {
+    animation: slideOut 0.3s ease-in forwards;
+}
+
+.ble-toast-info {
+    background-color: #1e40af;
+    color: white;
+}
+
+.ble-toast-success {
+    background-color: #065f46;
+    color: white;
+}
+
+.ble-toast-error {
+    background-color: #991b1b;
+    color: white;
+}
+
+.ble-toast-warning {
+    background-color: #92400e;
+    color: white;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+
+/* Loading Spinner */
+.ble-spinner {
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    border-top: 3px solid #3b82f6;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Status Indicators */
+.status-dot {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+
+.status-dot-green {
+    background-color: #10b981;
+}
+
+.status-dot-red {
+    background-color: #ef4444;
+}
+
+.status-dot-yellow {
+    background-color: #f59e0b;
+}
+
+.status-dot-blue {
+    background-color: #3b82f6;
+}
+
+/* Device List Styling */
+.device-item {
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+}
+
+.device-item:hover {
+    background-color: rgba(75, 85, 99, 0.5);
+    border-left-color: #3b82f6;
+}
+
+.device-item.selected {
+    background-color: rgba(59, 130, 246, 0.2);
+    border-left-color: #3b82f6;
+}
+
+/* Connection Status Alert */
+.connection-status {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
+}
+
+.connection-status-connected {
+    background-color: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: #34d399;
+}
+
+.connection-status-disconnected {
+    background-color: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #f87171;
+}
+
+.connection-status-connecting {
+    background-color: rgba(245, 158, 11, 0.2);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #fbbf24;
+}
+
+/* Notification List Styling */
+.notification-list {
+    max-height: 300px;
+    overflow-y: auto;
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #4b5563 #1f2937; /* Firefox */
+    /* WebKit browsers styles are defined below */
+}
+
+.notification-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.notification-list::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+
+.notification-list::-webkit-scrollbar-thumb {
+    background-color: #4b5563;
+    border-radius: 6px;
+    border: 2px solid #1f2937;
+}
+
+.notification-item {
+    border-left: 3px solid transparent;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+    background-color: rgba(31, 41, 55, 0.5);
+}
+
+.notification-item:hover {
+    background-color: rgba(55, 65, 81, 0.5);
+}
+
+/* Battery Level Indicator */
+.battery-container {
+    padding: 1rem;
+    border-radius: 0.375rem;
+    background-color: rgba(31, 41, 55, 0.5);
+    margin-top: 1rem;
+}
+
+.battery-level-bar {
+    height: 1rem;
+    background-color: #374151;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.battery-level-fill {
+    height: 100%;
+    transition: width 0.5s ease;
+}
+
+.battery-level-critical {
+    background-color: #ef4444;
+}
+
+.battery-level-low {
+    background-color: #f59e0b;
+}
+
+.battery-level-normal {
+    background-color: #10b981;
+}
+
+/* Log container styling */
+.log-container {
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: #111827;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    font-family: monospace;
+    font-size: 0.75rem;
+}
+
+/* Card header animations */
+.card-header {
+    position: relative;
+}
+
+.card-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background-color: #3b82f6;
+    transition: width 0.3s ease;
+}
+
+.card-header:hover::after {
+    width: 100%;
+}
+
+/* Service and Characteristic Lists */
+.service-item {
+    border-left: 3px solid #3b82f6;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.25rem;
+    background-color: rgba(31, 41, 55, 0.5);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.service-item:hover {
+    background-color: rgba(55, 65, 81, 0.5);
+}
+
+.service-item.collapsed .service-details {
+    display: none;
+}
+
+.characteristic-item {
+    border-left: 3px solid #8b5cf6;
+    padding: 0.75rem;
+    margin: 0.5rem 0 0.5rem 1rem;
+    border-radius: 0.25rem;
+    background-color: rgba(31, 41, 55, 0.5);
+    transition: all 0.2s ease;
+}
+
+.characteristic-item:hover {
+    background-color: rgba(55, 65, 81, 0.5);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .ble-toast {
+        max-width: 90vw;
+    }
+    
+    .ble-btn {
+        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+    }
+}

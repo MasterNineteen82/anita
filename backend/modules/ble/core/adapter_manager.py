@@ -8,6 +8,7 @@ import sys
 import re
 import time
 from typing import Dict, Any, List, Optional, Tuple, Union
+import uuid
 
 import bleak
 from bleak import BleakScanner, BleakError
@@ -58,7 +59,7 @@ class BleAdapterManager:
         
         # Try to discover adapters on initialization
         try:
-            asyncio.create_task(self.discover_adapters())
+            self._initialization_task = asyncio.create_task(self.discover_adapters())
         except RuntimeError:
             # If not running in async context, we'll discover later
             pass
@@ -73,6 +74,8 @@ class BleAdapterManager:
         adapters = []
         
         try:
+            self.logger.info(f"Discovering Bluetooth adapters on {platform.system()}")
+            
             if self._is_windows:
                 # On Windows, use Windows Management Instrumentation
                 adapters = await self._discover_windows_adapters()
@@ -86,25 +89,49 @@ class BleAdapterManager:
                 self.logger.warning(f"Unsupported platform: {platform.system()}")
                 adapters = [self._create_default_adapter()]
             
+            # Enhance adapter information
+            enhanced_adapters = []
+            for adapter in adapters:
+                # Make sure all adapters have required fields
+                enhanced_adapter = {
+                    "id": adapter.get("address", adapter.get("id", str(uuid.uuid4()))),
+                    "name": adapter.get("name", "Unknown Adapter"),
+                    "address": adapter.get("address", "00:00:00:00:00:00"),
+                    "description": adapter.get("description", ""),
+                    "manufacturer": adapter.get("manufacturer", "Unknown"),
+                    "status": adapter.get("status", "unknown"),
+                    "available": adapter.get("available", True),
+                    "platform": platform.system().lower(),
+                    "discovery_time": time.time()
+                }
+                
+                # Include any additional properties from the original adapter
+                for key, value in adapter.items():
+                    if key not in enhanced_adapter:
+                        enhanced_adapter[key] = value
+                
+                enhanced_adapters.append(enhanced_adapter)
+            
             # Cache the adapters
-            self._adapters = {a["address"]: a for a in adapters}
+            self._adapters = {a["address"]: a for a in enhanced_adapters}
             
             # If no current adapter but we found some, set the first one
-            if not self._current_adapter and adapters:
-                self._current_adapter = adapters[0]["address"]
+            if not self._current_adapter and enhanced_adapters:
+                self._current_adapter = enhanced_adapters[0]["address"]
+                self.logger.info(f"Set current adapter to: {self._current_adapter}")
             
             # Emit event
             try:
                 # Use create_task to properly handle the coroutine
                 asyncio.create_task(ble_event_bus.emit("adapters_discovered", {
-                    "adapters": adapters,
-                    "count": len(adapters)
+                    "adapters": enhanced_adapters,
+                    "count": len(enhanced_adapters)
                 }))
             except RuntimeError:
                 # If not in an event loop, log but don't crash
                 self.logger.debug("Could not emit adapters_discovered event - no running event loop")
             
-            return adapters
+            return enhanced_adapters
         except Exception as e:
             self.logger.error(f"Error discovering adapters: {e}", exc_info=True)
             
@@ -116,21 +143,27 @@ class BleAdapterManager:
             
             return adapters
     
-    async def select_adapter(self, request: Union[AdapterSelectionRequest, Dict[str, Any]]) -> Dict[str, Any]:
+    async def select_adapter(self, request: Union[AdapterSelectionRequest, Dict[str, Any], str]) -> Dict[str, Any]:
         """
         Select a specific Bluetooth adapter.
         
         Args:
-            request: Adapter selection request with address or index
+            request: Adapter selection request with address/index or a string adapter ID
             
         Returns:
             Dictionary with selection result
         """
-        # Convert dict to model if necessary
-        if isinstance(request, dict):
-            request = AdapterSelectionRequest(**request)
-        
         try:
+            # Convert string to proper format (THIS IS THE KEY FIX)
+            if isinstance(request, str):
+                # If given a string ID, treat it as the adapter ID
+                adapter_id = request
+                request = {"id": adapter_id}
+
+            # Convert dict to model if necessary
+            if isinstance(request, dict):
+                request = AdapterSelectionRequest(**request)
+            
             # Make sure we have discovered adapters
             if not self._adapters:
                 await self.discover_adapters()
@@ -204,7 +237,7 @@ class BleAdapterManager:
             if not adapter_address:
                 raise BleAdapterError("No Bluetooth adapter available")
             
-            # Get adapter status
+            # Get adapter status - REMOVED await keywords here
             if self._is_windows:
                 status = await self._get_windows_adapter_status(adapter_address)
             elif self._is_linux:
@@ -345,23 +378,37 @@ class BleAdapterManager:
             # Try to use Windows Management Instrumentation
             import wmi
             
-            wmi_conn = wmi.WMI()
-            bt_devices = wmi_conn.Win32_PnPEntity(PNPClass="Bluetooth")
-            
-            for device in bt_devices:
-                if "adapter" in device.Name.lower() or "radio" in device.Name.lower():
-                    # This is likely a Bluetooth adapter
-                    adapter = {
-                        "name": device.Name,
-                        "address": device.DeviceID,
-                        "description": device.Description,
-                        "manufacturer": device.Manufacturer,
-                        "status": device.Status,
-                        "system_name": device.SystemName
-                    }
-                    adapters.append(adapter)
-        except Exception as e:
-            self.logger.warning(f"Error using WMI to discover adapters: {e}")
+            try:
+                # ADD THIS: Check for admin privileges
+                import ctypes
+                is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+                if not is_admin:
+                    self.logger.warning("Not running with administrator privileges, WMI access may be limited")
+                    
+                wmi_conn = wmi.WMI()
+                bt_devices = wmi_conn.Win32_PnPEntity(PNPClass="Bluetooth")
+                
+                for device in bt_devices:
+                    if "adapter" in device.Name.lower() or "radio" in device.Name.lower():
+                        # This is likely a Bluetooth adapter
+                        adapter = {
+                            "name": device.Name,
+                            "address": device.DeviceID,
+                            "description": device.Description,
+                            "manufacturer": device.Manufacturer,
+                            "status": device.Status,
+                            "system_name": device.SystemName,
+                            "available": device.Status == "OK"  # ADD THIS: explicit availability check
+                        }
+                        adapters.append(adapter)
+            except Exception as e:
+                # ADD MORE DETAILED LOGGING
+                self.logger.warning(f"Error using WMI to discover adapters: {e} ({type(e).__name__})")
+                # ADD THIS: Check for specific permission errors
+                if "access denied" in str(e).lower():
+                    self.logger.error("WMI access denied. Try running with administrator privileges.")
+        except ImportError:
+            self.logger.warning("WMI module not available, cannot use WMI for adapter discovery")
         
         # If WMI failed or found no adapters, fall back to bleak
         if not adapters:
@@ -469,7 +516,6 @@ class BleAdapterManager:
         adapters = []
         
         # On macOS, there's usually just the built-in adapter
-        # Try to get some information about it
         try:
             # Use system_profiler to get Bluetooth info
             result = subprocess.run(
@@ -480,17 +526,24 @@ class BleAdapterManager:
             )
             
             if result.returncode == 0:
-                # Try to extract the address
-                address_match = re.search(r"Address: ([0-9a-fA-F:]+)", result.stdout)
-                name_match = re.search(r"Manufacturer: ([^\n]+)", result.stdout)
+                # REPLACE WITH BETTER REGEX PATTERNS:
+                # Address pattern with more flexible format matching
+                address_match = re.search(r"Address: ([0-9a-fA-F:]{2}(?::[0-9a-fA-F]{2}){5})", result.stdout)
+                name_match = re.search(r"(?:Manufacturer|Name): ([^\n]+)", result.stdout)
+                version_match = re.search(r"Bluetooth Version: ([0-9\.]+)", result.stdout)
                 
                 address = address_match.group(1) if address_match else "00:00:00:00:00:00"
                 name = name_match.group(1).strip() if name_match else "Bluetooth Controller"
+                version = version_match.group(1) if version_match else "Unknown"
                 
+                # ADD THIS: More comprehensive adapter info
                 adapter = {
                     "name": name,
                     "address": address,
-                    "description": "Built-in Bluetooth"
+                    "description": f"macOS Bluetooth {version}",
+                    "version": version,
+                    "available": True,  # Assume available if detected
+                    "platform": "darwin"
                 }
                 adapters.append(adapter)
         except Exception as e:
@@ -981,12 +1034,63 @@ class BleAdapterManager:
             }
         }
 
+    def get_adapters(self):
+        """Get a list of available adapters.
+        
+        Returns:
+            list: List of adapter information dictionaries
+        """
+        try:
+            # If we already have adapters cached, return them
+            if getattr(self, "_adapters", None):
+                return self._adapters
+                
+            # Otherwise, create a default adapter
+            import platform
+            default_adapter = {
+                "id": "default",
+                "name": f"{platform.system()} Bluetooth Adapter",
+                "address": "00:00:00:00:00:00",
+                "available": True,
+                "status": "active",
+                "platform": platform.system().lower()
+            }
+            
+            self._adapters = [default_adapter]
+            return self._adapters
+        except Exception as e:
+            self.logger.error(f"Error getting adapters: {e}")
+            return [{
+                "id": "error",
+                "name": "Error Adapter",
+                "address": "00:00:00:00:00:00",
+                "available": False,
+                "status": "error",
+                "error": str(e)
+            }]
+
+    def _initialize_adapters_sync(self):
+        """Synchronous initialization of adapters for the constructor."""
+        try:
+            # Platform-specific adapter lookup without async
+            if platform.system() == 'Windows':
+                self._adapters = self._discover_windows_adapters_sync()
+            elif platform.system() == 'Linux':
+                self._adapters = self._discover_linux_adapters_sync()
+            elif platform.system() == 'Darwin':
+                self._adapters = self._discover_mac_adapters_sync() 
+            else:
+                self._adapters = []
+        except Exception as e:
+            self.logger.error(f"Error during adapter initialization: {e}")
+            self._adapters = []
+
 # Singleton instance (to be initialized on first use)
 _adapter_manager = None
 
 def get_adapter_manager() -> BleAdapterManager:
     """Get the singleton adapter manager instance."""
     global _adapter_manager
-    if _adapter_manager is None:
+    if (_adapter_manager is None):
         _adapter_manager = BleAdapterManager()
     return _adapter_manager

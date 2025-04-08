@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, Response
 import json
 
-from backend.dependencies import get_ble_service
+from backend.modules.ble.core.ble_service_factory import get_ble_service
 from backend.modules.ble.core.ble_service import BleService
 from backend.modules.ble.models.ble_models import (
     BleService as BleServiceModel,

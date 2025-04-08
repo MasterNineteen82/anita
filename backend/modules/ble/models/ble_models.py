@@ -120,7 +120,7 @@ class CharacteristicValue(BaseModel):
     hex: str = ""
     text: str = ""
     bytes: List[int] = Field(default_factory=list)
-    int: Optional[int] = None
+    int_value: Optional[int] = None
 
 
 # ============================================================================
@@ -143,12 +143,17 @@ class BleAdapter(BaseModel):
 # ============================================================================
 
 class ScanParams(BaseModel):
-    """BLE scan parameters model."""
-    scan_time: float = 5.0
+    scan_time: Optional[float] = 5.0  # This is the field name to use
     active: bool = True
-    service_uuids: Optional[List[str]] = None
+    service_uuids: Optional[List[str]] = []
     mock: Optional[bool] = None
-    real_scan: bool = False
+    real_scan: Optional[bool] = False
+    
+    # Add this for backward compatibility
+    @property
+    def timeout(self) -> float:
+        """For backwards compatibility with code using timeout."""
+        return self.scan_time
 
 
 class CharacteristicParams(BaseModel):
@@ -283,9 +288,9 @@ class ConnectResultMessage(BaseMessage):
     error: Optional[str] = None
 
 
-class NotificationMessage(BaseMessage):
-    """WebSocket notification message."""
-    type: MessageType = MessageType.NOTIFICATION
+class NotificationMessage(BaseModel):
+    """Model for WebSocket notification message."""
+    type: str = MessageType.NOTIFICATION
     characteristic_uuid: str
     value: CharacteristicValue
 
@@ -395,8 +400,7 @@ class NotificationRequest(BaseModel):
     """
     characteristic: str
     enable: bool = True
-
-
+    
 class NotificationSubscription(BaseModel):
     """Notification subscription model."""
     characteristic_uuid: str
@@ -573,11 +577,6 @@ class WriteRequest(BaseModel):
     value_type: Optional[str] = "auto"
     response: Optional[bool] = True
 
-class NotificationRequest(BaseModel):
-    """Request model for enabling/disabling notifications."""
-    characteristic: str
-    enable: bool = True
-
 class ServiceFilterRequest(BaseModel):
     """Request model for filtering services."""
     services: List[str] = Field(default_factory=list, description="List of service UUIDs to filter by")
@@ -706,6 +705,16 @@ class AdapterResetRequest(BaseModel):
     adapter_id: Optional[str] = None
     force: bool = False
 
+class AdapterSelectRequest(BaseModel):
+    """Request model for selecting a specific Bluetooth adapter."""
+    id: str = Field(..., description="The ID or address of the adapter to select")
+
+class AdapterSelectResponse(BaseModel):
+    """Response model for adapter selection results."""
+    status: str = Field(..., description="Result status of the operation")
+    adapter: Dict[str, Any] = Field(..., description="The selected adapter information")
+    message: str = Field(None, description="Additional information about the result")
+
 # ============================================================================
 # System Health Models
 # ============================================================================
@@ -739,11 +748,6 @@ class NotificationHistory(BaseModel):
     count: int = 0
     characteristic_uuid: Optional[str] = None
 
-class NotificationMessage(BaseModel):
-    """Model for WebSocket notification message."""
-    type: str = MessageType.NOTIFICATION
-    characteristic_uuid: str
-    value: CharacteristicValue
     
 # Add these health and diagnostics models to your existing ble_models.py file
 

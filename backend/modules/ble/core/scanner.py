@@ -42,3 +42,13 @@ def get_scanner() -> BleScanner:
     if _scanner is None:
         _scanner = BleScanner()
     return _scanner
+
+def set_client(self, client):
+    """
+    Set the BLE client for the scanner
+    
+    Args:
+        client: The BLE client to use for scanning
+    """
+    self.client = client
+    return self

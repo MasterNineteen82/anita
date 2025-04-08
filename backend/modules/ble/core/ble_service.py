@@ -19,7 +19,7 @@ from backend.modules.ble.models import (
     ConnectionStatus, MessageType
 )
 from .adapter_manager import get_adapter_manager
-from .device_manager import get_device_manager
+from .device_manager import get_device_manager, BleDeviceManager
 from .service_manager import BleServiceManager
 from .notification_manager import BleNotificationManager
 from .exceptions import (
@@ -36,14 +36,27 @@ class BleService:
     the underlying complexity of BLE operations.
     """
     
-    def __init__(self, logger=None):
-        """
-        Initialize the BLE service.
+    def __init__(self, config=None):
+        """Initialize the BLE service.
         
         Args:
-            logger: Optional logger instance
+            config: Configuration dictionary
         """
-        self.logger = logger or logging.getLogger(__name__)
+        self.config = config or {}
+        try:
+            self.ble_manager = None
+            self._logger = logging.getLogger(__name__)
+            
+            # Initialize in safe mode to prevent crashes
+            self._safe_mode = False
+            if not self.ble_manager:
+                self._safe_mode = True
+                self._logger.warning("BLE service initialized in safe mode (no BLE manager)")
+            else:
+                self._logger.info("BLE service initialized")
+        except Exception as e:
+            self._safe_mode = True
+            self._logger.error(f"Error initializing BLE service: {e}")
         
         # Get manager instances
         self.adapter_manager = get_adapter_manager()
@@ -65,6 +78,11 @@ class BleService:
         
         self.logger.info("BLE service initialized")
     
+    @property
+    def logger(self):
+        """Get the logger instance."""
+        return self._logger
+    
     # ======================================================================
     # Adapter Management Methods
     # ======================================================================
@@ -82,17 +100,19 @@ class BleService:
             self.logger.error(f"Error getting adapters: {e}", exc_info=True)
             raise BleAdapterError(f"Error getting adapters: {e}")
     
-    async def select_adapter(self, adapter_info: Dict[str, Any]) -> Dict[str, Any]:
+    async def select_adapter(self, adapter_info: Union[Dict[str, Any], str]) -> Dict[str, Any]:
         """
         Select a specific Bluetooth adapter.
         
         Args:
-            adapter_info: Dictionary with address or index of adapter to select
+            adapter_info: Dictionary with address or index of adapter to select,
+                         or a string with the adapter ID
             
         Returns:
             Dictionary with selection result
         """
         try:
+            # Pass adapter_info directly - adapter_manager now handles string IDs
             return await self.adapter_manager.select_adapter(adapter_info)
         except Exception as e:
             self.logger.error(f"Error selecting adapter: {e}", exc_info=True)
@@ -134,28 +154,14 @@ class BleService:
             list: A list of adapter information dictionaries
         """
         try:
-            # Check if we have a device manager with the method
-            if hasattr(self, 'device_manager') and hasattr(self.device_manager, 'get_available_adapters'):
-                return self.device_manager.get_available_adapters()
-            
-            # Fallback implementation
-            if hasattr(self, 'ble_manager') and hasattr(self.ble_manager, 'get_adapters'):
-                return self.ble_manager.get_adapters()
-                
-            # Last resort fallback
-            return [{
-                "id": "default",
-                "name": "Default Adapter",
-                "address": "00:00:00:00:00:00", 
-                "available": True,
-                "status": "active"
-            }]
+            return await self.adapter_manager.discover_adapters()
         except Exception as e:
             self.logger.error(f"Error getting adapters: {e}")
             # Return a minimal adapter list in case of error
+            import platform
             return [{
-                "id": "default",
-                "name": "Default Adapter (Error)",
+                "id": "error",
+                "name": f"Error Adapter ({platform.system()})",
                 "address": "00:00:00:00:00:00",
                 "available": False,
                 "status": "error",
@@ -199,48 +205,29 @@ class BleService:
     
     async def scan_devices(self, scan_time: float = 5.0, **kwargs) -> List[Dict[str, Any]]:
         """
-        Scan for nearby BLE devices.
-        
-        Args:
-            scan_time: Scan duration in seconds
-            **kwargs: Additional scan parameters
-            
-        Returns:
-            List of discovered devices
+        Scan for BLE devices.
         """
         try:
-            # Create scan parameters
-            params = ScanParams(scan_time=scan_time, **kwargs)
-            
-            # Run the scan
-            return await self.device_manager.scan_devices(params)
+            self.logger.info(f"Scanning for devices for {scan_time} seconds...")
+            devices = await self.device_manager.scan_devices(scan_time=scan_time, **kwargs)
+            self.logger.info(f"Discovered {len(devices)} devices.")
+            return devices
         except Exception as e:
             self.logger.error(f"Error scanning for devices: {e}", exc_info=True)
-            raise BleOperationError(f"Error scanning for devices: {e}")
+            raise
     
     async def connect_device(self, address: str, **kwargs) -> Dict[str, Any]:
         """
         Connect to a BLE device.
-        
-        Args:
-            address: Device address
-            **kwargs: Additional connection parameters
-            
-        Returns:
-            Connection result dictionary
         """
         try:
-            # Create connection parameters
-            params = ConnectionParams(**kwargs)
-            
-            # Connect to the device
-            result = await self.device_manager.connect_to_device(address, params)
-            
-            # If connected, set the client in service manager
-            if result.get("status") == ConnectionStatus.CONNECTED:
-                self.service_manager.set_client(self.device_manager.client)
-            
-            return result
+            self.logger.info(f"Connecting to device: {address}")
+            result = await self.device_manager.connect_device(address)
+            if result:
+                self.logger.info(f"Successfully connected to {address}")
+                return {"status": "connected", "address": address}
+            else:
+                raise BleConnectionError(f"Failed to connect to {address}")
         except Exception as e:
             self.logger.error(f"Error connecting to device: {e}", exc_info=True)
             raise BleConnectionError(f"Error connecting to device: {e}")
@@ -248,20 +235,15 @@ class BleService:
     async def disconnect_device(self, address: str) -> Dict[str, Any]:
         """
         Disconnect from a BLE device.
-        
-        Args:
-            address: Device address
-            
-        Returns:
-            Disconnection result dictionary
         """
         try:
-            # Clear any notifications first
-            if self.device_manager.client:
-                await self.notification_manager.clear_all_subscriptions()
-            
-            # Disconnect from the device
-            return await self.device_manager.disconnect_from_device(address)
+            self.logger.info(f"Disconnecting from device: {address}")
+            result = await self.device_manager.disconnect_device(address)
+            if result:
+                self.logger.info(f"Successfully disconnected from {address}")
+                return {"status": "disconnected", "address": address}
+            else:
+                raise BleConnectionError(f"Failed to disconnect from {address}")
         except Exception as e:
             self.logger.error(f"Error disconnecting from device: {e}", exc_info=True)
             raise BleConnectionError(f"Error disconnecting from device: {e}")
@@ -307,6 +289,50 @@ class BleService:
         except Exception as e:
             self.logger.error(f"Error removing saved device: {e}", exc_info=True)
             raise BleOperationError(f"Error removing saved device: {e}")
+    
+    async def stop_scan(self):
+        """
+        Stop an ongoing BLE scan
+        
+        Returns:
+            Dict[str, Any]: Result with status and message
+        """
+        try:
+            if not hasattr(self, 'device_manager'):
+                return {
+                    "status": "error",
+                    "message": "Device manager not initialized"
+                }
+                
+            if hasattr(self.device_manager, 'stop_scan'):
+                result = await self.device_manager.stop_scan()
+                return {
+                    "status": "success",
+                    "message": "Scan stopped successfully",
+                    "timestamp": int(time.time() * 1000)
+                }
+            else:
+                # Fall back to scanner object directly
+                if hasattr(self, 'scanner') and hasattr(self.scanner, 'stop'):
+                    await self.scanner.stop()
+                    return {
+                        "status": "success",
+                        "message": "Scan stopped using scanner directly",
+                        "timestamp": int(time.time() * 1000)
+                    }
+                else:
+                    return {
+                        "status": "warning",
+                        "message": "No active scan to stop",
+                        "timestamp": int(time.time() * 1000)
+                    }
+        except Exception as e:
+            self.logger.error(f"Error stopping scan: {e}", exc_info=True)
+            return {
+                "status": "error",
+                "message": f"Failed to stop scan: {str(e)}",
+                "timestamp": int(time.time() * 1000)
+            }
     
     # ======================================================================
     # GATT Service and Characteristic Methods

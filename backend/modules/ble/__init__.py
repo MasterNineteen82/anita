@@ -16,10 +16,11 @@ from .api.ble_routes import router as ble_routes
 from .comms import websocket_endpoint, websocket_manager
 
 # Import core BLE components
-from .core.ble_service import BleService, get_ble_service
+from .core.ble_service import BleService
 from .core.adapter_manager import BleAdapterManager, get_adapter_manager
 from .core.device_manager import BleDeviceManager as BleManager, get_device_manager
 from .core.scanner import BleScanner, get_scanner
+from .core.ble_service_factory import get_ble_service
 
 # Re-export key models for convenience
 from .models import (

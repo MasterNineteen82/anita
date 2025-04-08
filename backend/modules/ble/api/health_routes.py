@@ -13,13 +13,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Path, Response
 from pydantic import BaseModel, Field
 import json
 
-from backend.dependencies import get_ble_service, get_ble_metrics
+from backend.dependencies import get_ble_metrics
 from backend.modules.ble.core.ble_service import BleService
 from backend.modules.ble.core.ble_metrics import BleMetricsCollector, SystemMonitor
 from backend.modules.ble.models.ble_models import (
     BluetoothHealthReport, SystemMetric, DiagnosticRequest, 
     DiagnosticResult, MetricsResponse, StackInfo, ResetResponse
 )
+from backend.modules.ble.core.ble_service_factory import get_ble_service
 
 # Create router
 health_router = APIRouter(prefix="/health", tags=["BLE Health & Diagnostics"])

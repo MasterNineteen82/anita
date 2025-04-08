@@ -4,19 +4,19 @@
 {% from "components/alerts.html" import render_alert, render_ble_status_alert %}
 {% from "components/toggle_control.html" import render_toggle_control %}
 
-
 {% block head %}
     {{ super() }}
+    <link rel="stylesheet" href="styles.css"> <!-- Link to your CSS file -->
     <link rel="stylesheet" href="{{ url_for('static', path='css/pages/ble-dashboard.css') }}">
     <!-- Add Chart.js for data visualization -->
-    <script src="{{ url_for('static', path='lib/chart.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}
 
 {% block title %}BLE Dashboard{% endblock %}
 
 {% block content %}
 <div class="container mx-auto p-4 ble-container">
-    {{ render_page_header(title="Bluetooth Dashboard", description="Manage and monitor Bluetooth Low Energy devices", icon="bluetooth") }}
+    {{ render_page_header(title="BLE Dashboard", subtitle="Monitor and control BLE devices") }}
     
     <!-- Status Bar -->
     <div class="mb-4">
@@ -28,115 +28,115 @@
         <!-- Row 1: Adapter Information + Device Scanner -->
         
         {% call render_card(title="Adapter Information", icon="bluetooth", id="ble-adapter-info-card") %}
-        <div id="adapter-info-content" class="space-y-4 p-4">
-            <div class="text-gray-500">Fetching adapter information...</div>
-            
-            <div id="adapter-info-content" class="space-y-4 p-4">
-                <!-- Adapter Name -->
-                <div class="mb-3">
-                    <label class="block text-sm text-gray-400 mb-1">Name</label>
-                    <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-name">Loading...</div>
+            <div class="space-y-4 p-4">
+                <div class="text-gray-500">Fetching adapter information...</div>
+                
+                <div id="adapter-info-content" class="space-y-4 p-4">
+                    <!-- Adapter Name -->
+                    <div class="mb-3">
+                        <label class="block text-sm text-gray-400 mb-1">Name</label>
+                        <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-name">Loading...</div>
+                    </div>
+                
+                    <!-- Adapter Address -->
+                    <div class="mb-3">
+                        <label class="block text-sm text-gray-400 mb-1">Address</label>
+                        <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-address">Loading...</div>
+                    </div>
+                
+                    <!-- Adapter Type -->
+                    <div class="mb-3">
+                        <label class="block text-sm text-gray-400 mb-1">Type</label>
+                        <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-type">Loading...</div>
+                    </div>
+                
+                    <!-- Adapter Status -->
+                    <div class="mb-3">
+                        <label class="block text-sm text-gray-400 mb-1">Status</label>
+                        <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-status-text">Loading...</div>
+                    </div>
+                
+                    <!-- Adapter Manufacturer -->
+                    <div class="mb-3">
+                        <label class="block text-sm text-gray-400 mb-1">Manufacturer</label>
+                        <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-manufacturer">Loading...</div>
+                    </div>
+                
+                    <!-- Adapter Platform -->
+                    <div class="mb-3">
+                        <label class="block text-sm text-gray-400 mb-1">Platform</label>
+                        <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-platform">Loading...</div>
+                    </div>
                 </div>
-            
-                <!-- Adapter Address -->
-                <div class="mb-3">
-                    <label class="block text-sm text-gray-400 mb-1">Address</label>
-                    <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-address">Loading...</div>
-                </div>
-            
-                <!-- Adapter Type -->
-                <div class="mb-3">
-                    <label class="block text-sm text-gray-400 mb-1">Type</label>
-                    <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-type">Loading...</div>
-                </div>
-            
-                <!-- Adapter Status -->
-                <div class="mb-3">
-                    <label class="block text-sm text-gray-400 mb-1">Status</label>
-                    <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-status-text">Loading...</div>
-                </div>
-            
-                <!-- Adapter Manufacturer -->
-                <div class="mb-3">
-                    <label class="block text-sm text-gray-400 mb-1">Manufacturer</label>
-                    <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-manufacturer">Loading...</div>
-                </div>
-            
-                <!-- Adapter Platform -->
-                <div class="mb-3">
-                    <label class="block text-sm text-gray-400 mb-1">Platform</label>
-                    <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-platform">Loading...</div>
+                
+                <!-- Refresh Button -->
+                <div class="mt-4 flex justify-end">
+                    <button type="button" id="refresh-adapter-btn" class="ble-btn ble-btn-secondary">
+                        <i class="fas fa-sync mr-2"></i> Refresh Adapter Info
+                    </button>
                 </div>
             </div>
-            
-            <!-- Refresh Button -->
-            <div class="mt-4 flex justify-end">
-                <button id="refresh-adapter-btn" class="ble-btn ble-btn-secondary">
-                    <i class="fas fa-sync mr-2"></i> Refresh Adapter Info
-                </button>
-            </div>
-        </div>
         {% endcall %}
         
-        {% call render_card(title="Device Scanner", icon="search", id="ble-scanner-card") %}
-        <div id="scan-container" class="p-4">
-            <!-- Scan Status -->
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center">
-                    <span id="scan-status" class="mr-2 inline-flex items-center">
-                        <span class="w-3 h-3 rounded-full bg-gray-500 mr-2"></span>
-                        <span class="text-gray-400">Inactive</span>
-                    </span>
+        {% call render_card(title="Device Scanner", icon="search", id="ble-device-scanner-card") %}
+            <div id="scan-container" class="p-4">
+                <!-- Scan Status -->
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <span id="scan-status" class="mr-2 inline-flex items-center">
+                            <span class="w-3 h-3 rounded-full bg-gray-500 mr-2"></span>
+                            <span class="text-gray-400">Inactive</span>
+                        </span>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button type="button" id="scan-btn" class="ble-btn ble-btn-primary">
+                            <i class="fas fa-search mr-2"></i>Scan for Devices
+                        </button>
+                        <button type="button" id="stop-scan-btn" class="ble-btn ble-btn-secondary hidden">
+                            <i class="fas fa-stop mr-2"></i>Stop Scan
+                        </button>
+                    </div>
                 </div>
-                <div class="flex space-x-2">
-                    <button id="scan-btn" class="ble-btn ble-btn-primary">
-                        <i class="fas fa-search mr-2"></i>Scan for Devices
+                
+                <!-- Scan Progress -->
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-400 mb-1">Scan Progress</label>
+                    <div class="relative w-full bg-gray-700 rounded-full h-2">
+                        <div id="scan-progress" class="absolute bg-blue-500 h-2 rounded-full ble-progress-bar"></div>
+                    </div>
+                </div>
+                
+                <!-- Scan Duration -->
+                <div class="mb-4">
+                    <label for="scan-time" class="block text-sm text-gray-400 mb-1">Scan Duration</label>
+                    <select id="scan-time" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
+                        <option value="3">3 seconds</option>
+                        <option value="5" selected>5 seconds</option>
+                        <option value="10">10 seconds</option>
+                        <option value="15">15 seconds</option>
+                    </select>
+                </div>
+                
+                <!-- Active Scanning Toggle -->
+                <div class="mb-4">
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" id="active-scanning" class="form-checkbox h-5 w-5 text-blue-600 rounded" checked>
+                        <span class="ml-2 text-gray-400">Active scanning</span>
+                    </label>
+                </div>
+                
+                <!-- Device List -->
+                <div id="devices-list" class="mt-4">
+                    <div class="text-gray-500">No devices found. Click the scan button to start scanning.</div>
+                </div>
+                
+                <!-- Clear Devices Button -->
+                <div class="mt-4 flex justify-end">
+                    <button type="button" id="clear-devices-btn" class="ble-btn ble-btn-tertiary">
+                        <i class="fas fa-trash mr-2"></i> Clear Devices
                     </button>
-                    <button id="stop-scan-btn" class="ble-btn ble-btn-secondary hidden">
-                        <i class="fas fa-stop mr-2"></i>Stop Scan
-                    </button>
                 </div>
             </div>
-            
-            <!-- Scan Progress -->
-            <div class="mb-4">
-                <label class="block text-sm text-gray-400 mb-1">Scan Progress</label>
-                <div class="relative w-full bg-gray-700 rounded-full h-2">
-                    <div id="scan-progress" class="absolute bg-blue-500 h-2 rounded-full" style="width: 0%;"></div>
-                </div>
-            </div>
-            
-            <!-- Scan Duration -->
-            <div class="mb-4">
-                <label for="scan-time" class="block text-sm text-gray-400 mb-1">Scan Duration</label>
-                <select id="scan-time" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
-                    <option value="3">3 seconds</option>
-                    <option value="5" selected>5 seconds</option>
-                    <option value="10">10 seconds</option>
-                    <option value="15">15 seconds</option>
-                </select>
-            </div>
-            
-            <!-- Active Scanning Toggle -->
-            <div class="mb-4">
-                <label class="inline-flex items-center">
-                    <input type="checkbox" id="active-scanning" class="form-checkbox h-5 w-5 text-blue-600 rounded" checked>
-                    <span class="ml-2 text-gray-400">Active scanning</span>
-                </label>
-            </div>
-            
-            <!-- Device List -->
-            <div id="devices-list" class="mt-4">
-                <div class="text-gray-500">No devices found. Click the scan button to start scanning.</div>
-            </div>
-            
-            <!-- Clear Devices Button -->
-            <div class="mt-4 flex justify-end">
-                <button id="clear-devices-btn" class="ble-btn ble-btn-tertiary">
-                    <i class="fas fa-trash mr-2"></i> Clear Devices
-                </button>
-            </div>
-        </div>
         {% endcall %}
 
         <!-- Row 2: Connected Device + Device Services -->
@@ -156,7 +156,7 @@
                 </button>
             </div>
             <div class="mt-4 flex justify-end">
-                <button id="disconnect-btn" class="ble-btn ble-btn-danger hidden">
+                <button type="button" id="disconnect-btn" class="ble-btn ble-btn-danger hidden">
                     <i class="fas fa-times mr-2"></i>Disconnect
                 </button>
             </div>
@@ -185,7 +185,7 @@
                                 <option value="raw">Raw Data</option>
                             </select>
                             
-                            <button id="clear-data-btn" class="ble-btn ble-btn-secondary">
+                            <button type="button" id="clear-data-btn" class="ble-btn ble-btn-secondary">
                                 <i class="fas fa-trash mr-1"></i> Clear Data
                             </button>
                         </div>
@@ -235,7 +235,7 @@
                             <option value="all">All</option>
                         </select>
                     </div>
-                    <button id="clear-log-btn" class="ble-btn ble-btn-tertiary">
+                    <button type="button" id="clear-log-btn" class="ble-btn ble-btn-tertiary">
                         <i class="fas fa-trash mr-1"></i> Clear Log
                     </button>
                 </div>
@@ -247,32 +247,112 @@
         {% endcall %}
         
         {% call render_card(title="Debug & Development", icon="bug", id="ble-debug-card") %}
-            <div class="p-4">
-                <div class="space-y-4">
-                    <button id="run-diagnostics-btn" class="ble-btn ble-btn-primary w-full">
-                        <i class="fas fa-stethoscope mr-1"></i> Run BLE Diagnostics
-                    </button>
+    <div class="p-4">
+        <div class="space-y-4">
+            <!-- Diagnostic Runner -->
+            <button type="button" id="run-diagnostics-btn" class="ble-btn ble-btn-primary w-full">
+                <i class="fas fa-stethoscope mr-1"></i> Run BLE Diagnostics
+            </button>
+            
+            <!-- Diagnostic Results -->
+            <div id="diagnostics-results" class="hidden mt-3 p-3 bg-gray-800 rounded-md overflow-auto max-h-60 text-xs font-mono">
+                <div class="text-gray-400">Run diagnostics to see results here</div>
+            </div>
+            
+            <!-- API Testing Section -->
+            <div class="border-t border-gray-700 pt-3">
+                <h4 class="font-medium mb-2 text-white">API Testing</h4>
+                <div class="grid grid-cols-1 gap-2 mb-2">
+                    <select title="API Endpoint" id="api-endpoint-select" class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3 text-sm">
+                        <option value="">Select API endpoint...</option>
+                        <optgroup label="Adapter">
+                            <option value="/api/ble/adapter/info">Get Adapter Info</option>
+                            <option value="/api/ble/adapter/select">Select Adapter</option>
+                            <option value="/api/ble/adapter/reset">Reset Adapter</option>
+                        </optgroup>
+                        <optgroup label="Scanning">
+                            <option value="/api/ble/scan/start">Start Scan</option>
+                            <option value="/api/ble/scan/stop">Stop Scan</option>
+                            <option value="/api/ble/scan/results">Get Scan Results</option>
+                        </optgroup>
+                        <optgroup label="Devices">
+                            <option value="/api/ble/device/connect">Connect Device</option>
+                            <option value="/api/ble/device/disconnect">Disconnect Device</option>
+                        </optgroup>
+                    </select>
                     
-                    <div class="text-sm text-gray-400">
-                        <h4 class="font-medium mb-1">Quick Debug Actions</h4>
-                        <div class="grid grid-cols-2 gap-2">
-                            <button id="reset-ble-state-btn" class="ble-btn ble-btn-secondary ble-btn-xs">
-                                Reset State
-                            </button>
-                            <button id="check-adapter-btn" class="ble-btn ble-btn-secondary ble-btn-xs">
-                                Check Adapter
-                            </button>
-                            <button id="test-websocket-btn" class="ble-btn ble-btn-secondary ble-btn-xs">
-                                Test WebSocket
-                            </button>
-                            <button id="clear-cache-btn" class="ble-btn ble-btn-secondary ble-btn-xs">
-                                Clear Cache
-                            </button>
-                        </div>
+                    <div class="flex space-x-2">
+                        <button type="button" id="test-api-btn" class="ble-btn ble-btn-secondary flex-grow text-sm">
+                            <i class="fas fa-paper-plane mr-1"></i> Send Request
+                        </button>
+                        <button type="button" id="view-request-btn" class="ble-btn ble-btn-tertiary text-sm">
+                            <i class="fas fa-edit mr-1"></i> Edit Body
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- API Request Body Editor (initially hidden) -->
+                <div id="api-request-editor" class="hidden">
+                    <textarea id="api-request-body" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3 text-xs font-mono h-20" placeholder="{ }"></textarea>
+                </div>
+                
+                <!-- API Response -->
+                <div id="api-response" class="mt-2 p-2 bg-gray-800 rounded-md overflow-auto max-h-36 text-xs font-mono hidden">
+                    <div class="text-gray-400">API response will appear here</div>
+                </div>
+            </div>
+            
+            <!-- Quick Debug Actions -->
+            <div class="border-t border-gray-700 pt-3">
+                <h4 class="font-medium mb-2 text-white">Quick Debug Actions</h4>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" id="reset-ble-state-btn" class="ble-btn ble-btn-secondary ble-btn-xs">
+                        <i class="fas fa-redo-alt mr-1"></i> Reset State
+                    </button>
+                    <button type="button" id="check-adapter-btn" class="ble-btn ble-btn-secondary ble-btn-xs">
+                        <i class="fas fa-microchip mr-1"></i> Check Adapter
+                    </button>
+                    <button type="button" id="test-websocket-btn" class="ble-btn ble-btn-secondary ble-btn-xs">
+                        <i class="fas fa-plug mr-1"></i> Test WebSocket
+                    </button>
+                    <button type="button" id="clear-cache-btn" class="ble-btn ble-btn-secondary ble-btn-xs">
+                        <i class="fas fa-trash mr-1"></i> Clear Cache
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Environment Information -->
+            <div class="border-t border-gray-700 pt-3">
+                <h4 class="font-medium mb-2 text-white">Environment</h4>
+                <div class="bg-gray-800 rounded-md p-2 text-xs font-mono">
+                    <div class="grid grid-cols-2 gap-x-2 gap-y-1">
+                        <div class="text-gray-400">Browser:</div>
+                        <div id="debug-browser-info" class="text-white"></div>
+                        
+                        <div class="text-gray-400">API:</div>
+                        <div id="debug-api-status" class="text-white"></div>
+                        
+                        <div class="text-gray-400">WebSocket:</div>
+                        <div id="debug-websocket-status" class="text-white"></div>
+                        
+                        <div class="text-gray-400">Mock:</div>
+                        <div id="debug-mock-status" class="text-white"></div>
                     </div>
                 </div>
             </div>
-        {% endcall %}
+            
+            <!-- Export / Save Actions -->
+            <div class="flex justify-between">
+                <button type="button" id="save-diagnostics-btn" class="ble-btn ble-btn-secondary text-sm">
+                    <i class="fas fa-download mr-1"></i> Save Diagnostics
+                </button>
+                <button type="button" id="open-debug-console-btn" class="ble-btn ble-btn-secondary text-sm">
+                    <i class="fas fa-terminal mr-1"></i> Debug Console
+                </button>
+            </div>
+        </div>
+    </div>
+{% endcall %}
 
         <!-- Row 5: BLE Performance Metrics -->
         {% call render_card(title="BLE Performance Metrics", icon="tachometer-alt", id="ble-metrics-card") %}
@@ -292,7 +372,7 @@
                         <div class="text-2xl font-bold text-yellow-400" id="device-count">0</div>
                         <div class="text-sm text-gray-300">Known Devices</div>
                     </div>
-                    
+        
                     <div class="bg-gray-700 rounded-lg p-4 shadow-md">
                         <div class="text-2xl font-bold text-purple-400" id="notification-rate">N/A</div>
                         <div class="text-sm text-gray-300">Notifications/min</div>
@@ -300,7 +380,7 @@
                 </div>
                 
                 <div class="flex justify-end">
-                    <button id="refresh-metrics-btn" class="ble-btn ble-btn-secondary">
+                    <button type="button" id="refresh-metrics-btn" class="ble-btn ble-btn-secondary">
                         <i class="fas fa-sync mr-1"></i> Refresh Metrics
                     </button>
                 </div>
@@ -312,27 +392,44 @@
 
 {% block scripts %}
 <!-- Main BLE Module -->
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble.js') }}"></script>
-
-<!-- Component Modules -->
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-scanner.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-services.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-data.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-device.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-adapter.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-notifications.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-events.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-ui.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-performance.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-error-boundary.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-recovery.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-adapter.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-websocket.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-connection.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-metrics.js') }}"></script>
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-chart.js') }}"></script>
-
-
-<!-- Dashboard Initialization -->
-<script type="module" src="{{ url_for('static', path='js/pages/ble/ble-init.js') }}"></script>
+<script type="module">
+    // Set start time for performance tracking
+    window.bleInitStartTime = performance.now();
+    
+    // Add debug flag
+    window.BLE_DEBUG = true;
+    
+    // Import the mock handler first to ensure it's available
+    import './static/js/pages/ble/ble-api-mock.js';
+    
+    // Import and apply fix before initializing
+    import './static/js/pages/ble/ble-init-fix.js';
+    
+    // Import debug module early to ensure it's available during initialization
+    import './static/js/pages/ble/ble-debug.js';
+    
+    // Import initialization code
+    import { initialize } from './static/js/pages/ble/ble-init.js';
+    
+    // Initialize the dashboard when the DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM loaded, initializing BLE Dashboard');
+        initialize().catch(err => {
+            console.error('Error during initialization:', err);
+            // Show error message to user
+            const container = document.querySelector('.ble-container');
+            if (container) {
+                container.innerHTML += `
+                    <div class="bg-red-900 text-white p-4 rounded-lg">
+                        <h3 class="font-bold mb-2">Initialization Error</h3>
+                        <p>${err.message}</p>
+                        <button onclick="location.reload()" class="mt-2 bg-red-700 hover:bg-red-600 px-3 py-1 rounded-sm">
+                            Reload Page
+                        </button>
+                    </div>
+                `;
+            }
+        });
+    });
+</script>
 {% endblock %}
