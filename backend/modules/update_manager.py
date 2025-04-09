@@ -53,7 +53,7 @@ class UpdateManager:
                 return SuccessResponse(
                     status="success",
                     message="New update available (simulated)",
-                    data=update.dict()
+                    data=update.model_dump()
                 )
             else:
                 return SuccessResponse(
@@ -103,7 +103,7 @@ class UpdateManager:
                 return SuccessResponse(
                     status="success",
                     message="New update available",
-                    data=update.dict()
+                    data=update.model_dump()
                 )
             else:
                 return SuccessResponse(
@@ -140,7 +140,7 @@ class UpdateManager:
                 return SuccessResponse(
                     status="success",
                     message="Update downloaded successfully (simulated)",
-                    data=cls._updates[update_id].dict()
+                    data=cls._updates[update_id].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -183,7 +183,7 @@ class UpdateManager:
                 return SuccessResponse(
                     status="success",
                     message="Update downloaded successfully",
-                    data=cls._updates[update_id].dict()
+                    data=cls._updates[update_id].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -220,7 +220,7 @@ class UpdateManager:
                 return SuccessResponse(
                     status="success",
                     message="Update applied successfully (simulated)",
-                    data=cls._updates[update_id].dict()
+                    data=cls._updates[update_id].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -263,7 +263,7 @@ class UpdateManager:
                 return SuccessResponse(
                     status="success",
                     message="Update applied successfully",
-                    data=cls._updates[update_id].dict()
+                    data=cls._updates[update_id].model_dump()
                 )
             else:
                 return ErrorResponse(

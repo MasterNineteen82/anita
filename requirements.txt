@@ -1,4 +1,4 @@
-﻿absl-py==2.1.0
+absl-py==2.1.0
 aes==1.2.0
 aiofiles==24.1.0
 aiohappyeyeballs==2.6.1
@@ -162,6 +162,7 @@ PySocks==1.7.1
 pytest==8.3.5
 pytest-asyncio==0.25.3
 pytest-cov==6.0.0
+pytest-mock==3.12.0
 pytest-xdist==3.6.1
 python-dateutil==2.9.0.post0
 python-decouple==3.8

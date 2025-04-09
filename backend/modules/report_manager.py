@@ -129,7 +129,7 @@ class ReportManager:
                 return SuccessResponse(
                     status="success",
                     message="Report status retrieved successfully (simulated)",
-                    data=cls._reports[report_id].dict()
+                    data=cls._reports[report_id].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -170,7 +170,7 @@ class ReportManager:
                 return SuccessResponse(
                     status="success",
                     message="Report status retrieved successfully",
-                    data=cls._reports[report_id].dict()
+                    data=cls._reports[report_id].model_dump()
                 )
             else:
                 return ErrorResponse(

@@ -48,7 +48,7 @@ async def list_services(ble_service: BleService = Depends(get_ble_service)):
             services.append(service)
 
         result = ServicesResult(services=services, count=len(services))
-        return Response(content=json.dumps(result.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(result.model_dump(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
@@ -77,7 +77,7 @@ async def get_service_info(
             ]
         )
 
-        return Response(content=json.dumps(service.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(service.model_dump(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
@@ -110,7 +110,7 @@ async def get_characteristics(
             count=len(characteristics)
         )
 
-        return Response(content=json.dumps(result.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(result.model_dump(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
@@ -145,7 +145,7 @@ async def get_characteristic_info(
             ]
         )
 
-        return Response(content=json.dumps(characteristic.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(characteristic.model_dump(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
@@ -179,7 +179,7 @@ async def get_descriptors(
             count=len(descriptors)
         )
 
-        return Response(content=json.dumps(result.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(result.model_dump(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
@@ -199,7 +199,7 @@ async def get_active_notifications(ble_service: BleService = Depends(get_ble_ser
             count=len(notifications_raw)
         )
 
-        return Response(content=json.dumps(result.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(result.model_dump(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:

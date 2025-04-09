@@ -106,7 +106,7 @@ class UWBManager:
                     return SuccessResponse(
                         status="success",
                         message=f"Location of device {device_id} retrieved.",
-                        data=location.dict()
+                        data=location.model_dump()
                     )
                 else:
                     return ErrorResponse(
@@ -126,7 +126,7 @@ class UWBManager:
         with cls._lock:
             devices = list(cls._devices.values())
             device_list = [
-                {"device_id": d.device_id, "device_type": d.device_type, "location": d.location.dict() if d.location else None, "last_seen": d.last_seen}
+                {"device_id": d.device_id, "device_type": d.device_type, "location": d.location.model_dump() if d.location else None, "last_seen": d.last_seen}
                 for d in devices
             ]
             return SuccessResponse(
@@ -242,7 +242,7 @@ class UWBManager:
             return SuccessResponse(
                 status="success",
                 message="UWB position retrieved successfully (simulated)",
-                data=position.dict()
+                data=position.model_dump()
             )
         
         if not UWB_HARDWARE_AVAILABLE:
@@ -285,7 +285,7 @@ class UWBManager:
             return SuccessResponse(
                 status="success",
                 message="UWB position retrieved successfully",
-                data=position.dict()
+                data=position.model_dump()
             )
                 
         except Exception as e:
@@ -320,7 +320,7 @@ class UWBManager:
             return SuccessResponse(
                 status="success",
                 message="UWB ranging data retrieved successfully (simulated)",
-                data=ranging_result.dict()
+                data=ranging_result.model_dump()
             )
         
         if not UWB_HARDWARE_AVAILABLE:
@@ -363,7 +363,7 @@ class UWBManager:
             return SuccessResponse(
                 status="success",
                 message="UWB ranging data retrieved successfully",
-                data=ranging_result.dict()
+                data=ranging_result.model_dump()
             )
                 
         except Exception as e:

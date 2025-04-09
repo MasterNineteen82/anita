@@ -89,7 +89,7 @@ async def get_health_report(
             recommendations=report_raw.get("recommendations", [])
         )
         
-        return Response(content=json.dumps(report.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(report.model_dump(), default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error generating health report: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -121,7 +121,7 @@ async def get_bluetooth_stack_info(ble_service: BleService = Depends(get_ble_ser
             capabilities=stack_info_raw.get("capabilities", [])
         )
         
-        return Response(content=json.dumps(stack_info.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(stack_info.model_dump(), default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error getting Bluetooth stack info: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -150,7 +150,7 @@ async def reset_bluetooth(ble_service: BleService = Depends(get_ble_service)):
             actions_taken=reset_result_raw.get("actions_taken", [])
         )
         
-        return Response(content=json.dumps(reset_result.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(reset_result.model_dump(), default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error resetting Bluetooth: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -204,7 +204,7 @@ async def get_ble_metrics(
             summary=metrics_raw.get("summary", {})
         )
         
-        return Response(content=json.dumps(metrics_response.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(metrics_response.model_dump(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
@@ -253,7 +253,7 @@ async def run_diagnostics(
             recommendations=diagnostics_raw.get("recommendations", [])
         )
         
-        return Response(content=json.dumps(diagnostics_result.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(diagnostics_result.model_dump(), default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error running diagnostics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -291,7 +291,7 @@ async def get_system_metrics(ble_metrics: BleMetricsCollector = Depends(get_ble_
             network_recv=metrics_raw.get("network_recv")
         )
         
-        return Response(content=json.dumps(system_metric.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(system_metric.model_dump(), default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error getting system metrics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

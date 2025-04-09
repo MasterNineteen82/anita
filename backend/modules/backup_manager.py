@@ -125,7 +125,7 @@ class BackupManager:
                 return SuccessResponse(
                     status="success",
                     message="Backup restored successfully (simulated)",
-                    data=cls._backups[backup_id].dict()
+                    data=cls._backups[backup_id].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -168,7 +168,7 @@ class BackupManager:
                 return SuccessResponse(
                     status="success",
                     message="Backup restored successfully",
-                    data=cls._backups[backup_id].dict()
+                    data=cls._backups[backup_id].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -203,7 +203,7 @@ class BackupManager:
                 return SuccessResponse(
                     status="success",
                     message="Backup status retrieved successfully (simulated)",
-                    data=cls._backups[backup_id].dict()
+                    data=cls._backups[backup_id].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -244,7 +244,7 @@ class BackupManager:
                 return SuccessResponse(
                     status="success",
                     message="Backup status retrieved successfully",
-                    data=cls._backups[backup_id].dict()
+                    data=cls._backups[backup_id].model_dump()
                 )
             else:
                 return ErrorResponse(

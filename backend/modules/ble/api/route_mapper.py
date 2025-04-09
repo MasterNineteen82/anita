@@ -51,14 +51,14 @@ async def scan_devices(params: ScanParams, ble_service: BleService = Depends(get
         
         # Create scan result with the models and convert to dict for response
         result = ScanResult(
-            devices=[model.dict() for model in device_models],
+            devices=[model.model_dump() for model in device_models],
             count=len(device_models),
             scan_time=scan_time,
             active=active,
             mock=any(device.isMock for device in device_models)
         )
         
-        return result.dict()
+        return result.model_dump()
     except Exception as e:
         logger.error(f"Error scanning for devices: {e}")
         raise HTTPException(status_code=500, detail=str(e))

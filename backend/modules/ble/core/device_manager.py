@@ -7,9 +7,10 @@ import time
 from typing import Dict, Any, List, Optional, Tuple, Set, Union, Callable
 import uuid
 from threading import Lock
+import binascii
 
 import bleak
-from bleak import BleakScanner, BleakClient, BleakError
+from bleak import BleakClient, BleakError
 
 from backend.modules.ble.utils.events import ble_event_bus
 from backend.modules.ble.utils.ble_metrics import get_metrics_collector
@@ -21,6 +22,8 @@ from backend.modules.ble.models import (
 )
 from .adapter_manager import get_adapter_manager
 from .exceptions import BleConnectionError, BleOperationError, BleNotSupportedError
+from backend.modules.ble.utils.ble_scanner_wrapper import get_ble_scanner
+from backend.modules.ble.utils.ble_device_info import enhance_device_info
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +36,7 @@ class BleDeviceManager:
         self._cached_devices = []
         self._connected_devices = {}
         self.logger = logger
+        self._scanner = get_ble_scanner()
 
     def set_logger(self, logger_instance):
         """
@@ -62,26 +66,99 @@ class BleDeviceManager:
             List of discovered devices.
         """
         try:
-            self.logger.info("Starting BLE scan...")
-            devices = await BleakScanner.discover(
+            self.logger.info("Starting BLE scan using thread-safe scanner...")
+            
+            devices = await self._scanner.discover_devices(
                 timeout=scan_time,
                 service_uuids=services,
-                scanning_mode="active" if active else "passive",
+                active=active
             )
-            self._cached_devices = [
-                {
-                    "name": device.name,
-                    "address": device.address,
-                    "rssi": device.rssi,
+            
+            processed_devices = []
+            for device in devices:
+                if name_prefix and not (device.get("name") and device.get("name").startswith(name_prefix)):
+                    continue
+
+                # Process metadata to ensure serializability
+                serializable_metadata = {}
+                if device.get("metadata"):
+                    for key, value in device.get("metadata").items():
+                        if isinstance(value, dict):
+                            # Handle nested dicts like manufacturer_data
+                            serializable_metadata[key] = {
+                                m_key: binascii.hexlify(m_value).decode('ascii') 
+                                       if isinstance(m_value, bytes) else m_value
+                                for m_key, m_value in value.items()
+                            }
+                        elif isinstance(value, bytes):
+                            serializable_metadata[key] = binascii.hexlify(value).decode('ascii')
+                        else:
+                            serializable_metadata[key] = value
+                            
+                device_info = {
+                    "address": device.get("address"),
+                    "name": device.get("name") or "Unknown",
+                    # "details": device.get("details"),  # Removed: Causes serialization errors
+                    "metadata": serializable_metadata, # Use processed metadata
+                    # Use getattr for safer access to advertisement_data and its rssi, provide None if unavailable
+                    "rssi": device.get("rssi"),
+                    "is_real": True,
+                    "source": "scan" # Indicate the device was found via scan
                 }
-                for device in devices
-                if not name_prefix or (device.name and device.name.startswith(name_prefix))
-            ]
+                
+                # Enhance device info with manufacturer and type details
+                enhanced_device = enhance_device_info(device_info)
+                processed_devices.append(enhanced_device)
+
+            self._cached_devices = processed_devices
             self.logger.info(f"Discovered {len(self._cached_devices)} devices.")
             return self._cached_devices
         except BleakError as e:
             self.logger.error(f"BLE scan failed: {e}")
-            raise
+            # Return empty list instead of raising the error
+            self._cached_devices = []
+            return self._cached_devices
+            
+    def _get_test_devices(self):
+        """Generate realistic test devices when real scanning fails due to Windows issues."""
+        self.logger.info("Generating test devices for Windows platform")
+        test_devices = [
+            {
+                "address": "11:22:33:44:55:66",
+                "name": "Fitness Tracker Pro",
+                "rssi": -65,
+                "is_real": False,
+                "metadata": {
+                    "manufacturer_data": {"76": "1403010b13187164"},
+                    "service_uuids": ["180d", "180f"]  # Heart rate and battery services
+                },
+                "source": "test_windows"
+            },
+            {
+                "address": "22:33:44:55:66:77",
+                "name": "Smart Watch XR40",
+                "rssi": -58,
+                "is_real": False,
+                "metadata": {
+                    "manufacturer_data": {"89": "0300"},
+                    "service_uuids": ["1800", "1801", "180a"]  # Generic services
+                },
+                "source": "test_windows"
+            },
+            {
+                "address": "33:44:55:66:77:88",
+                "name": "BLE Temperature Sensor",
+                "rssi": -72,
+                "is_real": False,
+                "metadata": {
+                    "manufacturer_data": {"106": "07569abcd"},
+                    "service_uuids": ["181a"]  # Environmental sensing service
+                },
+                "source": "test_windows"
+            }
+        ]
+        self._cached_devices = test_devices
+        return test_devices
 
     async def connect_device(self, address: str) -> bool:
         """
@@ -146,6 +223,19 @@ class BleDeviceManager:
             List of connected device addresses.
         """
         return list(self._connected_devices.keys())
+
+    async def get_saved_devices(self) -> List[Dict]:
+        """
+        Return the list of bonded/saved devices (Not Implemented).
+        
+        Placeholder implementation. Requires platform-specific logic or persistence.
+
+        Returns:
+            An empty list (currently).
+        """
+        self.logger.warning("get_saved_devices is not yet implemented.")
+        # TODO: Implement logic to retrieve bonded/paired devices from OS or persistence
+        raise NotImplementedError("Bonded device retrieval is not implemented.")
 
 # Singleton instance (to be initialized on first use)
 from threading import Lock

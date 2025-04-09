@@ -21,6 +21,7 @@ export class BleScanner {
         this.continuousScan = false;
         this.scanInterval = null;
         this.scanTimeoutId = null;
+        this.allowMockDevices = false; // New property to control mock device fallback
         
         // Create a default app state if one isn't provided
         this.appState = appState || {
@@ -238,7 +239,7 @@ export class BleScanner {
         this.updateUI({ error: true });
         
         // Emit error event
-        BleEvents.emit(BleEvents.SCAN_ERROR, {
+        BleEvents.emit(BLE_EVENTS.SCAN_ERROR, {
             error: errorMessage,
             timestamp: Date.now()
         });
@@ -250,110 +251,97 @@ export class BleScanner {
     }
 
     async startScan(scanTime = 5, activeScan = true) {
+        if (this.isScanningActive) {
+            console.warn('Scan already in progress, ignoring request');
+            return [];
+        }
+        
+        // Update UI
+        this.isScanningActive = true;
+        this.updateScanStatus('scanning', 'Scanning for BLE devices...');
+        BleLogger.info('Scanner', 'startScan', 'Starting BLE scan', { scanTime, activeScan });
+        
         try {
-            console.log('Starting BLE scan', { scanTime, activeScan });
-            BleLogger.info('Scanner', 'startScan', 'Starting BLE scan', { scanTime, activeScan });
+            // Per the API documentation, the correct endpoint is /api/ble/device/scan
+            const endpoint = '/api/ble/device/scan';
             
-            // Update UI state
-            this.scanning = true;
-            this.isScanningActive = true;
-            this.updateScanStatus('scanning', 'Scanning for devices...');
-            this.updateUI();
+            // Prepare the scan parameters
+            const scanParams = {
+                scan_time: scanTime,
+                active: activeScan,
+                name_prefix: null,
+                service_uuids: null,
+                mock: false  // Explicitly request real devices only
+            };
             
-            // Start scan progress animation
-            this.updateScanProgress(0);
-            this.startProgressAnimation(scanTime);
+            console.log('Starting real device scan with params:', scanParams);
             
-            // Try multiple endpoints
-            const endpoints = [
-                '/api/ble/scan/start',
-                '/api/ble/device/scan/start',
-                '/api/ble/start-scan'
-            ];
+            // Make the API call
+            let scanResults = [];
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(scanParams)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Scan response:', data);
+                    
+                    if (data && data.status === 'success' && data.devices) {
+                        scanResults = data.devices;
+                        console.log(`Found ${scanResults.length} real devices`);
+                    }
+                } else {
+                    console.warn(`Scan failed with status: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Error scanning for devices:', error);
+            }
             
-            let success = false;
-            
-            for (const endpoint of endpoints) {
+            // Only try mock as a last resort if explicitly allowed and no real devices found
+            if (scanResults.length === 0 && this.allowMockDevices) {
+                console.log('No real devices found, trying fallback to mock devices');
                 try {
+                    const mockParams = {...scanParams, mock: true};
                     const response = await fetch(endpoint, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({
-                            scan_time: scanTime,
-                            active: activeScan
-                        })
+                        body: JSON.stringify(mockParams)
                     });
                     
                     if (response.ok) {
                         const data = await response.json();
-                        console.log('Scan started successfully:', data);
-                        success = true;
-                        break;
-                    } else {
-                        console.warn(`Failed to start scan at ${endpoint}: ${response.status}`);
+                        if (data && data.status === 'success' && data.devices) {
+                            scanResults = data.devices;
+                            console.log(`Found ${scanResults.length} mock devices`);
+                        }
                     }
                 } catch (error) {
-                    console.warn(`Error with endpoint ${endpoint}:`, error);
+                    console.error('Error getting mock devices:', error);
                 }
-            }
-            
-            if (!success) {
-                console.warn('All scan endpoints failed, using mock data');
-            }
-            
-            // Wait for scan to complete regardless of API success
-            await new Promise(resolve => setTimeout(resolve, scanTime * 1000));
-            
-            // Fetch scan results from the most likely endpoint
-            let results = null;
-            
-            try {
-                const resultsEndpoints = [
-                    '/api/ble/scan/results',
-                    '/api/ble/device/scan/results',
-                    '/api/ble/results'
-                ];
-                
-                for (const endpoint of resultsEndpoints) {
-                    try {
-                        const response = await fetch(endpoint);
-                        if (response.ok) {
-                            results = await response.json();
-                            break;
-                        }
-                    } catch (error) {
-                        console.warn(`Error fetching results from ${endpoint}:`, error);
-                    }
-                }
-            } catch (error) {
-                console.error('Error fetching scan results:', error);
-            }
-            
-            // Use default results if none were returned
-            if (!results) {
-                results = { 
-                    devices: [],
-                    timestamp: Date.now()
-                };
             }
             
             // Update UI
             this.scanning = false;
             this.isScanningActive = false;
-            this.updateScanStatus('complete', `Found ${results.devices?.length || 0} devices`);
+            this.updateScanStatus('complete', `Found ${scanResults.length} devices`);
             this.updateUI();
             
             // Display results
-            if (typeof this.updateDevicesList === 'function') {
-                this.devices = results.devices || [];
+            if (this.updateDevicesList) {
+                this.devices = scanResults;
                 this.updateDevicesList();
             } else if (typeof this.displayScanResults === 'function') {
-                this.displayScanResults(results.devices || []);
+                this.displayScanResults(scanResults);
             }
             
-            return results.devices || [];
+            return scanResults;
         } catch (error) {
             console.error('Scan error:', error);
             BleLogger.error('Scanner', 'startScan', 'Scan failed', { error: error.message });
@@ -764,13 +752,25 @@ BleScanner.prototype.showDeviceDetails = function(device) {
         <div id="device-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-gray-800 rounded-lg p-6 max-w-lg w-full">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium">${device.name || 'Unknown Device'}</h3>
+                    <h3 class="text-lg font-medium">${device.display_name || device.name || 'Unknown Device'}</h3>
                     <button class="text-gray-400 hover:text-white" onclick="document.getElementById('device-details-modal').remove()">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
                 
                 <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="text-sm text-gray-400">Device Type</div>
+                            <div>${device.device_type || 'Unknown'}</div>
+                        </div>
+                        
+                        <div>
+                            <div class="text-sm text-gray-400">Manufacturer</div>
+                            <div>${device.manufacturer || 'Unknown'}</div>
+                        </div>
+                    </div>
+                    
                     <div>
                         <div class="text-sm text-gray-400">Address</div>
                         <div class="font-mono">${device.address || 'N/A'}</div>
@@ -781,29 +781,60 @@ BleScanner.prototype.showDeviceDetails = function(device) {
                         <div>${device.rssi || 'N/A'} dBm</div>
                     </div>
                     
-                    ${device.manufacturer_data ? `
+                    ${device.service_info && device.service_info.length ? `
                     <div>
-                        <div class="text-sm text-gray-400">Manufacturer Data</div>
-                        <div class="font-mono text-xs bg-gray-900 p-2 rounded overflow-x-auto">
-                            ${JSON.stringify(device.manufacturer_data, null, 2)}
+                        <div class="text-sm text-gray-400">Services</div>
+                        <div class="bg-gray-900 p-2 rounded overflow-auto max-h-32">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="text-gray-400 text-left">
+                                        <th class="pb-1">Service</th>
+                                        <th class="pb-1">Category</th>
+                                        <th class="pb-1">UUID</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${device.service_info.map(service => `
+                                        <tr>
+                                            <td class="pr-2">${service.name}</td>
+                                            <td class="pr-2">${service.category}</td>
+                                            <td class="font-mono text-xs">${service.uuid}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                     ` : ''}
                     
-                    ${device.service_data ? `
+                    ${device.manufacturer_info ? `
+                    <div>
+                        <div class="text-sm text-gray-400">Manufacturer Details</div>
+                        <div class="bg-gray-900 p-2 rounded overflow-auto max-h-32">
+                            ${Object.entries(device.manufacturer_info).map(([id, info]) => `
+                                <div class="mb-1">
+                                    <span class="text-blue-400">${info.company_name}</span> 
+                                    <span class="text-xs text-gray-400">(${id})</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${device.metadata && device.metadata.manufacturer_data ? `
+                    <div>
+                        <div class="text-sm text-gray-400">Raw Manufacturer Data</div>
+                        <div class="font-mono text-xs bg-gray-900 p-2 rounded overflow-x-auto">
+                            ${JSON.stringify(device.metadata.manufacturer_data, null, 2)}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${device.metadata && device.metadata.service_data ? `
                     <div>
                         <div class="text-sm text-gray-400">Service Data</div>
                         <div class="font-mono text-xs bg-gray-900 p-2 rounded overflow-x-auto">
-                            ${JSON.stringify(device.service_data, null, 2)}
-                        </div>
-                    </div>
-                    ` : ''}
-                    
-                    ${device.service_uuids && device.service_uuids.length ? `
-                    <div>
-                        <div class="text-sm text-gray-400">Service UUIDs</div>
-                        <div class="space-y-1">
-                            ${device.service_uuids.map(uuid => `<div class="font-mono text-xs">${uuid}</div>`).join('')}
+                            ${JSON.stringify(device.metadata.service_data, null, 2)}
                         </div>
                     </div>
                     ` : ''}

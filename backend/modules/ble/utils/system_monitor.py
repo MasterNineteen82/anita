@@ -203,7 +203,7 @@ class SystemMonitor:
                 self.last_log_time = current_time
                 
                 # Emit an event with the metrics
-                ble_event_bus.emit("system_metrics", metrics)
+                await ble_event_bus.emit("system_metrics", metrics)
                 
                 # Check for resource issues
                 self._check_resource_issues(metrics)

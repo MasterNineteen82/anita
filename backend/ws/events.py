@@ -312,7 +312,7 @@ class EventRegistry:
         try:
             # Create an instance with default values
             instance = schema()
-            return instance.dict()
+            return instance.model_dump()
         except Exception:
             return {"example": "Unavailable"}
     
@@ -352,7 +352,7 @@ def create_event(event_type: str, **kwargs) -> dict:
     schema = event_registry.get_event_schema(event_type)
     if schema:
         # Validate against schema if available
-        payload = schema(**kwargs).dict()
+        payload = schema(**kwargs).model_dump()
     else:
         # Use raw kwargs if no schema
         payload = kwargs

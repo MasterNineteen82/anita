@@ -193,38 +193,8 @@ async function initialize() {
     window.bleLog('[Init] Starting initialization');
     
     try {
-        // Import the mock API handler if needed
-        try {
-            const apiTestResponse = await fetch('/api/ble/adapter-info');
-            if (!apiTestResponse.ok) {
-                console.warn('BLE API appears to be unavailable, loading mock API handler');
-                
-                // Dynamically import the mock API
-                const { default: bleApiMock } = await import('./ble-api-mock.js');
-                console.log('Mock API handler loaded');
-                
-                // Show notification to user
-                setTimeout(() => {
-                    const notification = document.createElement('div');
-                    notification.className = 'fixed bottom-4 right-4 bg-yellow-800 text-white px-4 py-2 rounded-lg shadow-lg';
-                    notification.innerHTML = `
-                        <div class="flex items-center">
-                            <i class="fas fa-exclamation-triangle mr-2"></i>
-                            <div>
-                                <div class="font-medium">Running in demo mode</div>
-                                <div class="text-sm">BLE API is unavailable. Using mock data.</div>
-                            </div>
-                            <button class="ml-4 text-yellow-300 hover:text-yellow-100" onclick="this.parentElement.parentElement.remove()">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    `;
-                    document.body.appendChild(notification);
-                }, 1000);
-            }
-        } catch (error) {
-            console.warn('Error checking API availability:', error);
-        }
+        // Always use real API, no mock fallback
+        console.log('[Init] Using real API endpoints only (mock disabled)');
         
         // Initialize app state
         const appState = {

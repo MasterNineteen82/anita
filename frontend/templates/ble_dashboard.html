@@ -8,6 +8,37 @@
     {{ super() }}
     <link rel="stylesheet" href="styles.css"> <!-- Link to your CSS file -->
     <link rel="stylesheet" href="{{ url_for('static', path='css/pages/ble-dashboard.css') }}">
+    
+    <!-- Aggressively disable BLE mocking -->
+    <script>
+        // Save the original fetch before any scripts can modify it
+        window.originalFetch = window.fetch;
+        window.DISABLE_BLE_MOCK = true;
+        
+        // Override the fetch function to prevent mock interception
+        window.fetch = function(...args) {
+            return window.originalFetch.apply(this, args);
+        };
+        
+        // Prevent dynamic loading of ble-api-mock
+        window.preventMockLoading = function(url) {
+            if (url && typeof url === 'string' && url.includes('ble-api-mock.js')) {
+                console.log('🛑 Prevented loading of BLE mock API');
+                // Return a fake module with empty exports
+                return Promise.resolve({
+                    default: { installFetchInterceptor: function() {} }
+                });
+            }
+            // Use the original import for everything else
+            return Object.constructor.getPrototypeOf(async function(){}).constructor('return import(url)')();
+        };
+        
+        // Override dynamic import
+        window.import = window.preventMockLoading;
+        
+        console.log('✅ Forced real API mode - mock API disabled');
+    </script>
+    
     <!-- Add Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}
@@ -398,9 +429,6 @@
     
     // Add debug flag
     window.BLE_DEBUG = true;
-    
-    // Import the mock handler first to ensure it's available
-    import './static/js/pages/ble/ble-api-mock.js';
     
     // Import and apply fix before initializing
     import './static/js/pages/ble/ble-init-fix.js';

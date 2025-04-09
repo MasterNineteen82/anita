@@ -80,7 +80,7 @@ class FingerprintManager:
             return SuccessResponse(
                 status="success",
                 message="Fingerprint verified successfully.",
-                data=match_result.dict()
+                data=match_result.model_dump()
             )
         else:
             logger.error(f"Fingerprint verification failed for user {user_id}.")
@@ -88,7 +88,7 @@ class FingerprintManager:
             return SuccessResponse(
                 status="success",
                 message="Fingerprint verification failed.",
-                data=match_result.dict()
+                data=match_result.model_dump()
             )
 
     async def delete(self, user_id: str) -> SuccessResponse:

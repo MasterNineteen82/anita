@@ -17,34 +17,34 @@ class StatusResponse(BaseModel):
     message: str
 
 class ReaderResponse(BaseModel):
-    reader_name: str = Field(..., example="My Reader")
-    reader_type: str = Field(..., example="Serial")
+    reader_name: str = Field(..., json_schema_extra={'example': "My Reader"})
+    reader_type: str = Field(..., json_schema_extra={'example': "Serial"})
 
 class ReadersResponse(BaseModel):
     readers: List[ReaderResponse]
 
 # Hardware Models
 class DeviceStatus(BaseModel):
-    status: str = Field(..., example="online")
-    details: Optional[str] = Field(None, example="Device is functioning normally")
+    status: str = Field(..., json_schema_extra={'example': "online"})
+    details: Optional[str] = Field(None, json_schema_extra={'example': "Device is functioning normally"})
 
 class InterfaceType(BaseModel):
-    interface_type: str = Field(..., example="USB")
-    description: Optional[str] = Field(None, example="Standard USB interface")
+    interface_type: str = Field(..., json_schema_extra={'example': "USB"})
+    description: Optional[str] = Field(None, json_schema_extra={'example': "Standard USB interface"})
 
 class HardwareDevice(BaseModel):
-    device_id: str = Field(..., example="device_123")
-    device_name: str = Field(..., example="My Device")
+    device_id: str = Field(..., json_schema_extra={'example': "device_123"})
+    device_name: str = Field(..., json_schema_extra={'example': "My Device"})
     status: DeviceStatus
     interface: InterfaceType
 
 class DeviceCapability(BaseModel):
-    capability_name: str = Field(..., example="Read Mifare")
-    description: Optional[str] = Field(None, example="Able to read Mifare Classic cards")
+    capability_name: str = Field(..., json_schema_extra={'example': "Read Mifare"})
+    description: Optional[str] = Field(None, json_schema_extra={'example': "Able to read Mifare Classic cards"})
 
 class ReaderDevice(BaseModel):
-    reader_id: str = Field(..., example="reader_456")
-    reader_name: str = Field(..., example="My Reader")
+    reader_id: str = Field(..., json_schema_extra={'example': "reader_456"})
+    reader_name: str = Field(..., json_schema_extra={'example': "My Reader"})
     device: HardwareDevice
     capabilities: List[DeviceCapability] = []
 
@@ -70,7 +70,7 @@ class Settings(BaseModel):
     reader_check_interval: int = 5000
 
 class LogResponse(BaseModel):
-    status: str = Field(..., example="success")
+    status: str = Field(..., json_schema_extra={'example': "success"})
 
 class SystemStatus(BaseModel):
     cpu_usage: float
@@ -105,9 +105,9 @@ class MifareDESFireApplication(BaseModel):
 
 # Config Models
 class ConfigurationSetting(BaseModel):
-    key: str = Field(..., example="api_base_url")
-    value: str = Field(..., example="http://localhost:8000/api")
-    description: Optional[str] = Field(None, example="Base URL for the API")
+    key: str = Field(..., json_schema_extra={'example': "api_base_url"})
+    value: str = Field(..., json_schema_extra={'example': "http://localhost:8000/api"})
+    description: Optional[str] = Field(None, json_schema_extra={'example': "Base URL for the API"})
 
 class ConfigurationResponse(BaseModel):
     settings: List[ConfigurationSetting]
@@ -220,13 +220,13 @@ class BLEValueResponse(BaseModel):
     value: str  # Hex-encoded value
     raw_value: Optional[str] = None  # For human-readable representation if available
     
-class SmartcardReaderResponse(BaseModel):  # Add this
+class SmartcardReaderResponse(BaseModel):  
     status: str
     card_present: bool
     atr: Optional[str] = None
     data: Optional[Dict[str, Any]] = None
     
-class SmartcardCommand(BaseModel):  # Add this
+class SmartcardCommand(BaseModel):  
     command: str
     data: Optional[List[int]] = None
 

@@ -12,7 +12,7 @@ from . import (
 router = APIRouter()
 
 # Include all route modules' routers
-router.include_router(mqtt_routes.router)  # Add this line to use mqtt_routes
+# router.include_router(mqtt_routes.router)  # Add this line to use mqtt_routes -- COMMENTED OUT TO AVOID DUPLICATION
 # Add similar lines for other route modules if they're not already included elsewhere
 
 # Export the router

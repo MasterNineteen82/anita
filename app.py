@@ -32,16 +32,18 @@ from backend.routes import api as api_package
 # Import the WebSocket endpoint directly
 from backend.modules.ble.comms.websocket import websocket_endpoint
 
-# Import existing BLE router
-from backend.modules.ble.api.ble_routes import router as ble_router
+# Import existing BLE routers
+from backend.modules.ble.api import adapter_routes as ble_adapter_routes 
+from backend.modules.ble.api import device_routes as ble_device_routes   
+from backend.modules.ble.api import ble_routes as ble_router
 
-# Add import for the route mapper (to be created)
+# Add import for the route mapper (to be created) - Keeping this for now
 from backend.modules.ble.api.route_mapper import frontend_api_router
 
 logger = setup_logging()
 
 app = FastAPI(
-    title="ANITA POC",
+    title="ANITA Backend",
     description="Advanced NFC/IoT Technology Application",
     version="0.1.0"
 )
@@ -107,6 +109,11 @@ async def lifespan(app: FastAPI):
 
 app.lifespan = lifespan
 
+@app.get("/health", tags=["System"])
+async def health_check():
+    """Check the health of the application."""
+    return {"status": "healthy"}
+
 # Explicitly include known routers
 known_routers = {
     "smartcard_routes": smartcard_routes.router,
@@ -131,11 +138,12 @@ known_routers = {
 
 # Get BLE router
 try:
-    from backend.modules.ble.api.ble_routes import router as ble_router
-    has_ble = True
+    has_ble_device_router = True
+    has_ble_adapter_router = True
 except ImportError:
-    has_ble = False
-    logger.warning("BLE module could not be imported")
+    has_ble_device_router = False
+    has_ble_adapter_router = False
+    logger.warning("BLE module routers could not be imported")
 
 # Try importing frontend_api_router
 try:
@@ -160,49 +168,57 @@ if has_frontend_api:
     except Exception as e:
         logger.error(f"Failed to register BLE frontend API router: {e}")
 
-# Near where you register other routers
-if has_frontend_api:
+# Include BLE device router if available
+if has_ble_device_router:
     try:
-        app.include_router(frontend_api_router)
-        logger.info("BLE frontend API router registered successfully")
+        app.include_router(ble_device_routes.device_router, prefix="/api/ble", tags=["BLE Device"])
+        logger.info("BLE device routes registered successfully")
     except Exception as e:
-        logger.error(f"Failed to register BLE frontend API router: {e}")
+        logger.error(f"Failed to register BLE device routes: {e}")
+
+# Include BLE adapter router if available
+if has_ble_adapter_router:
+    try:
+        app.include_router(ble_adapter_routes.adapter_router, prefix="/api/ble", tags=["BLE Adapter"])
+        logger.info("BLE adapter routes registered successfully")
+    except Exception as e:
+        logger.error(f"Failed to register BLE adapter routes: {e}")
 
 # Include BLE router if available
-if has_ble:
-    try:
-        app.include_router(ble_router, prefix="/api")
-        logger.info("BLE routes registered successfully")
-    except Exception as e:
-        logger.error(f"Failed to register BLE routes: {e}")
+try:
+    app.include_router(ble_router, prefix="/api")
+    logger.info("BLE routes registered successfully")
+except Exception as e:
+    logger.error(f"Failed to register BLE routes: {e}")
 
-# Include other routers
-for router_name, router in known_routers.items():
-    # Skip BLE router since we already included it
-    if router_name == "ble_routes":
-        continue
+# Include other routers -- COMMENTED OUT AS api_package.router SHOULD HANDLE THESE
+# for router_name, router in known_routers.items():
+#     # Skip BLE router since we already included it
+#     if router_name == "ble_routes":
+#         continue
         
-    logger.info(f"Including router: {router_name}")
-    try:
-        app.include_router(router, prefix="/api" if not getattr(router, "prefix", "") else "")
-        logger.info(f"Successfully included router: {router_name}")
-    except Exception as e:
-        logger.error(f"Error including router {router_name}: {e}")
+#     logger.info(f"Including router: {router_name}")
+#     try:
+#         app.include_router(router, prefix="/api" if not getattr(router, "prefix", "") else "")
+#         logger.info(f"Successfully included router: {router_name}")
+#     except Exception as e:
+#         logger.error(f"Error including router {router_name}: {e}")
 
-# Dynamic router discovery
-routes_dir = os.path.join(base_dir, "backend", "routes", "api")
-for _, name, _ in pkgutil.iter_modules([routes_dir]):
-    module_name = f"backend.routes.api.{name}"
-    try:
-        module = importlib.import_module(module_name)
-        if hasattr(module, "router") and name + "_routes" not in known_routers:
-            logger.info(f"Dynamically discovered router: {name}_routes")
-            app.include_router(module.router, prefix="/api" if not getattr(module.router, "prefix", "") else "")
-            logger.info(f"Successfully included router: {name}_routes")
-    except ImportError as e:
-        logger.error(f"Error importing module {module_name}: {str(e)}")
+# Dynamic router discovery - COMMENTED OUT DUE TO POTENTIAL DUPLICATES
+# routes_dir = os.path.join(base_dir, "backend", "routes", "api")
+# for _, name, _ in pkgutil.iter_modules([routes_dir]):
+#     module_name = f"backend.routes.api.{name}"
+#     try:
+#         module = importlib.import_module(module_name)
+#         # Check if the module has a 'router' attribute
+#         if hasattr(module, "router"):
+#             # Avoid re-including routers already in known_routers or handled explicitly
+#             if name not in known_routers and module.router not in [ble_router, frontend_api_router, api_package.router]:
+#                 app.include_router(module.router, prefix="/api", tags=[name.replace("_routes", "").capitalize()])
+#                 logger.info(f"Dynamically included router: {name}")
+#     except Exception as e:
+#         logger.error(f"Error dynamically discovering/including router {module_name}: {e}")
 
-# Helper functions for log handling
 def get_available_logs():
     log_files = []
     errors_dir = os.path.join(LOG_DIR, 'errors')
@@ -239,7 +255,7 @@ def filter_logs(log_file, min_level=None, max_lines=100):
 # API Explorer routes
 @app.get("/api_explorer", response_class=HTMLResponse)
 async def api_explorer(request: Request):
-    return templates.TemplateResponse("api_explorer.html", {"request": request})
+    return templates.TemplateResponse(request, "api_explorer.html", {"request": request})
 
 @app.get("/api/docs.json")
 async def api_docs():
@@ -268,18 +284,18 @@ async def api_docs():
 @app.get("/ble_test", response_class=HTMLResponse)
 async def ble_test(request: Request):
     """BLE Test Interface for direct API testing"""
-    return templates.TemplateResponse("ble_test.html", {"request": request})
+    return templates.TemplateResponse(request, "ble_test.html", {"request": request})
 
 # Frontend routes
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     logger.info("Root endpoint accessed")
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html", {"request": request})
 
 @app.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
     log_files = get_available_logs()
-    return templates.TemplateResponse("logs.html", {"request": request, "log_files": log_files, "log_levels": LOG_LEVELS})
+    return templates.TemplateResponse(request, "logs.html", {"request": request, "log_files": log_files, "log_levels": LOG_LEVELS})
 
 @app.get("/api/logs")
 async def get_logs(log_file: str = Query(...), log_level: Optional[str] = Query("INFO"), log_lines: int = Query(100)):
@@ -299,78 +315,78 @@ async def health_check():
 
 @app.get("/ble", response_class=HTMLResponse)
 async def ble_page(request: Request):
-    return templates.TemplateResponse("ble.html", {"request": request})
+    return templates.TemplateResponse(request, "ble.html", {"request": request})
 
 @app.get("/card_manager", response_class=HTMLResponse)
 async def card_manager_page(request: Request):
-    return templates.TemplateResponse("card_manager.html", {"request": request})
+    return templates.TemplateResponse(request, "card_manager.html", {"request": request})
 
 @app.get("/device_manager", response_class=HTMLResponse)
 async def device_manager_page(request: Request):
-    return templates.TemplateResponse("device_manager.html", {"request": request})
+    return templates.TemplateResponse(request, "device_manager.html", {"request": request})
 
 @app.get("/facial_recognition", response_class=HTMLResponse)
 async def facial_recognition_page(request: Request):
-    return templates.TemplateResponse("facial_recognition.html", {"request": request})
+    return templates.TemplateResponse(request, "facial_recognition.html", {"request": request})
 
 @app.get("/fingerprint", response_class=HTMLResponse)
 async def fingerprint_page(request: Request):
-    return templates.TemplateResponse("fingerprint.html", {"request": request})
+    return templates.TemplateResponse(request, "fingerprint.html", {"request": request})
 
 @app.get("/iris_recognition", response_class=HTMLResponse)
 async def iris_recognition_page(request: Request):
-    return templates.TemplateResponse("iris_recognition.html", {"request": request})
+    return templates.TemplateResponse(request, "iris_recognition.html", {"request": request})
 
 @app.get("/mqtt", response_class=HTMLResponse)
 async def mqtt_page(request: Request):
-    return templates.TemplateResponse("mqtt.html", {"request": request})
+    return templates.TemplateResponse(request, "mqtt.html", {"request": request})
 
 @app.get("/rfid", response_class=HTMLResponse)
 async def rfid_page(request: Request):
-    return templates.TemplateResponse("rfid.html", {"request": request})
+    return templates.TemplateResponse(request, "rfid.html", {"request": request})
 
 @app.get("/splash", response_class=HTMLResponse)
 async def splash_page(request: Request):
-    return templates.TemplateResponse("splash.html", {"request": request})
+    return templates.TemplateResponse(request, "splash.html", {"request": request})
 
 @app.get("/uwb", response_class=HTMLResponse)
 async def uwb_page(request: Request):
-    return templates.TemplateResponse("uwb.html", {"request": request})
+    return templates.TemplateResponse(request, "uwb.html", {"request": request})
 
 @app.get("/api_manager", response_class=HTMLResponse)
 async def api_manager_page(request: Request):
-    return templates.TemplateResponse("api_manager.html", {"request": request})
+    return templates.TemplateResponse(request, "api_manager.html", {"request": request})
 
 @app.get("/websocket_manager", response_class=HTMLResponse)
 async def websocket_manager(request: Request):
-    return templates.TemplateResponse("websocket_manager.html", {"request": request})
+    return templates.TemplateResponse(request, "websocket_manager.html", {"request": request})
 
 @app.get("/ble_dashboard", response_class=HTMLResponse)
 async def ble_dashboard(request: Request):
     """Render the BLE dashboard page"""
-    return templates.TemplateResponse("ble_dashboard.html", {"request": request})
+    return templates.TemplateResponse(request, "ble_dashboard.html", {"request": request})
 
 # Modal Pages
 @app.get("/modals/nfc-vcard-modal", response_class=HTMLResponse)
 async def nfc_vcard_modal(request: Request):
-    return templates.TemplateResponse("modals/nfc-vcard-modal.html", {"request": request})
+    return templates.TemplateResponse(request, "modals/nfc-vcard-modal.html", {"request": request})
 
 @app.get("/modals/nfc-wifi-modal", response_class=HTMLResponse)
 async def nfc_wifi_modal(request: Request):
-    return templates.TemplateResponse("modals/nfc-wifi-modal.html", {"request": request})
+    return templates.TemplateResponse(request, "modals/nfc-wifi-modal.html", {"request": request})
 
 @app.get("/modals/nfc-write-text-modal", response_class=HTMLResponse)
 async def nfc_write_text_modal(request: Request):
-    return templates.TemplateResponse("modals/nfc-write-text-modal.html", {"request": request})
+    return templates.TemplateResponse(request, "modals/nfc-write-text-modal.html", {"request": request})
 
 @app.get("/modals/nfc-write-url-modal", response_class=HTMLResponse)
 async def nfc_write_url_modal(request: Request):
-    return templates.TemplateResponse("modals/nfc-write-url-modal.html", {"request": request})
+    return templates.TemplateResponse(request, "modals/nfc-write-url-modal.html", {"request": request})
 
 @app.get("/ble_logging", response_class=HTMLResponse)
 async def ble_logging_page(request: Request):
     """Render the BLE Logging Dashboard page"""
-    return templates.TemplateResponse("ble_logging.html", {"request": request})
+    return templates.TemplateResponse(request, "ble_logging.html", {"request": request})
 
 # Exception handlers
 @app.exception_handler(Exception)
@@ -378,12 +394,12 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
     print_colorful_traceback(sys.exc_info())
     if "TemplateNotFound" in str(exc):
-        return templates.TemplateResponse("error.html", {"request": request, "error": f"Template Error: {str(exc)}"}, status_code=500)
+        return templates.TemplateResponse(request, "error.html", {"request": request, "error": f"Template Error: {str(exc)}"}, status_code=500)
     return JSONResponse(status_code=500, content={"status": "error", "message": f"Internal server error: {str(exc)}"})
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: Exception):
-    return templates.TemplateResponse("error.html", {"request": request, "error": "404 - Page Not Found"}, status_code=404)
+    return templates.TemplateResponse(request, "error.html", {"request": request, "error": "404 - Page Not Found"}, status_code=404)
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

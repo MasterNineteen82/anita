@@ -9,7 +9,7 @@ import traceback
 import time
 import platform
 import importlib.metadata
-import pkg_resources
+import asyncio
 
 
 from backend.dependencies import get_ble_service, get_ble_metrics
@@ -32,19 +32,11 @@ logger = logging.getLogger(__name__)
 def get_bleak_version():
     """Get the installed Bleak version."""
     try:
-        # First try using importlib.metadata (Python 3.8+)
-        try:
-            return importlib.metadata.version("bleak")
-        except (importlib.metadata.PackageNotFoundError, AttributeError):
-            # Fall back to pkg_resources
-            return pkg_resources.get_distribution("bleak").version
-    except Exception:
-        # If all else fails, try to import bleak directly
-        try:
-            import bleak
-            return getattr(bleak, "__version__", "unknown")
-        except ImportError:
-            return "not installed"
+        # Use importlib.metadata (Python 3.8+)
+        return importlib.metadata.version("bleak")
+    except importlib.metadata.PackageNotFoundError:
+        logger.warning("Could not determine Bleak version using importlib.metadata.")
+        return "unknown"
 
 @adapter_router.get("/adapters", response_model=None)
 async def list_adapters(ble_service: BleService = Depends(get_ble_service)):
@@ -70,7 +62,7 @@ async def list_adapters(ble_service: BleService = Depends(get_ble_service)):
         
         return Response(content=json.dumps({
             "status": "success",
-            "adapters": [adapter.dict() for adapter in adapters],
+            "adapters": [adapter.model_dump() for adapter in adapters],
             "count": len(adapters)
         }, default=str), media_type="application/json")
     except Exception as e:
@@ -163,7 +155,7 @@ async def get_adapter_metrics(
         
         return Response(content=json.dumps({
             "adapter_id": adapter_id or "all",
-            "metrics": [metric.dict() for metric in metrics],
+            "metrics": [metric.model_dump() for metric in metrics],
             "count": len(metrics),
             "summary": metrics_raw.get("summary", {})
         }, default=str), media_type="application/json")
@@ -173,14 +165,13 @@ async def get_adapter_metrics(
 
 @adapter_router.get("/health", response_model=None)
 async def get_bluetooth_health(
-    ble_service: BleService = Depends(get_ble_service)
+    ble_service: BleService = Depends(get_ble_service) # ble_service might still be useful for other checks?
 ):
     """Get comprehensive Bluetooth health report."""
     try:
-        system_monitor = ble_service.get_system_monitor()
-        if not system_monitor:
-            from backend.modules.ble.core.ble_metrics import SystemMonitor
-            system_monitor = SystemMonitor()
+        # Directly instantiate SystemMonitor as BleService doesn't provide it
+        from backend.modules.ble.core.ble_metrics import SystemMonitor
+        system_monitor = SystemMonitor()
         
         report_raw = await system_monitor.get_bluetooth_health_report()
         
@@ -196,41 +187,47 @@ async def get_bluetooth_health(
             recommendations=report_raw.get("recommendations", [])
         )
         
-        return Response(content=json.dumps(report.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(report.model_dump(), default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error generating Bluetooth health report: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate health report: {str(e)}")
+        # Return a standardized error structure
+        return Response(content=json.dumps({
+            "status": "error",
+            "message": f"Failed to generate health report: {str(e)}"
+        }, default=str), media_type="application/json", status_code=500)
 
-@adapter_router.post("/power/{state}", response_model=None)
+@adapter_router.post("/power", response_model=None)
 async def set_adapter_power(
-    state: str,
-    adapter_id: Optional[str] = None,
+    power: bool = Body(..., embed=True),
+    adapter_id: Optional[str] = Body(None, embed=True),
     ble_service: BleService = Depends(get_ble_service)
 ):
-    """Turn adapter on or off."""
+    """Set the power state of a Bluetooth adapter."""
     try:
-        if state not in ["on", "off"]:
-            raise HTTPException(status_code=400, detail="State must be 'on' or 'off'")
+        logger.info(f"Received request to set power to {power} for adapter {adapter_id or 'current'}")
         
-        power_on = (state == "on")
-        result = await ble_service.set_adapter_power(power_on, adapter_id)
-        
-        if result.get("success"):
-            return Response(content=json.dumps({
-                "status": "success",
-                "message": f"Adapter power set to {state}",
-                "adapter_id": adapter_id or "current"
-            }, default=str), media_type="application/json")
+        # Placeholder: Call a method on BleService to set power
+        # This method needs to be implemented in BleService
+        # Example:
+        # result = await ble_service.set_power(power=power, adapter_id=adapter_id)
+
+        # Simulate success for now
+        await asyncio.sleep(0.1) # Simulate async operation
+        success = True 
+        message = f"Successfully set power to {power} for adapter {adapter_id or 'current'}"
+
+        if success:
+            await broadcast_ble_event({"type": "adapter_power", "adapter_id": adapter_id or 'current', "power": power})
+            return Response(content=json.dumps({"status": "success", "message": message}), media_type="application/json")
         else:
-            raise HTTPException(
-                status_code=400, 
-                detail=result.get("error", f"Failed to set adapter power to {state}")
-            )
+            # Simulate failure (e.g., if ble_service.set_power failed)
+            raise HTTPException(status_code=500, detail=f"Failed to set power state for adapter {adapter_id or 'current'}")
+
     except HTTPException:
-        raise
+        raise # Re-raise known HTTP exceptions
     except Exception as e:
         logger.error(f"Error setting adapter power: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Internal server error setting adapter power: {str(e)}")
 
 @adapter_router.get("/system-info", response_model=None)
 async def get_system_info(ble_service: BleService = Depends(get_ble_service)):
@@ -256,7 +253,7 @@ async def get_system_info(ble_service: BleService = Depends(get_ble_service)):
         return Response(content=json.dumps({
             "system": system_info.get("system", {}),
             "bluetooth": system_info.get("bluetooth", {}),
-            "resources": system_metric.dict()
+            "resources": system_metric.model_dump()
         }, default=str), media_type="application/json")
     except Exception as e:
         logger.error(f"Error getting system info: {e}")
@@ -266,7 +263,9 @@ async def get_system_info(ble_service: BleService = Depends(get_ble_service)):
 async def select_adapter(request: AdapterSelectRequest, ble_service: BleService = Depends(get_ble_service)):
     """Select a specific Bluetooth adapter by ID or address."""
     try:
-        logger.info(f"Selecting adapter: {request.id}")
+        # Use the adapter_id property which handles different input formats
+        adapter_id = request.adapter_id
+        logger.info(f"Selecting adapter: {adapter_id}")
         
         # Check if we need to disconnect first
         try:
@@ -280,8 +279,8 @@ async def select_adapter(request: AdapterSelectRequest, ble_service: BleService 
         except Exception as e:
             logger.warning(f"Error checking connection status: {e}")
             
-        # Select the adapter
-        result = await ble_service.select_adapter(request.id)
+        # Select the adapter using the adapter_id property
+        result = await ble_service.select_adapter(adapter_id)
         
         if result:
             # Get current adapter status

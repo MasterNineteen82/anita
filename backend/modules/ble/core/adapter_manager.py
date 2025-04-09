@@ -57,12 +57,12 @@ class BleAdapterManager:
         self._is_linux = platform.system() == "Linux"
         self._is_mac = platform.system() == "Darwin"
         
-        # Try to discover adapters on initialization
-        try:
-            self._initialization_task = asyncio.create_task(self.discover_adapters())
-        except RuntimeError:
-            # If not running in async context, we'll discover later
-            pass
+        # Try to discover adapters on initialization -- REMOVED, will discover on demand
+        # try:
+        #     self._initialization_task = asyncio.create_task(self.discover_adapters())
+        # except RuntimeError:
+        #     # If not running in async context, we'll discover later
+        #     pass
     
     async def discover_adapters(self) -> List[Dict[str, Any]]:
         """
@@ -172,30 +172,66 @@ class BleAdapterManager:
             if not self._adapters:
                 raise BleAdapterError("No Bluetooth adapters found")
             
-            # Try to select by address
-            if request.address:
-                if request.address in self._adapters:
-                    self._current_adapter = request.address
-                    adapter = self._adapters[request.address]
-                else:
-                    raise BleAdapterError(f"Adapter with address {request.address} not found")
-            # Try to select by index
-            elif request.index is not None:
-                adapter_list = list(self._adapters.values())
-                if 0 <= request.index < len(adapter_list):
-                    adapter = adapter_list[request.index]
-                    self._current_adapter = adapter["address"]
-                else:
-                    raise BleAdapterError(f"Adapter index {request.index} out of range")
+            # Try to select by ID
+            if request.id:
+                # Find adapter with matching ID or address
+                found = False
+                request_id = str(request.id).strip()
+                
+                # Handle Windows-style adapter IDs that contain backslashes
+                windows_adapter_id = None
+                if isinstance(request_id, str) and '\\' in request_id:
+                    # Windows adapter IDs often have backslashes that need to be normalized
+                    windows_adapter_id = request_id.replace('\\', '\\\\')  # Escape backslashes for regex
+                    self.logger.debug(f"Processing Windows adapter ID: {request_id}")
+                
+                for addr, adapter_data in self._adapters.items():
+                    adapter_id = adapter_data.get("id", "")
+                    # Try multiple matching methods:
+                    # 1. Exact match on ID or address
+                    # 2. Case-insensitive match
+                    # 3. For Windows adapters, match on parts of the ID
+                    if (adapter_id == request_id or 
+                        addr == request_id or
+                        (isinstance(adapter_id, str) and isinstance(request_id, str) and 
+                         adapter_id.lower() == request_id.lower()) or
+                        (windows_adapter_id and isinstance(adapter_id, str) and 
+                         re.search(windows_adapter_id, adapter_id, re.IGNORECASE))):
+                        self._current_adapter = addr
+                        adapter = adapter_data
+                        found = True
+                        self.logger.info(f"Successfully selected adapter: {adapter_id}")
+                        break
+                
+                if not found:
+                    # Try a less strict matching for Windows adapters
+                    if windows_adapter_id:
+                        # Extract the VID/PID part for less strict matching
+                        match = re.search(r'VID_([0-9A-F]{4}).*?PID_([0-9A-F]{4})', request_id, re.IGNORECASE)
+                        if match:
+                            vid, pid = match.groups()
+                            for addr, adapter_data in self._adapters.items():
+                                adapter_id = adapter_data.get("id", "")
+                                if (isinstance(adapter_id, str) and 
+                                    re.search(f'VID_{vid}.*?PID_{pid}', adapter_id, re.IGNORECASE)):
+                                    self._current_adapter = addr
+                                    adapter = adapter_data
+                                    found = True
+                                    self.logger.info(f"Selected adapter using VID/PID matching: {adapter_id}")
+                                    break
+                
+                if not found:
+                    self.logger.error(f"Adapter with ID {request_id} not found. Available adapters: {list(self._adapters.keys())}")
+                    raise BleAdapterError(f"Adapter with ID {request_id} not found")
             else:
-                # If neither address nor index provided, use current adapter
+                # If no ID provided, use current adapter
                 if not self._current_adapter:
                     # If no current adapter, use the first one
                     self._current_adapter = list(self._adapters.keys())[0]
                 adapter = self._adapters[self._current_adapter]
             
-            # Configure the adapter if needed
-            if request.power_on:
+            # Safely check power_on attribute using getattr with a default value of False
+            if getattr(request, 'power_on', False):
                 await self._power_adapter(adapter["address"], True)
             
             # Emit event
@@ -374,65 +410,188 @@ class BleAdapterManager:
         """Discover adapters on Windows."""
         adapters = []
         
+        # Method 1: Try to use Windows Management Instrumentation
         try:
-            # Try to use Windows Management Instrumentation
             import wmi
             
             try:
-                # ADD THIS: Check for admin privileges
-                import ctypes
-                is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
-                if not is_admin:
-                    self.logger.warning("Not running with administrator privileges, WMI access may be limited")
-                    
+                self.logger.info("Discovering Windows Bluetooth adapters using WMI...")
                 wmi_conn = wmi.WMI()
-                bt_devices = wmi_conn.Win32_PnPEntity(PNPClass="Bluetooth")
                 
-                for device in bt_devices:
-                    if "adapter" in device.Name.lower() or "radio" in device.Name.lower():
-                        # This is likely a Bluetooth adapter
+                # Look for Bluetooth radios first (more specific)
+                bt_radios = wmi_conn.Win32_PnPEntity(PNPClass="Bluetooth")
+                
+                for device in bt_radios:
+                    device_name = getattr(device, 'Name', 'Unknown Device')
+                    device_id = getattr(device, 'DeviceID', 'Unknown ID')
+                    
+                    # Filter to likely include only adapters/radios (not peripherals)
+                    if (("adapter" in device_name.lower() or 
+                         "radio" in device_name.lower() or
+                         "bluetooth" in device_name.lower()) and
+                        not "peripheral" in device_name.lower()):
+                        
+                        self.logger.info(f"Found Bluetooth adapter via WMI: {device_name}")
+                        
+                        # Create adapter info dict
                         adapter = {
-                            "name": device.Name,
-                            "address": device.DeviceID,
-                            "description": device.Description,
-                            "manufacturer": device.Manufacturer,
-                            "status": device.Status,
-                            "system_name": device.SystemName,
-                            "available": device.Status == "OK"  # ADD THIS: explicit availability check
+                            "id": device_id,
+                            "name": device_name,
+                            "address": device_id,  # Use DeviceID as address
+                            "description": getattr(device, 'Description', device_name),
+                            "manufacturer": getattr(device, 'Manufacturer', 'Unknown'),
+                            "status": getattr(device, 'Status', 'Unknown'),
+                            "system_name": getattr(device, 'SystemName', 'Windows'),
+                            "available": getattr(device, 'Status', '') == "OK",
+                            "source": "WMI"
                         }
                         adapters.append(adapter)
+                
+                # If no adapters found, try the network adapters class as fallback
+                if not adapters:
+                    self.logger.info("No adapters found in Bluetooth class, checking network adapters...")
+                    network_adapters = wmi_conn.Win32_NetworkAdapter()
+                    
+                    for adapter in network_adapters:
+                        adapter_name = getattr(adapter, 'Name', '')
+                        if 'bluetooth' in adapter_name.lower():
+                            device_id = getattr(adapter, 'DeviceID', 'Unknown')
+                            self.logger.info(f"Found Bluetooth adapter in network devices: {adapter_name}")
+                            
+                            adapters.append({
+                                "id": device_id,
+                                "name": adapter_name,
+                                "address": getattr(adapter, 'MACAddress', device_id),
+                                "description": f"Bluetooth Network Adapter",
+                                "manufacturer": getattr(adapter, 'Manufacturer', 'Unknown'),
+                                "available": getattr(adapter, 'Status', '') == "OK",
+                                "source": "WMI_Network"
+                            })
             except Exception as e:
-                # ADD MORE DETAILED LOGGING
                 self.logger.warning(f"Error using WMI to discover adapters: {e} ({type(e).__name__})")
-                # ADD THIS: Check for specific permission errors
                 if "access denied" in str(e).lower():
                     self.logger.error("WMI access denied. Try running with administrator privileges.")
         except ImportError:
             self.logger.warning("WMI module not available, cannot use WMI for adapter discovery")
         
-        # If WMI failed or found no adapters, fall back to bleak
+        # Method 2: Use Windows registry to find Bluetooth adapters
         if not adapters:
+            self.logger.info("Trying to discover adapters using Windows registry...")
             try:
-                # See if we can get the default adapter
-                scanner = BleakScanner()
-                bleak_adapters = getattr(scanner, "_adapter", None)
+                import winreg
                 
-                if bleak_adapters and hasattr(bleak_adapters, "interfaces"):
-                    for idx, interface in enumerate(bleak_adapters.interfaces):
-                        adapter = {
-                            "name": f"Bluetooth Adapter {idx}",
-                            "address": interface,
-                            "index": idx,
-                            "description": "Discovered via Bleak"
-                        }
-                        adapters.append(adapter)
+                # Open the Bluetooth registry key
+                try:
+                    bluetooth_key = winreg.OpenKey(
+                        winreg.HKEY_LOCAL_MACHINE,
+                        r"SYSTEM\CurrentControlSet\Services\BTHPORT\Parameters\Adapters"
+                    )
+                    
+                    # Enumerate adapter subkeys
+                    i = 0
+                    while True:
+                        try:
+                            # Get subkey name (adapter address)
+                            adapter_addr = winreg.EnumKey(bluetooth_key, i)
+                            
+                            try:
+                                # Open adapter-specific key
+                                adapter_key = winreg.OpenKey(bluetooth_key, adapter_addr)
+                                
+                                # Format MAC address in common format
+                                addr_parts = [adapter_addr[i:i+2] for i in range(0, len(adapter_addr), 2)]
+                                mac_address = ":".join(addr_parts)
+                                
+                                adapter = {
+                                    "id": adapter_addr,
+                                    "name": f"Bluetooth Adapter ({mac_address})",
+                                    "address": mac_address,
+                                    "description": "Windows Bluetooth Adapter",
+                                    "manufacturer": "Unknown (Registry)",
+                                    "available": True,  # Assume available if in registry
+                                    "source": "Registry"
+                                }
+                                adapters.append(adapter)
+                                
+                                # Close the adapter key
+                                winreg.CloseKey(adapter_key)
+                            except Exception as e:
+                                self.logger.warning(f"Error reading adapter {adapter_addr}: {e}")
+                            
+                            i += 1
+                        except OSError:
+                            # No more subkeys
+                            break
+                    
+                    # Close the Bluetooth key
+                    winreg.CloseKey(bluetooth_key)
+                except Exception as e:
+                    self.logger.warning(f"Error opening Bluetooth registry key: {e}")
+            except ImportError:
+                self.logger.warning("winreg module not available")
+        
+        # Method 3: Use bleak's internal adapter detection
+        if not adapters:
+            self.logger.info("Falling back to bleak for adapter discovery...")
+            try:
+                # Try to initialize BleakScanner to access its adapter information
+                scanner = BleakScanner()
+                
+                # For Windows, check the backend's adapter information
+                if hasattr(scanner, "_backend") and hasattr(scanner._backend, "_adapter"):
+                    bleak_adapter = scanner._backend._adapter
+                    
+                    # Try to get adapter interfaces
+                    if hasattr(bleak_adapter, "interfaces"):
+                        for idx, interface in enumerate(bleak_adapter.interfaces):
+                            self.logger.info(f"Found adapter interface via bleak: {interface}")
+                            adapter = {
+                                "id": interface,
+                                "name": f"Bluetooth Adapter {idx+1}",
+                                "address": interface,
+                                "description": "Discovered via Bleak",
+                                "manufacturer": "Unknown",
+                                "available": True,
+                                "source": "Bleak"
+                            }
+                            adapters.append(adapter)
+                elif hasattr(scanner, "_adapter"):
+                    # Older bleak versions might have _adapter directly
+                    bleak_adapters = scanner._adapter
+                    
+                    if hasattr(bleak_adapters, "interfaces"):
+                        for idx, interface in enumerate(bleak_adapters.interfaces):
+                            self.logger.info(f"Found adapter via bleak: {interface}")
+                            adapter = {
+                                "id": interface,
+                                "name": f"Bluetooth Adapter {idx+1}",
+                                "address": interface,
+                                "description": "Discovered via Bleak",
+                                "manufacturer": "Unknown",
+                                "available": True,
+                                "source": "Bleak"
+                            }
+                            adapters.append(adapter)
             except Exception as e:
                 self.logger.warning(f"Error using bleak to discover adapters: {e}")
         
-        # If still no adapters, create a default one
+        # If still no adapters found, create a default one
         if not adapters:
+            self.logger.warning("No adapters found, creating default adapter")
             adapters.append(self._create_default_adapter())
         
+        # Store adapters in our cache
+        for adapter in adapters:
+            adapter_id = adapter.get("id") or adapter.get("address")
+            if adapter_id:
+                self._adapters[adapter_id] = adapter
+                
+                # If we don't have a current adapter yet, use this one
+                if not self._current_adapter:
+                    self._current_adapter = adapter_id
+                    self.logger.info(f"Set current adapter to: {adapter_id}")
+        
+        self.logger.info(f"Discovered {len(adapters)} Windows Bluetooth adapter(s)")
         return adapters
     
     async def _discover_linux_adapters(self) -> List[Dict[str, Any]]:

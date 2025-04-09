@@ -86,7 +86,7 @@ async def unsubscribe_from_characteristic(
             raise HTTPException(status_code=400, detail="No device connected")
         
         # Set enable to false to unsubscribe
-        request_data = request.dict()
+        request_data = request.model_dump()
         request_data["enable"] = False
         unsubscribe_request = NotificationRequest(**request_data)
         
@@ -129,7 +129,7 @@ async def get_active_notifications(ble_service: BleService = Depends(get_ble_ser
             count=len(notifications)
         )
         
-        return Response(content=json.dumps(result.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(result.model_dump(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
@@ -191,7 +191,7 @@ async def get_notification_history(
             characteristic_uuid=characteristic
         )
         
-        return Response(content=json.dumps(history.dict(), default=str), media_type="application/json")
+        return Response(content=json.dumps(history.model_dump(), default=str), media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:

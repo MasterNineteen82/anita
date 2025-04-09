@@ -52,7 +52,7 @@ class SystemManager:
             return SuccessResponse(
                 status="success",
                 message="System status retrieved successfully (simulated)",
-                data=status.dict()
+                data=status.model_dump()
             )
         
         if not SYSTEM_HARDWARE_AVAILABLE:
@@ -96,7 +96,7 @@ class SystemManager:
             return SuccessResponse(
                 status="success",
                 message="System status retrieved successfully",
-                data=status.dict()
+                data=status.model_dump()
             )
                 
         except Exception as e:
@@ -125,7 +125,7 @@ class SystemManager:
                 return SuccessResponse(
                     status="success",
                     message="Configuration setting retrieved successfully (simulated)",
-                    data=cls._configuration[setting_name].dict()
+                    data=cls._configuration[setting_name].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -165,7 +165,7 @@ class SystemManager:
                 return SuccessResponse(
                     status="success",
                     message="Configuration setting retrieved successfully",
-                    data=cls._configuration[setting_name].dict()
+                    data=cls._configuration[setting_name].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -199,7 +199,7 @@ class SystemManager:
             return SuccessResponse(
                 status="success",
                 message="Configuration setting set successfully (simulated)",
-                data=setting.dict()
+                data=setting.model_dump()
             )
         
         if not SYSTEM_HARDWARE_AVAILABLE:
@@ -235,7 +235,7 @@ class SystemManager:
             return SuccessResponse(
                 status="success",
                 message="Configuration setting set successfully",
-                data=setting.dict()
+                data=setting.model_dump()
             )
                 
         except Exception as e:
@@ -264,7 +264,7 @@ class SystemManager:
             return SuccessResponse(
                 status="success",
                 message="Message logged successfully (simulated)",
-                data=log_entry.dict()
+                data=log_entry.model_dump()
             )
         
         if not SYSTEM_HARDWARE_AVAILABLE:
@@ -300,7 +300,7 @@ class SystemManager:
             return SuccessResponse(
                 status="success",
                 message="Message logged successfully",
-                data=log_entry.dict()
+                data=log_entry.model_dump()
             )
                 
         except Exception as e:

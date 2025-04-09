@@ -8,12 +8,13 @@ It coordinates the various manager classes to provide a unified interface.
 import logging
 import asyncio
 import time
-from typing import Dict, Any, List, Optional, Union, Callable
+from typing import Dict, Any, List, Optional, Union, Callable, Tuple
 
 from backend.modules.ble.utils.events import ble_event_bus
 from backend.modules.ble.utils.ble_metrics import get_metrics_collector
 from backend.modules.ble.utils.ble_recovery import get_error_recovery
 from backend.modules.ble.utils.system_monitor import get_system_monitor
+from backend.modules.ble.utils.bt_checker import BluetoothResourceManager
 from backend.modules.ble.models import (
     BLEDeviceInfo, ScanParams, ConnectionParams, CharacteristicValue, 
     ConnectionStatus, MessageType
@@ -43,40 +44,67 @@ class BleService:
             config: Configuration dictionary
         """
         self.config = config or {}
+        self._logger = logging.getLogger(__name__)
+        self._logger.info("Initializing BLE Service")
+        
+        # Check for conflicting Bluetooth applications
+        self.bt_resource_manager = BluetoothResourceManager()
+        
         try:
-            self.ble_manager = None
-            self._logger = logging.getLogger(__name__)
+            # Use adapter manager singleton
+            self.adapter_manager = get_adapter_manager()
             
-            # Initialize in safe mode to prevent crashes
+            # Initialize device manager
+            self.device_manager = get_device_manager()
+            
+            # Get metrics collector
+            self.metrics_collector = get_metrics_collector()
+            
+            # Get utility instances
+            self.error_recovery = get_error_recovery()
+            self.system_monitor = get_system_monitor()
+            
+            # Initialize state
             self._safe_mode = False
-            if not self.ble_manager:
-                self._safe_mode = True
-                self._logger.warning("BLE service initialized in safe mode (no BLE manager)")
-            else:
-                self._logger.info("BLE service initialized")
+            self._initialized = True
+            
+            # Get manager instances
+            self.service_manager = BleServiceManager()
+            self.notification_manager = BleNotificationManager()
+            
+            # Set up cross-references
+            self.notification_manager.set_service_manager(self.service_manager)
+            
+            # Set up event handlers
+            ble_event_bus.on("device_connected", self._handle_device_connected)
+            ble_event_bus.on("device_disconnected", self._handle_device_disconnected)
+            
+            self._logger.info("BLE service initialized")
         except Exception as e:
+            self._logger.warning(f"BLE service initialized in safe mode (no BLE manager): {e}")
             self._safe_mode = True
-            self._logger.error(f"Error initializing BLE service: {e}")
-        
-        # Get manager instances
-        self.adapter_manager = get_adapter_manager()
-        self.device_manager = get_device_manager()
-        self.service_manager = BleServiceManager()
-        self.notification_manager = BleNotificationManager()
-        
-        # Set up cross-references
-        self.notification_manager.set_service_manager(self.service_manager)
-        
-        # Get utility instances
-        self.metrics_collector = get_metrics_collector()
-        self.error_recovery = get_error_recovery()
-        self.system_monitor = get_system_monitor()
-        
-        # Set up event handlers
-        ble_event_bus.on("device_connected", self._handle_device_connected)
-        ble_event_bus.on("device_disconnected", self._handle_device_disconnected)
-        
-        self.logger.info("BLE service initialized")
+            self._initialized = False
+    
+    async def initialize(self):
+        """Initialize the BLE service asynchronously."""
+        if self._initialized:
+            return
+            
+        try:
+            # Check for conflicting Bluetooth applications
+            resources_available = await self.bt_resource_manager.check_and_release_adapters()
+            if not resources_available:
+                self._logger.warning("Bluetooth resources may be in use by other applications")
+                
+            # Try initialization again
+            self.adapter_manager = get_adapter_manager()
+            self.device_manager = get_device_manager()
+            self._safe_mode = False
+            self._initialized = True
+            self._logger.info("BLE service initialized")
+        except Exception as e:
+            self._logger.error(f"Failed to initialize BLE service: {e}")
+            self._safe_mode = True
     
     @property
     def logger(self):
@@ -97,7 +125,7 @@ class BleService:
         try:
             return await self.adapter_manager.discover_adapters()
         except Exception as e:
-            self.logger.error(f"Error getting adapters: {e}", exc_info=True)
+            self._logger.error(f"Error getting adapters: {e}", exc_info=True)
             raise BleAdapterError(f"Error getting adapters: {e}")
     
     async def select_adapter(self, adapter_info: Union[Dict[str, Any], str]) -> Dict[str, Any]:
@@ -115,7 +143,7 @@ class BleService:
             # Pass adapter_info directly - adapter_manager now handles string IDs
             return await self.adapter_manager.select_adapter(adapter_info)
         except Exception as e:
-            self.logger.error(f"Error selecting adapter: {e}", exc_info=True)
+            self._logger.error(f"Error selecting adapter: {e}", exc_info=True)
             raise BleAdapterError(f"Error selecting adapter: {e}")
     
     async def get_adapter_status(self) -> Dict[str, Any]:
@@ -128,7 +156,7 @@ class BleService:
         try:
             return await self.adapter_manager.get_adapter_status()
         except Exception as e:
-            self.logger.error(f"Error getting adapter status: {e}", exc_info=True)
+            self._logger.error(f"Error getting adapter status: {e}", exc_info=True)
             raise BleAdapterError(f"Error getting adapter status: {e}")
     
     async def reset_adapter(self, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -144,7 +172,7 @@ class BleService:
         try:
             return await self.adapter_manager.reset_adapter(options)
         except Exception as e:
-            self.logger.error(f"Error resetting adapter: {e}", exc_info=True)
+            self._logger.error(f"Error resetting adapter: {e}", exc_info=True)
             raise BleAdapterError(f"Error resetting adapter: {e}")
     
     async def get_adapters(self):
@@ -156,7 +184,7 @@ class BleService:
         try:
             return await self.adapter_manager.discover_adapters()
         except Exception as e:
-            self.logger.error(f"Error getting adapters: {e}")
+            self._logger.error(f"Error getting adapters: {e}")
             # Return a minimal adapter list in case of error
             import platform
             return [{
@@ -191,7 +219,7 @@ class BleService:
                 "status": "active"
             }
         except Exception as e:
-            self.logger.error(f"Error getting current adapter: {e}")
+            self._logger.error(f"Error getting current adapter: {e}")
             return {
                 "id": "unknown",
                 "name": "Unknown Adapter",
@@ -203,33 +231,69 @@ class BleService:
     # Device Discovery and Connection Methods
     # ======================================================================
     
-    async def scan_devices(self, scan_time: float = 5.0, **kwargs) -> List[Dict[str, Any]]:
-        """
-        Scan for BLE devices.
-        """
+    async def scan_devices(
+        self,
+        scan_time: float = 5.0,
+        active: bool = True,
+        name_prefix: Optional[str] = None,
+        services: Optional[List[str]] = None,
+        allow_duplicates: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Scan for BLE devices."""
         try:
-            self.logger.info(f"Scanning for devices for {scan_time} seconds...")
-            devices = await self.device_manager.scan_devices(scan_time=scan_time, **kwargs)
-            self.logger.info(f"Discovered {len(devices)} devices.")
-            return devices
+            # Use BleDeviceManager for scanning
+            return await self.device_manager.scan_devices(
+                scan_time=scan_time,
+                active=active,
+                name_prefix=name_prefix,
+                services=services,
+                allow_duplicates=allow_duplicates
+            )
         except Exception as e:
-            self.logger.error(f"Error scanning for devices: {e}", exc_info=True)
-            raise
+            self._logger.error(f"Error scanning devices: {e}", exc_info=True)
+            # Return empty list instead of raising error
+            return []
+    
+    async def get_saved_devices(self) -> List[Dict[str, Any]]:
+        """Get list of bonded/saved devices (placeholder)."""
+        try:
+            # Delegate to Device Manager
+            return await self.device_manager.get_saved_devices()
+        except Exception as e:
+            self._logger.error(f"Error getting saved devices: {e}", exc_info=True)
+            raise BleOperationError(f"Error getting saved devices: {e}")
+
+    async def get_discovered_devices(self) -> List[Dict[str, Any]]:
+        """Get list of devices discovered during the last scan."""
+        try:
+            # Return the cached devices from the device manager
+            return self.device_manager._cached_devices
+        except Exception as e:
+            self._logger.error(f"Error getting discovered devices: {e}", exc_info=True)
+            return []
+
+    async def get_connected_devices(self) -> List[str]:
+        """Get list of currently connected devices."""
+        try:
+            return self.device_manager.get_connection_status()
+        except Exception as e:
+            self._logger.error(f"Error getting connected devices: {e}", exc_info=True)
+            raise BleOperationError(f"Error getting connected devices: {e}")
     
     async def connect_device(self, address: str, **kwargs) -> Dict[str, Any]:
         """
         Connect to a BLE device.
         """
         try:
-            self.logger.info(f"Connecting to device: {address}")
+            self._logger.info(f"Connecting to device: {address}")
             result = await self.device_manager.connect_device(address)
             if result:
-                self.logger.info(f"Successfully connected to {address}")
+                self._logger.info(f"Successfully connected to {address}")
                 return {"status": "connected", "address": address}
             else:
                 raise BleConnectionError(f"Failed to connect to {address}")
         except Exception as e:
-            self.logger.error(f"Error connecting to device: {e}", exc_info=True)
+            self._logger.error(f"Error connecting to device: {e}", exc_info=True)
             raise BleConnectionError(f"Error connecting to device: {e}")
     
     async def disconnect_device(self, address: str) -> Dict[str, Any]:
@@ -237,42 +301,16 @@ class BleService:
         Disconnect from a BLE device.
         """
         try:
-            self.logger.info(f"Disconnecting from device: {address}")
+            self._logger.info(f"Disconnecting from device: {address}")
             result = await self.device_manager.disconnect_device(address)
             if result:
-                self.logger.info(f"Successfully disconnected from {address}")
+                self._logger.info(f"Successfully disconnected from {address}")
                 return {"status": "disconnected", "address": address}
             else:
                 raise BleConnectionError(f"Failed to disconnect from {address}")
         except Exception as e:
-            self.logger.error(f"Error disconnecting from device: {e}", exc_info=True)
+            self._logger.error(f"Error disconnecting from device: {e}", exc_info=True)
             raise BleConnectionError(f"Error disconnecting from device: {e}")
-    
-    async def get_connected_devices(self) -> Dict[str, Any]:
-        """
-        Get list of currently connected devices.
-        
-        Returns:
-            Dictionary with connected devices
-        """
-        try:
-            return self.device_manager.get_connection_status()
-        except Exception as e:
-            self.logger.error(f"Error getting connected devices: {e}", exc_info=True)
-            raise BleOperationError(f"Error getting connected devices: {e}")
-    
-    async def get_saved_devices(self) -> List[Dict[str, Any]]:
-        """
-        Get list of previously saved/bonded devices.
-        
-        Returns:
-            List of saved devices
-        """
-        try:
-            return await self.device_manager.get_saved_devices()
-        except Exception as e:
-            self.logger.error(f"Error getting saved devices: {e}", exc_info=True)
-            raise BleOperationError(f"Error getting saved devices: {e}")
     
     async def remove_saved_device(self, address: str) -> bool:
         """
@@ -287,7 +325,7 @@ class BleService:
         try:
             return await self.device_manager.remove_saved_device(address)
         except Exception as e:
-            self.logger.error(f"Error removing saved device: {e}", exc_info=True)
+            self._logger.error(f"Error removing saved device: {e}", exc_info=True)
             raise BleOperationError(f"Error removing saved device: {e}")
     
     async def stop_scan(self):
@@ -327,13 +365,31 @@ class BleService:
                         "timestamp": int(time.time() * 1000)
                     }
         except Exception as e:
-            self.logger.error(f"Error stopping scan: {e}", exc_info=True)
+            self._logger.error(f"Error stopping scan: {e}", exc_info=True)
             return {
                 "status": "error",
                 "message": f"Failed to stop scan: {str(e)}",
                 "timestamp": int(time.time() * 1000)
             }
     
+    async def is_connected(self) -> Tuple[bool, Optional[str]]:
+        """Check if currently connected to a device.
+
+        Returns:
+            Tuple[bool, Optional[str]]: (connection_status, connected_device_address)
+        """
+        try:
+            connected_devices = self.device_manager.get_connected_devices()
+            if connected_devices:
+                # Assuming only one connection is managed at a time for now
+                return True, connected_devices[0]
+            else:
+                return False, None
+        except Exception as e:
+            self._logger.error(f"Error checking connection status: {e}", exc_info=True)
+            # Return False in case of error, maybe raise specific exception?
+            return False, None
+
     # ======================================================================
     # GATT Service and Characteristic Methods
     # ======================================================================
@@ -348,7 +404,7 @@ class BleService:
         try:
             return await self.service_manager.get_services()
         except Exception as e:
-            self.logger.error(f"Error getting services: {e}", exc_info=True)
+            self._logger.error(f"Error getting services: {e}", exc_info=True)
             raise BleServiceError(f"Error getting services: {e}")
     
     async def get_characteristics(self, service_uuid: str) -> List[Dict[str, Any]]:
@@ -364,7 +420,7 @@ class BleService:
         try:
             return await self.service_manager.get_characteristics(service_uuid)
         except Exception as e:
-            self.logger.error(f"Error getting characteristics: {e}", exc_info=True)
+            self._logger.error(f"Error getting characteristics: {e}", exc_info=True)
             raise BleServiceError(f"Error getting characteristics: {e}")
     
     async def read_characteristic(self, characteristic_uuid: str) -> Dict[str, Any]:
@@ -379,9 +435,9 @@ class BleService:
         """
         try:
             value = await self.service_manager.read_characteristic(characteristic_uuid)
-            return value.dict()
+            return value.model_dump()
         except Exception as e:
-            self.logger.error(f"Error reading characteristic: {e}", exc_info=True)
+            self._logger.error(f"Error reading characteristic: {e}", exc_info=True)
             
             # Try to recover
             await self.error_recovery.recover_from_error(
@@ -419,7 +475,7 @@ class BleService:
                 response=response
             )
         except Exception as e:
-            self.logger.error(f"Error writing characteristic: {e}", exc_info=True)
+            self._logger.error(f"Error writing characteristic: {e}", exc_info=True)
             
             # Try to recover
             await self.error_recovery.recover_from_error(
@@ -454,7 +510,7 @@ class BleService:
                 characteristic_uuid, enable
             )
         except Exception as e:
-            self.logger.error(f"Error subscribing to notifications: {e}", exc_info=True)
+            self._logger.error(f"Error subscribing to notifications: {e}", exc_info=True)
             
             # Try to recover
             await self.error_recovery.recover_from_error(
@@ -489,7 +545,7 @@ class BleService:
                 characteristic_uuid, limit
             )
         except Exception as e:
-            self.logger.error(f"Error getting notification history: {e}", exc_info=True)
+            self._logger.error(f"Error getting notification history: {e}", exc_info=True)
             raise BleOperationError(f"Error getting notification history: {e}")
     
     async def clear_notification_history(
@@ -505,7 +561,7 @@ class BleService:
         try:
             self.notification_manager.clear_notification_history(characteristic_uuid)
         except Exception as e:
-            self.logger.error(f"Error clearing notification history: {e}", exc_info=True)
+            self._logger.error(f"Error clearing notification history: {e}", exc_info=True)
             raise BleOperationError(f"Error clearing notification history: {e}")
     
     # ======================================================================
@@ -539,7 +595,7 @@ class BleService:
             
             return health_report
         except Exception as e:
-            self.logger.error(f"Error getting system health: {e}", exc_info=True)
+            self._logger.error(f"Error getting system health: {e}", exc_info=True)
             raise BleOperationError(f"Error getting system health: {e}")
     
     async def diagnose_connection_issues(
@@ -558,7 +614,7 @@ class BleService:
         try:
             return await self.error_recovery.diagnose_connection_issues(device_address)
         except Exception as e:
-            self.logger.error(f"Error diagnosing connection issues: {e}", exc_info=True)
+            self._logger.error(f"Error diagnosing connection issues: {e}", exc_info=True)
             raise BleOperationError(f"Error diagnosing connection issues: {e}")
     
     async def perform_automatic_recovery(
@@ -583,7 +639,7 @@ class BleService:
                 error_type, device_address, error_details
             )
         except Exception as e:
-            self.logger.error(f"Error performing recovery: {e}", exc_info=True)
+            self._logger.error(f"Error performing recovery: {e}", exc_info=True)
             raise BleOperationError(f"Error performing recovery: {e}")
     
     # ======================================================================
@@ -619,9 +675,9 @@ class BleService:
             # Clear notification subscriptions
             await self.notification_manager.clear_all_subscriptions()
             
-            self.logger.info("BLE service cleaned up")
+            self._logger.info("BLE service cleaned up")
         except Exception as e:
-            self.logger.error(f"Error cleaning up BLE service: {e}", exc_info=True)
+            self._logger.error(f"Error cleaning up BLE service: {e}", exc_info=True)
 
 # Singleton instance (to be initialized on first use)
 _ble_service = None

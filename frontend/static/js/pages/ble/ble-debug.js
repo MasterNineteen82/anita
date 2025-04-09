@@ -213,7 +213,7 @@ export class BleDebug {
         // Check API status
         if (this.elements.debugApiStatus) {
             try {
-                const response = await fetch('/api/ble/adapters').catch(() => null);
+                const response = await fetch('/api/ble/adapter/adapters').catch(() => null);
                 const apiStatus = response?.ok ? 'Available' : 'Unavailable';
                 this.elements.debugApiStatus.textContent = apiStatus;
                 this.elements.debugApiStatus.classList.add(response?.ok ? 'text-green-400' : 'text-red-400');
@@ -473,9 +473,9 @@ export class BleDebug {
      */
     async testApiEndpoints() {
         const endpoints = [
-            '/api/ble/adapter-info',
+            '/api/ble/adapter/adapters',
             '/api/ble/adapter/info',
-            '/api/ble/adapters'
+            '/api/ble/adapter/health'
         ];
         
         const results = {};
@@ -885,10 +885,10 @@ export class BleDebug {
                 }
                 
                 const isConnected = window.bleWebSocket.isConnected;
-                const readyState = window.bleWebSocket.socket ? window.bleWebSocket.socket.readyState : -1;
-                const readyStateText = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][readyState] || 'UNKNOWN';
+                const readyState = window.bleWebSocket.socket ? 
+                    ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][window.bleWebSocket.socket.readyState] : 'Unknown';
                 
-                statusEl.textContent = `${isConnected ? 'Connected' : 'Disconnected'} (${readyStateText})`;
+                statusEl.textContent = `${isConnected ? 'Connected' : 'Disconnected'} (${readyState})`;
                 statusEl.className = `bg-gray-700 p-2 rounded ${isConnected ? 'text-green-400' : 'text-red-400'}`;
             };
             

@@ -135,7 +135,7 @@ class TaskScheduler:
                 return SuccessResponse(
                     status="success",
                     message="Task status retrieved successfully (simulated)",
-                    data=cls._scheduled_tasks[task_id].dict()
+                    data=cls._scheduled_tasks[task_id].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -176,7 +176,7 @@ class TaskScheduler:
                 return SuccessResponse(
                     status="success",
                     message="Task status retrieved successfully",
-                    data=cls._scheduled_tasks[task_id].dict()
+                    data=cls._scheduled_tasks[task_id].model_dump()
                 )
             else:
                 return ErrorResponse(

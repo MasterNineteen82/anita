@@ -122,7 +122,7 @@ class PalmRecognitionManager:
             return SuccessResponse(
                 status="success",
                 message="Palm recognition authentication successful.",
-                data=match_result.dict()
+                data=match_result.model_dump()
             )
 
         except Exception as e:

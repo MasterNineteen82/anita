@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from backend.ws.manager import manager
 from backend.ws.events import create_event, DeviceStatus
 from backend.logging.logging_config import setup_logging
-from backend.modules.ble.ble_manager import BLEManager  # Import for BLEDeviceMonitor
+from backend.modules.ble.ble_manager import BleDeviceManager  # Import for BLEDeviceMonitor
 
 # Set up logging
 logger = setup_logging()
@@ -246,7 +246,7 @@ class HardwareMonitor(Monitor[Dict[str, Dict[str, Any]]]):
 class BLEDeviceMonitor(Monitor[List[Dict[str, Any]]]):
     """Monitors BLE devices in real-time."""
     
-    def __init__(self, ble_service: BLEManager, interval: float = 5.0):
+    def __init__(self, ble_service: BleDeviceManager, interval: float = 5.0):
         super().__init__(name="ble_device_monitor", interval=interval)
         self.ble_service = ble_service
         self.tracked_devices: Set[str] = set()
@@ -323,7 +323,7 @@ monitoring_manager = MonitoringManager()
 device_monitor = DeviceMonitor()
 system_heartbeat = SystemHeartbeatMonitor()
 hardware_monitor = HardwareMonitor()
-ble_service = BLEManager(logger=logger)
+ble_service = BleDeviceManager() # Instantiate without logger argument
 ble_monitor = BLEDeviceMonitor(ble_service)
 
 # Register monitors

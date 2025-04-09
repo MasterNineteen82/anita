@@ -129,7 +129,7 @@ class TaskManager:
                 return SuccessResponse(
                     status="success",
                     message="Task status retrieved successfully (simulated)",
-                    data=cls._tasks[task_id].dict()
+                    data=cls._tasks[task_id].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -170,7 +170,7 @@ class TaskManager:
                 return SuccessResponse(
                     status="success",
                     message="Task status retrieved successfully",
-                    data=cls._tasks[task_id].dict()
+                    data=cls._tasks[task_id].model_dump()
                 )
             else:
                 return ErrorResponse(

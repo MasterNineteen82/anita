@@ -131,7 +131,7 @@ class AlertManager:
                 return SuccessResponse(
                     status="success",
                     message="Alert status retrieved successfully (simulated)",
-                    data=cls._alerts[alert_id].dict()
+                    data=cls._alerts[alert_id].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -172,7 +172,7 @@ class AlertManager:
                 return SuccessResponse(
                     status="success",
                     message="Alert status retrieved successfully",
-                    data=cls._alerts[alert_id].dict()
+                    data=cls._alerts[alert_id].model_dump()
                 )
             else:
                 return ErrorResponse(

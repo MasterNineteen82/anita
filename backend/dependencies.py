@@ -27,16 +27,7 @@ def get_adapter_manager() -> BleAdapterManager:
         logger.info("Initializing BLE Adapter Manager")
         _adapter_manager = BleAdapterManager()
         
-        # Create a task to initialize adapters if needed
-        # This fixes the "coroutine never awaited" warning
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(_adapter_manager.discover_adapters())
-        except RuntimeError:
-            # Ignore if no event loop is available, manager will initialize on demand
-            pass
+        # Create a task to initialize adapters if needed -- REMOVED AS MANAGER INIT HANDLES THIS
     return _adapter_manager
 
 def get_device_manager() -> BleDeviceManager:

@@ -46,7 +46,7 @@ class SettingsManager:
                 return SuccessResponse(
                     status="success",
                     message="Setting retrieved successfully (simulated)",
-                    data=cls._settings[setting_name].dict()
+                    data=cls._settings[setting_name].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -87,7 +87,7 @@ class SettingsManager:
                 return SuccessResponse(
                     status="success",
                     message="Setting retrieved successfully",
-                    data=cls._settings[setting_name].dict()
+                    data=cls._settings[setting_name].model_dump()
                 )
             else:
                 return ErrorResponse(

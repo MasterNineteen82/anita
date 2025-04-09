@@ -121,14 +121,39 @@ export class BleAdapter {
     updateAdapterInfoUI(adapter) {
         if (!adapter) return;
         
-        // Update UI fields
+        console.log('Updating adapter UI with data:', adapter);
+        
+        // Format address for display - if it's a USB path, make it more readable
+        let displayAddress = adapter.address || adapter.id || 'Unknown';
+        // If we have a USB path, extract the important parts
+        if (displayAddress.startsWith('USB\\')) {
+            // Try to extract a MAC-like address if it exists at the end
+            const macMatch = displayAddress.match(/([0-9A-F]{12})$/i);
+            if (macMatch) {
+                // Format as a MAC address with colons
+                const mac = macMatch[1];
+                displayAddress = mac.replace(/(.{2})(?=.)/g, '$1:');
+            } else {
+                // Otherwise just clean up the path a bit
+                displayAddress = displayAddress.replace(/\\/g, '→');
+            }
+        }
+        
+        // Create a detailed description combining multiple fields
+        const detailFields = [];
+        if (adapter.manufacturer) detailFields.push(adapter.manufacturer);
+        if (adapter.description && adapter.description !== adapter.name) detailFields.push(adapter.description);
+        if (adapter.platform) detailFields.push(`Platform: ${adapter.platform}`);
+        const detailedDescription = detailFields.join(' • ');
+        
+        // Update UI fields with enhanced information
         const fields = {
-            'adapter-name': adapter.name || 'Unknown',
-            'adapter-address': adapter.address || 'Unknown',
-            'adapter-type': adapter.type || 'Unknown',
-            'adapter-status-text': adapter.available ? 'Available' : 'Unavailable',
+            'adapter-name': adapter.name || adapter.id || 'Unknown',
+            'adapter-address': displayAddress,
+            'adapter-type': adapter.type || adapter.system || 'Bluetooth',
+            'adapter-status-text': adapter.status || (adapter.available ? 'Available' : 'Unavailable'),
             'adapter-manufacturer': adapter.manufacturer || 'Unknown',
-            'adapter-platform': adapter.platform || 'Unknown'
+            'adapter-platform': detailedDescription || adapter.platform || adapter.system || 'Unknown'
         };
         
         Object.entries(fields).forEach(([id, value]) => {
@@ -139,7 +164,7 @@ export class BleAdapter {
         // Update status color
         const statusElement = document.getElementById('adapter-status-text');
         if (statusElement) {
-            if (adapter.available) {
+            if (adapter.available || adapter.status === 'active' || adapter.status === 'available' || adapter.status === 'OK') {
                 statusElement.className = 'bg-gray-700 border border-gray-600 text-green-400 rounded py-2 px-3';
             } else {
                 statusElement.className = 'bg-gray-700 border border-gray-600 text-red-400 rounded py-2 px-3';
@@ -195,41 +220,29 @@ export class BleAdapter {
      * Select an adapter by ID
      */
     async selectAdapter(adapterId) {
-        this.logger.log('Selecting adapter:', adapterId);
-        
-        if (!adapterId) {
-            this.logger.error('No adapter ID provided');
-            return false;
-        }
-
         try {
-            // Select adapter using API client (uses correct format)
-            const result = await this.apiClient.selectAdapter(adapterId);
+            if (!adapterId) {
+                this.logger.warn("No adapter ID provided");
+                return false;
+            }
             
-            if (result.status === "success" || result.selected) {
-                this.selectedAdapterId = adapterId;
-                this.logger.log(`Adapter selected: ${adapterId}`);
-                
-                // Find the selected adapter and update UI
-                const selectedAdapter = this.adapters.find(a => a.address === adapterId);
-                if (selectedAdapter) {
-                    this.updateAdapterInfoUI(selectedAdapter);
-                }
-                
-                // Emit event
-                if (this.events.emit) {
-                    this.events.emit('adapter_selected', { 
-                        adapter: selectedAdapter || { address: adapterId } 
-                    });
-                }
-                
+            this.logger.info(`Selecting adapter: ${adapterId}`);
+            
+            // Make sure to include the proper id parameter as required by the backend
+            const response = await this.apiClient.selectAdapter({ id: adapterId });
+            
+            if (response && response.success) {
+                this.currentAdapter = response.adapter || { id: adapterId };
+                this.logger.info(`Adapter selected successfully: ${adapterId}`);
+                BleEvents.emit(BLE_EVENTS.ADAPTER_SELECTED, this.currentAdapter);
                 return true;
             } else {
-                this.logger.error('Failed to select adapter:', result);
+                const errorMessage = (response && response.error) || "Unknown error selecting adapter";
+                this.logger.error(`Failed to select adapter: ${errorMessage}`);
                 return false;
             }
         } catch (error) {
-            this.logger.error('Error selecting adapter:', error);
+            this.logger.error(`Error selecting adapter: ${error.message || error}`);
             return false;
         }
     }

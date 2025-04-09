@@ -48,7 +48,7 @@ class NotificationManager:
             return SuccessResponse(
                 status="success",
                 message="Notification sent successfully (simulated)",
-                data=notification.dict()
+                data=notification.model_dump()
             )
         
         if not NOTIFICATION_SERVICE_AVAILABLE:
@@ -87,7 +87,7 @@ class NotificationManager:
             return SuccessResponse(
                 status="success",
                 message="Notification sent successfully",
-                data=notification.dict()
+                data=notification.model_dump()
             )
                 
         except Exception as e:
@@ -118,7 +118,7 @@ class NotificationManager:
                     return SuccessResponse(
                         status="success",
                         message="Notification retrieved successfully (simulated)",
-                        data=notification.dict()
+                        data=notification.model_dump()
                     )
             return ErrorResponse(
                 status="error",
@@ -159,7 +159,7 @@ class NotificationManager:
                     return SuccessResponse(
                         status="success",
                         message="Notification retrieved successfully",
-                        data=notification.dict()
+                        data=notification.model_dump()
                     )
             return ErrorResponse(
                 status="error",

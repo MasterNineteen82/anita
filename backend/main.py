@@ -13,7 +13,8 @@ from backend.routes.api import (
     hardware_routes, mifare_routes, mqtt_routes, nfc_routes, rfid_routes,
     security_routes, smartcard_routes, system_routes, uwb_routes
 )
-# Remove direct import of ble_routes here
+from backend.routes.api.ble import adapter_routes as ble_adapter_routes
+from backend.routes.api.ble import device_routes as ble_device_routes
 from backend.routes.api.monitoring_router import router as monitoring_router
 from backend.logging.logging_config import setup_logging
 from backend.modules.monitors import setup_monitoring, monitoring_manager
@@ -40,12 +41,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files
-base_dir = os.path.dirname(os.path.abspath(__file__))
-app.mount("/static", StaticFiles(directory=os.path.join(base_dir, "frontend", "static")), name="static")
+# Define project root directory (one level up from backend)
+base_dir = os.path.dirname(os.path.abspath(__file__)) # k:\anita\poc\backend
+project_root = os.path.dirname(base_dir) # k:\anita\poc
 
-# Setup templates
-templates = Jinja2Templates(directory=os.path.join(base_dir, "frontend", "templates"))
+# Mount static files relative to project root
+static_dir = os.path.join(project_root, "frontend", "static")
+if not os.path.exists(static_dir):
+    logger.warning(f"Static directory not found at {static_dir}. Frontend static files may not be served.")
+    # Optionally create the directory if needed, or handle differently
+    # os.makedirs(static_dir, exist_ok=True)
+else:
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# Setup templates relative to project root
+templates_dir = os.path.join(project_root, "frontend", "templates")
+if not os.path.exists(templates_dir):
+    logger.error(f"Templates directory not found at {templates_dir}. Cannot serve frontend.")
+    # Decide how to handle this - maybe raise an error or proceed without templates?
+    templates = None # Indicate templates are not available
+else:
+    templates = Jinja2Templates(directory=templates_dir)
+    logger.info(f"Using template directory: {templates_dir}")
+
+# --- Health Check Endpoint ---
+@app.get("/health", tags=["System"])
+async def health_check():
+    return {"status": "ok"}
 
 # Include non-BLE routers first
 routers = {
@@ -69,32 +91,19 @@ routers = {
 for name, router in routers.items():
     app.include_router(router, prefix="/api" if not router.prefix else "", tags=[name.capitalize()])
 
+# Include BLE routers directly
+app.include_router(ble_adapter_routes.router, prefix="/api/ble/adapter", tags=["BLE Adapter"])
+app.include_router(ble_device_routes.router, prefix="/api/ble/device", tags=["BLE Device"])
+logger.info("BLE routes registered successfully")
+
 # Setup monitoring
 setup_monitoring(app)
 
-# Modify the startup event to check if the BLE router is already registered
+# Modify the startup event to remove BLE initialization
 @app.on_event("startup")
 async def startup_event():
-    # Only initialize BLE module if not already initialized in app.py
-    if not any(route.path.startswith("/api/ble") for route in app.routes if hasattr(route, "path")):
-        try:
-            # Import BLE components only at startup time
-            from backend.routes.api import ble_routes
-            from backend.modules.ble.api.ble_routes import router as ble_router
-            
-            # Register BLE router with proper error handling
-            app.include_router(
-                ble_router, 
-                prefix="/api" if not ble_router.prefix else "", 
-                tags=["BLE"]
-            )
-            
-            logger.info("BLE module initialized successfully")
-            
-        except Exception as ble_error:
-            logger.error(f"Failed to initialize BLE module: {ble_error}", exc_info=True)
-            logger.warning("Application will continue without BLE functionality")
-
+    # Startup logic previously here (like dynamic BLE loading) is removed
+    # Add any other necessary startup logic here
     logger.info("Application startup complete")
 
 @app.on_event("shutdown")
@@ -107,12 +116,16 @@ async def shutdown_event():
 
 # Frontend routes
 @app.get("/", response_class=HTMLResponse)
-async def root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+async def read_root(request: Request):
+    if not templates:
+        return HTMLResponse("<html><body>Templates directory not found. Cannot render page.</body></html>", status_code=500)
+    return templates.TemplateResponse(request, "index.html", {})
 
 @app.get("/ble", response_class=HTMLResponse)
-async def ble_page(request: Request):
-    return templates.TemplateResponse("ble.html", {"request": request})
+async def read_ble(request: Request):
+    if not templates:
+        return HTMLResponse("<html><body>Templates directory not found. Cannot render page.</body></html>", status_code=500)
+    return templates.TemplateResponse(request, "ble.html", {})
 
 # Add other frontend routes as needed (e.g., /smartcard, /nfc, etc.)
 

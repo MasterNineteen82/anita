@@ -232,7 +232,7 @@ class BleNotificationManager:
             # Create event object
             event = {
                 "timestamp": timestamp,
-                "value": char_value.dict()
+                "value": char_value.model_dump()
             }
             
             # Store in history
@@ -245,21 +245,21 @@ class BleNotificationManager:
             notification_message = {
                 "type": MessageType.NOTIFICATION,
                 "characteristic": characteristic_uuid,
-                "value": char_value.dict(),
+                "value": char_value.model_dump(),
                 "timestamp": timestamp
             }
             
             # Use the broadcast function from comms package
             await broadcast_message(MessageType.NOTIFICATION, {
                 "characteristic": characteristic_uuid,
-                "value": char_value.dict(),
+                "value": char_value.model_dump(),
                 "timestamp": timestamp
             })
             
             # Emit event
             ble_event_bus.emit("notification_received", {
                 "uuid": characteristic_uuid,
-                "value": char_value.dict(),
+                "value": char_value.model_dump(),
                 "timestamp": timestamp
             })
         except Exception as e:

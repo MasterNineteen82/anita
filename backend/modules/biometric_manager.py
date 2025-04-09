@@ -46,7 +46,7 @@ class BiometricManager:
                 return SuccessResponse(
                     status="success",
                     message="Biometric authentication successful (simulated)",
-                    data=match_result.dict()
+                    data=match_result.model_dump()
                 )
             else:
                 # Simulate a failed match due to invalid data
@@ -91,7 +91,7 @@ class BiometricManager:
                 return SuccessResponse(
                     status="success",
                     message="Biometric authentication successful",
-                    data=match_result.dict()
+                    data=match_result.model_dump()
                 )
             else:
                 return ErrorResponse(

@@ -80,7 +80,7 @@ class IrisManager:
             return SuccessResponse(
                 status="success",
                 message="Iris scan verified successfully.",
-                data=match_result.dict()
+                data=match_result.model_dump()
             )
         else:
             logger.error(f"Iris scan verification failed for user {user_id}.")
@@ -88,7 +88,7 @@ class IrisManager:
             return ErrorResponse(  # Changed to ErrorResponse
                 status="error",
                 message="Iris scan verification failed.",
-                data=match_result.dict()
+                data=match_result.model_dump()
             )
 
     async def delete(self, user_id: str) -> SuccessResponse:

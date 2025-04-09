@@ -57,7 +57,7 @@ class AuthManager:
                 return SuccessResponse(
                     status="success",
                     message="Authentication successful (simulated)",
-                    data=session.dict()
+                    data=session.model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -107,7 +107,7 @@ class AuthManager:
                 return SuccessResponse(
                     status="success",
                     message="Authentication successful",
-                    data=session.dict()
+                    data=session.model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -234,7 +234,7 @@ class AuthManager:
                 return SuccessResponse(
                     status="success",
                     message="Session retrieved successfully (simulated)",
-                    data=cls._sessions[session_id].dict()
+                    data=cls._sessions[session_id].model_dump()
                 )
             else:
                 return ErrorResponse(
@@ -275,7 +275,7 @@ class AuthManager:
                 return SuccessResponse(
                     status="success",
                     message="Session retrieved successfully",
-                    data=cls._sessions[session_id].dict()
+                    data=cls._sessions[session_id].model_dump()
                 )
             else:
                 return ErrorResponse(

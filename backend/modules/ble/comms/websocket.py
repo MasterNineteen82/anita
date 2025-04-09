@@ -415,7 +415,7 @@ class BleWebSocketManager:
         
         # Convert Pydantic models to dict if needed
         if hasattr(message, "dict"):
-            message = message.dict()
+            message = message.model_dump()
             
         disconnected = set()
         for connection in self.active_connections:
@@ -434,7 +434,7 @@ class BleWebSocketManager:
         try:
             # Convert Pydantic models to dict if needed
             if hasattr(message, "dict"):
-                message = message.dict()
+                message = message.model_dump()
                 
             await websocket.send_json(message)
         except Exception as e:
@@ -529,7 +529,7 @@ class BleWebSocketManager:
                             serialized_devices.append(device)
                         else:
                             # Convert BLEDeviceInfo or similar object to dict
-                            serialized_devices.append(device.dict())
+                            serialized_devices.append(device.model_dump())
                     except Exception as e:
                         logger.error(f"Error serializing device: {e}")
                         # Try a basic conversion
@@ -617,7 +617,7 @@ class BleWebSocketManager:
                 error=result.get("error")
             )
             
-            return connect_result.dict()
+            return connect_result.model_dump()
         except Exception as e:
             logger.error(f"Error connecting to device: {e}")
             return {
@@ -785,7 +785,7 @@ class BleWebSocketManager:
             return {
                 "type": MessageType.READ_RESULT,
                 "characteristic_uuid": char_uuid,
-                "value": char_value.dict()
+                "value": char_value.model_dump()
             }
         except Exception as e:
             logger.error(f"Error reading characteristic: {e}")
@@ -1074,7 +1074,7 @@ class BleWebSocketManager:
             type=MessageType.PONG,
             timestamp=data.get("timestamp", int(time.time() * 1000))
         )
-        return pong.dict()
+        return pong.model_dump()
 
     async def send_adapter_status(websocket, ble_service):
         """Send current adapter status to the client."""
@@ -1116,3 +1116,4 @@ class BleWebSocketManager:
 
 # Create a singleton instance
 websocket_manager = BleWebSocketManager()
+

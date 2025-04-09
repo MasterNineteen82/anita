@@ -4,6 +4,12 @@
  */
 export class BleApiMock {
     constructor() {
+        // Check if mocking should be disabled
+        if (window.DISABLE_BLE_MOCK === true) {
+            console.log('BLE API Mock disabled by global flag');
+            return; // Exit constructor early, don't set up mock data or interceptor
+        }
+        
         this.mockDevices = [
             {
                 address: "00:11:22:33:44:55",
@@ -55,18 +61,27 @@ export class BleApiMock {
         this.scanTimeoutId = null;
         
         // Initialize the interceptor
-        this.setupFetchInterceptor();
+        this.installFetchInterceptor();
     }
     
     /**
-     * Set up fetch interceptor to handle API requests
+     * Install fetch interceptor to mock API responses
      */
-    setupFetchInterceptor() {
-        const originalFetch = window.fetch;
+    installFetchInterceptor() {
+        // Check if mocking should be disabled
+        if (window.DISABLE_BLE_MOCK === true) {
+            console.log('BLE API Mock interceptor disabled by global flag');
+            return; // Don't install interceptor
+        }
+
         const self = this;
+        const originalFetch = window.fetch;
         
-        window.fetch = function(url, options = {}) {
-            // Check if this is a BLE API request
+        window.fetch = function(...args) {
+            const url = args[0];
+            const options = args[1] || {};
+            
+            // Only intercept BLE API calls
             if (typeof url === 'string' && url.includes('/api/ble/')) {
                 return self.handleApiRequest(url, options);
             }

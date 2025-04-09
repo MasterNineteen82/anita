@@ -46,7 +46,7 @@ class BiometricFusionManager:
                 return SuccessResponse(
                     status="success",
                     message="Biometric fusion successful (simulated)",
-                    data=match_result.dict()
+                    data=match_result.model_dump()
                 )
             else:
                 # Simulate a failed match due to insufficient inputs
@@ -91,7 +91,7 @@ class BiometricFusionManager:
                 return SuccessResponse(
                     status="success",
                     message="Biometric fusion successful",
-                    data=match_result.dict()
+                    data=match_result.model_dump()
                 )
             else:
                 return ErrorResponse(

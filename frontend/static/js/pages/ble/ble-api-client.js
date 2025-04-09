@@ -5,7 +5,7 @@
 export class BleApiClient {
     constructor(options = {}) {
         this.baseUrl = options.baseUrl || '/api/ble';
-        this.mockFallback = options.mockFallback !== false;
+        this.mockFallback = options.mockFallback === true; // Default to false unless explicitly true
         this.logger = options.logger || console;
         this.debug = options.debug || false;
     }
@@ -35,7 +35,9 @@ export class BleApiClient {
         }
         
         try {
-            const response = await fetch(url, requestOptions);
+            // Always use the original fetch function to bypass mock interceptors
+            const originalFetch = window.originalFetch || window.fetch;
+            const response = await originalFetch(url, requestOptions);
             
             if (!response.ok) {
                 const errorText = await response.text();
@@ -53,6 +55,8 @@ export class BleApiClient {
             }
         } catch (error) {
             this.logger.error(`BLE API Error: ${error.message}`);
+            
+            // Never use mock fallback, always throw the real error
             throw error;
         }
     }
@@ -98,7 +102,7 @@ export class BleApiClient {
             // Use the correct request format expected by the backend
             return await this.request('/adapter/select', {
                 method: 'POST',
-                body: { id: adapterId } // IMPORTANT: Use 'id', not 'adapter_id'
+                body: { id: adapterId } // IMPORTANT: Use 'id', not 'adapter_id' or 'address'
             });
         } catch (error) {
             if (this.mockFallback) {
@@ -197,7 +201,7 @@ export class BleApiClient {
 // Create a singleton instance for use throughout the application
 export const bleApiClient = new BleApiClient({
     debug: window.BLE_DEBUG || false,
-    mockFallback: true,
+    mockFallback: false,
     logger: window.BleLogger || console
 });
 

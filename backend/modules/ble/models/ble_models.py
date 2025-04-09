@@ -10,7 +10,7 @@ This module contains Pydantic models for BLE operations, including:
 """
 
 from typing import Dict, List, Optional, Any, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from enum import Enum, auto
 import time
 
@@ -143,18 +143,18 @@ class BleAdapter(BaseModel):
 # ============================================================================
 
 class ScanParams(BaseModel):
-    scan_time: Optional[float] = 5.0  # This is the field name to use
+    """Parameters for BLE device scanning."""
+    scan_time: Optional[float] = 5.0  
     active: bool = True
     service_uuids: Optional[List[str]] = []
     mock: Optional[bool] = None
     real_scan: Optional[bool] = False
-    
+
     # Add this for backward compatibility
     @property
     def timeout(self) -> float:
         """For backwards compatibility with code using timeout."""
-        return self.scan_time
-
+        return self.scan_time if self.scan_time is not None else 5.0
 
 class CharacteristicParams(BaseModel):
     """BLE characteristic parameters model."""
@@ -597,8 +597,9 @@ class DeviceBondRequest(BaseModel):
 class ScanParams(BaseModel):
     """Parameters for BLE device scanning."""
     scan_time: float = Field(5.0, description="Duration to scan in seconds")
-    scanTime: Optional[float] = Field(None, description="Duration to scan in seconds (camelCase version)")
+    scanTime: Optional[float] = Field(None, description="Duration to scan in seconds (camelCase version)") # Alias for compatibility
     active: bool = Field(True, description="Whether to use active scanning")
+    name_prefix: Optional[str] = Field(None, description="Filter devices by name prefix") # Added field
     service_uuids: Optional[List[str]] = None
     mock: Optional[bool] = Field(None, description="If False, attempt real scanning")
     real_scan: Optional[bool] = Field(False, description="Force real device scanning")
@@ -707,7 +708,23 @@ class AdapterResetRequest(BaseModel):
 
 class AdapterSelectRequest(BaseModel):
     """Request model for selecting a specific Bluetooth adapter."""
-    id: str = Field(..., description="The ID or address of the adapter to select")
+    id: Union[str, Dict[str, str]] = Field(..., description="The ID or address of the adapter to select")
+    
+    @validator('id')
+    def validate_id(cls, v):
+        if isinstance(v, dict) and 'id' not in v:
+            raise ValueError("Invalid adapter ID format")
+        return v
+    
+    @property
+    def adapter_id(self) -> str:
+        """Get the adapter ID regardless of input format."""
+        if isinstance(self.id, dict) and 'id' in self.id:
+            # If sent as {"id": "adapter-id"} from the frontend
+            return str(self.id['id'])
+        else:
+            # If sent as a simple string
+            return str(self.id)
 
 class AdapterSelectResponse(BaseModel):
     """Response model for adapter selection results."""
