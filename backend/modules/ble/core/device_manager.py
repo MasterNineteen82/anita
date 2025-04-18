@@ -37,6 +37,8 @@ class BleDeviceManager:
         self._connected_devices = {}
         self.logger = logger
         self._scanner = get_ble_scanner()
+        self._mock_mode = False
+        self._mock_devices = self._get_mock_devices()
 
     def set_logger(self, logger_instance):
         """
@@ -68,11 +70,15 @@ class BleDeviceManager:
         try:
             self.logger.info("Starting BLE scan using thread-safe scanner...")
             
-            devices = await self._scanner.discover_devices(
-                timeout=scan_time,
-                service_uuids=services,
-                active=active
-            )
+            if self._mock_mode:
+                self.logger.info("Using mock devices for scan")
+                devices = self._mock_devices
+            else:
+                devices = await self._scanner.discover_devices(
+                    timeout=scan_time,
+                    service_uuids=services,
+                    active=active
+                )
             
             processed_devices = []
             for device in devices:
@@ -94,30 +100,25 @@ class BleDeviceManager:
                             serializable_metadata[key] = binascii.hexlify(value).decode('ascii')
                         else:
                             serializable_metadata[key] = value
-                            
+                        
                 device_info = {
                     "address": device.get("address"),
                     "name": device.get("name") or "Unknown",
                     # "details": device.get("details"),  # Removed: Causes serialization errors
-                    "metadata": serializable_metadata, # Use processed metadata
-                    # Use getattr for safer access to advertisement_data and its rssi, provide None if unavailable
                     "rssi": device.get("rssi"),
-                    "is_real": True,
-                    "source": "scan" # Indicate the device was found via scan
+                    "metadata": serializable_metadata
                 }
-                
-                # Enhance device info with manufacturer and type details
-                enhanced_device = enhance_device_info(device_info)
-                processed_devices.append(enhanced_device)
-
+                processed_devices.append(device_info)
+        
             self._cached_devices = processed_devices
-            self.logger.info(f"Discovered {len(self._cached_devices)} devices.")
-            return self._cached_devices
-        except BleakError as e:
-            self.logger.error(f"BLE scan failed: {e}")
-            # Return empty list instead of raising the error
-            self._cached_devices = []
-            return self._cached_devices
+            self.logger.info(f"Discovered {len(processed_devices)} BLE devices")
+            return processed_devices
+        except Exception as e:
+            self.logger.error(f"Error during BLE scan: {e}", exc_info=True)
+            if self._mock_mode:
+                self.logger.info("Returning mock devices due to scan error")
+                return self._mock_devices
+            raise BleOperationError(f"Failed to scan for devices: {str(e)}")
             
     def _get_test_devices(self):
         """Generate realistic test devices when real scanning fails due to Windows issues."""
@@ -160,26 +161,81 @@ class BleDeviceManager:
         self._cached_devices = test_devices
         return test_devices
 
-    async def connect_device(self, address: str) -> bool:
+    async def connect_device(
+        self,
+        address: str,
+        connection_params: Optional[ConnectionParams] = None,
+        max_retries: int = 3,
+        retry_delay: float = 2.0
+    ) -> ConnectionResult:
         """
-        Connect to a BLE device.
+        Connect to a BLE device with retry logic.
 
         Args:
-            address: The address of the device to connect to.
+            address: Device address.
+            connection_params: Connection parameters.
+            max_retries: Maximum number of connection retries.
+            retry_delay: Delay between retries in seconds.
 
         Returns:
-            True if the connection was successful, False otherwise.
+            ConnectionResult object.
         """
-        try:
-            self.logger.info(f"Attempting to connect to device at {address}...")
-            client = BleakClient(address)
-            await client.connect()
-            self._connected_devices[address] = client
-            self.logger.info(f"Successfully connected to {address}.")
-            return True
-        except BleakError as e:
-            self.logger.error(f"Failed to connect to {address}: {e}")
-            return False
+        if address in self._connected_devices:
+            self.logger.info(f"Device {address} already connected")
+            client = self._connected_devices[address]["client"]
+            connected_at = self._connected_devices[address]["connected_at"]
+            return ConnectionResult(
+                success=True,
+                address=address,
+                connection_time=int(time.time() - connected_at),
+                client=client
+            )
+
+        if self._mock_mode:
+            self.logger.info(f"Mock connection to device {address}")
+            mock_device = next((d for d in self._mock_devices if d["address"] == address), None)
+            if mock_device:
+                self._connected_devices[address] = {
+                    "client": None,
+                    "connected_at": time.time(),
+                    "connection_params": connection_params
+                }
+                return ConnectionResult(success=True, address=address, connection_time=0)
+            else:
+                return ConnectionResult(success=False, address=address, error="Mock device not found")
+
+        attempt = 0
+        last_error = None
+
+        while attempt < max_retries:
+            try:
+                self.logger.info(f"Connecting to device {address} (attempt {attempt + 1}/{max_retries})...")
+                client = BleakClient(address)
+                await client.connect()
+
+                self.logger.info(f"Successfully connected to device {address}")
+                self._connected_devices[address] = {
+                    "client": client,
+                    "connected_at": time.time(),
+                    "connection_params": connection_params
+                }
+
+                return ConnectionResult(
+                    success=True,
+                    address=address,
+                    connection_time=int(time.time() - self._connected_devices[address]["connected_at"]),
+                    client=client
+                )
+            except BleakError as e:
+                attempt += 1
+                last_error = str(e)
+                self.logger.warning(f"Connection attempt {attempt} failed for {address}: {e}")
+                if attempt < max_retries:
+                    await asyncio.sleep(retry_delay)
+                continue
+
+        self.logger.error(f"Failed to connect to device {address} after {max_retries} attempts: {last_error}")
+        raise BleConnectionError(f"Failed to connect after {max_retries} attempts: {last_error}")
 
     async def disconnect_device(self, address: str) -> bool:
         """
@@ -236,6 +292,38 @@ class BleDeviceManager:
         self.logger.warning("get_saved_devices is not yet implemented.")
         # TODO: Implement logic to retrieve bonded/paired devices from OS or persistence
         raise NotImplementedError("Bonded device retrieval is not implemented.")
+
+    def _get_mock_devices(self) -> List[Dict]:
+        """
+        Return a list of mock devices for testing purposes.
+
+        Returns:
+            List of mock device dictionaries.
+        """
+        return [
+            {
+                "address": "00:11:22:33:44:55",
+                "name": "Mock Device 1",
+                "rssi": -75,
+                "metadata": {}
+            },
+            {
+                "address": "AA:BB:CC:DD:EE:FF",
+                "name": "Mock Device 2",
+                "rssi": -65,
+                "metadata": {}
+            }
+        ]
+
+    def set_mock_mode(self, enable: bool):
+        """
+        Enable or disable mock mode for testing.
+
+        Args:
+            enable: Boolean to enable or disable mock mode.
+        """
+        self._mock_mode = enable
+        self.logger.info(f"Mock mode {'enabled' if enable else 'disabled'}")
 
 # Singleton instance (to be initialized on first use)
 from threading import Lock

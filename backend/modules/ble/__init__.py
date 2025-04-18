@@ -10,7 +10,7 @@ __author__ = "BLE Module Team"
 from .api import ble_router
 
 # CRITICAL: Export ble_routes as a direct reference to the router
-from .api.ble_routes import router as ble_routes
+from .api.ble_routes import routes as ble_routes
 
 # Import WebSocket endpoint from comms package
 from .comms import websocket_endpoint, websocket_manager

@@ -203,20 +203,45 @@ class BleService:
             dict: Information about the current adapter
         """
         try:
-            # Try to get from device manager
-            if hasattr(self, 'device_manager') and hasattr(self.device_manager, 'get_current_adapter'):
-                return self.device_manager.get_current_adapter()
+            # Get current adapter directly from the adapter manager
+            if hasattr(self, 'adapter_manager'):
+                # Try to get the currently selected adapter
+                current_id = getattr(self.adapter_manager, '_current_adapter', None)
                 
-            # Try to get from BLE manager
-            if hasattr(self, 'ble_manager') and hasattr(self.ble_manager, 'get_current_adapter'):
-                return self.ble_manager.get_current_adapter()
+                if current_id:
+                    # Get the adapter details from the adapter manager's cache
+                    adapter_data = self.adapter_manager._adapters.get(current_id)
+                    if adapter_data:
+                        self._logger.info(f"Retrieved current adapter: {adapter_data['name']}")
+                        return adapter_data
                 
-            # Fallback
+                # If no current adapter, try to use the first one from a fresh scan
+                try:
+                    adapters = await self.adapter_manager.discover_adapters()
+                    if adapters and len(adapters) > 0:
+                        self._logger.info(f"Using first discovered adapter: {adapters[0].get('name', 'Unknown')}")
+                        return adapters[0]
+                except Exception as scan_error:
+                    self._logger.error(f"Error scanning for adapters: {scan_error}")
+            
+            # Try to get adapter status which may have current adapter info
+            try:
+                status = await self.adapter_manager.get_adapter_status()
+                if status and isinstance(status, dict) and 'adapter' in status:
+                    self._logger.info(f"Using adapter from status: {status['adapter'].get('name', 'Unknown')}")
+                    return status['adapter']
+            except Exception as status_error:
+                self._logger.error(f"Error getting adapter status: {status_error}")
+            
+            # Fallback with more descriptive information
+            self._logger.warning("Using fallback adapter information")
+            import platform
             return {
                 "id": "default",
-                "name": "Default Adapter",
+                "name": f"Default {platform.system()} Adapter",
                 "address": "00:00:00:00:00:00",
-                "status": "active"
+                "status": "active",
+                "source": "fallback"
             }
         except Exception as e:
             self._logger.error(f"Error getting current adapter: {e}")
@@ -224,7 +249,8 @@ class BleService:
                 "id": "unknown",
                 "name": "Unknown Adapter",
                 "status": "error",
-                "error": str(e)
+                "error": str(e),
+                "source": "error"
             }
     
     # ======================================================================

@@ -727,6 +727,7 @@ function restoreUIState() {
 
 // Initialize the BLE Dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', initialize);
+
 /**
  * Initialize DOM references
  */
@@ -880,7 +881,12 @@ function fixCardLayouts() {
             // Add the content div after the header if it exists, or as first child
             const header = card.querySelector('.card-header') || card.querySelector('h3');
             if (header) {
-                header.insertAdjacentElement('afterend', contentDiv);
+                // Check to avoid circular reference
+                if (header.parentElement === card) {
+                    header.insertAdjacentElement('afterend', contentDiv);
+                } else {
+                    card.prepend(contentDiv);
+                }
             } else {
                 card.prepend(contentDiv);
             }
@@ -901,12 +907,20 @@ function fixCardLayouts() {
             
             // Ensure correct ordering: title -> content -> footer
             if (titleArea && contentArea.previousElementSibling !== titleArea) {
-                titleArea.insertAdjacentElement('afterend', contentArea);
+                // Safety check to prevent circular reference
+                if (contentArea !== titleArea && 
+                    !contentArea.contains(titleArea) && 
+                    contentArea.parentElement === card && 
+                    titleArea.parentElement === card) {
+                    titleArea.insertAdjacentElement('afterend', contentArea);
+                }
             }
         }
         
         // Move footer to the end if needed
-        if (footerArea && footerArea.nextElementSibling) {
+        if (footerArea && footerArea.nextElementSibling && 
+            footerArea.parentElement === card && 
+            !footerArea.contains(card)) {
             card.appendChild(footerArea);
         }
     });

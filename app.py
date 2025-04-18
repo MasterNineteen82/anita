@@ -37,6 +37,10 @@ from backend.modules.ble.api import adapter_routes as ble_adapter_routes
 from backend.modules.ble.api import device_routes as ble_device_routes   
 from backend.modules.ble.api import ble_routes as ble_router
 
+# Import WebSocket modules and factory
+from backend.ws.factory import websocket_factory
+from backend.ws import ble_socket, uwb_socket, biometric_socket, card_socket, mqtt_socket
+
 # Add import for the route mapper (to be created) - Keeping this for now
 from backend.modules.ble.api.route_mapper import frontend_api_router
 
@@ -56,6 +60,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include the WebSocket factory router for all WebSocket endpoints
+app.include_router(websocket_factory.router)
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 app.mount("/static", StaticFiles(directory=os.path.join(base_dir, "frontend", "static")), name="static")
@@ -186,7 +193,7 @@ if has_ble_adapter_router:
 
 # Include BLE router if available
 try:
-    app.include_router(ble_router, prefix="/api")
+    app.include_router(ble_routes, prefix="/api")
     logger.info("BLE routes registered successfully")
 except Exception as e:
     logger.error(f"Failed to register BLE routes: {e}")
@@ -255,7 +262,7 @@ def filter_logs(log_file, min_level=None, max_lines=100):
 # API Explorer routes
 @app.get("/api_explorer", response_class=HTMLResponse)
 async def api_explorer(request: Request):
-    return templates.TemplateResponse(request, "api_explorer.html", {"request": request})
+    return templates.TemplateResponse("api_explorer.html", {"request": request})
 
 @app.get("/api/docs.json")
 async def api_docs():
@@ -284,109 +291,143 @@ async def api_docs():
 @app.get("/ble_test", response_class=HTMLResponse)
 async def ble_test(request: Request):
     """BLE Test Interface for direct API testing"""
-    return templates.TemplateResponse(request, "ble_test.html", {"request": request})
+    return templates.TemplateResponse("ble_test.html", {"request": request})
 
 # Frontend routes
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     logger.info("Root endpoint accessed")
-    return templates.TemplateResponse(request, "index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
     log_files = get_available_logs()
-    return templates.TemplateResponse(request, "logs.html", {"request": request, "log_files": log_files, "log_levels": LOG_LEVELS})
+    return templates.TemplateResponse("logs.html", {"request": request, "log_files": log_files, "log_levels": LOG_LEVELS})
 
-@app.get("/api/logs")
+@app.get("/logs/get", response_class=JSONResponse)
 async def get_logs(log_file: str = Query(...), log_level: Optional[str] = Query("INFO"), log_lines: int = Query(100)):
-    if not log_file:
-        raise HTTPException(status_code=400, detail="Log file not specified")
-    logs = filter_logs(log_file, log_level, log_lines)
-    return {"logs": logs, "count": len(logs), "file": log_file, "level": log_level}
+    return filter_logs(log_file, log_level, log_lines)
 
-@app.get("/api/available_logs")
+@app.get("/logs/available", response_class=JSONResponse)
 async def available_logs():
-    log_files = get_available_logs()
-    return {"log_files": log_files, "count": len(log_files)}
+    return get_available_logs()
 
-@app.get("/api/health")
+@app.get("/health", response_class=JSONResponse)
 async def health_check():
-    return {"status": "ok", "timestamp": datetime.now().isoformat(), "version": "0.1.0"}
+    return {"status": "ok"}
 
 @app.get("/ble", response_class=HTMLResponse)
 async def ble_page(request: Request):
-    return templates.TemplateResponse(request, "ble.html", {"request": request})
+    return templates.TemplateResponse("ble.html", {"request": request})
 
 @app.get("/card_manager", response_class=HTMLResponse)
 async def card_manager_page(request: Request):
-    return templates.TemplateResponse(request, "card_manager.html", {"request": request})
+    return templates.TemplateResponse("card_manager.html", {"request": request})
 
 @app.get("/device_manager", response_class=HTMLResponse)
 async def device_manager_page(request: Request):
-    return templates.TemplateResponse(request, "device_manager.html", {"request": request})
+    return templates.TemplateResponse("device_manager.html", {"request": request})
 
 @app.get("/facial_recognition", response_class=HTMLResponse)
 async def facial_recognition_page(request: Request):
-    return templates.TemplateResponse(request, "facial_recognition.html", {"request": request})
+    return templates.TemplateResponse("facial_recognition.html", {"request": request})
 
 @app.get("/fingerprint", response_class=HTMLResponse)
 async def fingerprint_page(request: Request):
-    return templates.TemplateResponse(request, "fingerprint.html", {"request": request})
+    return templates.TemplateResponse("fingerprint.html", {"request": request})
 
 @app.get("/iris_recognition", response_class=HTMLResponse)
 async def iris_recognition_page(request: Request):
-    return templates.TemplateResponse(request, "iris_recognition.html", {"request": request})
+    return templates.TemplateResponse("iris_recognition.html", {"request": request})
 
 @app.get("/mqtt", response_class=HTMLResponse)
 async def mqtt_page(request: Request):
-    return templates.TemplateResponse(request, "mqtt.html", {"request": request})
+    return templates.TemplateResponse("mqtt.html", {"request": request})
 
 @app.get("/rfid", response_class=HTMLResponse)
 async def rfid_page(request: Request):
-    return templates.TemplateResponse(request, "rfid.html", {"request": request})
+    return templates.TemplateResponse("rfid.html", {"request": request})
 
 @app.get("/splash", response_class=HTMLResponse)
 async def splash_page(request: Request):
-    return templates.TemplateResponse(request, "splash.html", {"request": request})
+    return templates.TemplateResponse("splash.html", {"request": request})
 
 @app.get("/uwb", response_class=HTMLResponse)
 async def uwb_page(request: Request):
-    return templates.TemplateResponse(request, "uwb.html", {"request": request})
+    return templates.TemplateResponse("uwb.html", {"request": request})
 
 @app.get("/api_manager", response_class=HTMLResponse)
 async def api_manager_page(request: Request):
-    return templates.TemplateResponse(request, "api_manager.html", {"request": request})
+    return templates.TemplateResponse("api_manager.html", {"request": request})
 
 @app.get("/websocket_manager", response_class=HTMLResponse)
 async def websocket_manager(request: Request):
-    return templates.TemplateResponse(request, "websocket_manager.html", {"request": request})
+    return templates.TemplateResponse("websocket_manager.html", {"request": request})
 
-@app.get("/ble_dashboard", response_class=HTMLResponse)
+@app.get("/ble/dashboard", response_class=HTMLResponse)
 async def ble_dashboard(request: Request):
     """Render the BLE dashboard page"""
-    return templates.TemplateResponse(request, "ble_dashboard.html", {"request": request})
+    return templates.TemplateResponse("ble_dashboard.html", {"request": request})
 
-# Modal Pages
-@app.get("/modals/nfc-vcard-modal", response_class=HTMLResponse)
-async def nfc_vcard_modal(request: Request):
-    return templates.TemplateResponse(request, "modals/nfc-vcard-modal.html", {"request": request})
-
-@app.get("/modals/nfc-wifi-modal", response_class=HTMLResponse)
-async def nfc_wifi_modal(request: Request):
-    return templates.TemplateResponse(request, "modals/nfc-wifi-modal.html", {"request": request})
-
-@app.get("/modals/nfc-write-text-modal", response_class=HTMLResponse)
-async def nfc_write_text_modal(request: Request):
-    return templates.TemplateResponse(request, "modals/nfc-write-text-modal.html", {"request": request})
-
-@app.get("/modals/nfc-write-url-modal", response_class=HTMLResponse)
-async def nfc_write_url_modal(request: Request):
-    return templates.TemplateResponse(request, "modals/nfc-write-url-modal.html", {"request": request})
-
-@app.get("/ble_logging", response_class=HTMLResponse)
+@app.get("/ble/logging", response_class=HTMLResponse)
 async def ble_logging_page(request: Request):
     """Render the BLE Logging Dashboard page"""
-    return templates.TemplateResponse(request, "ble_logging.html", {"request": request})
+    return templates.TemplateResponse("ble_logging.html", {"request": request})
+
+@app.get("/palm_recognition", response_class=HTMLResponse)
+async def palm_recognition_page(request: Request):
+    return templates.TemplateResponse("palm_recognition.html", {"request": request})
+
+@app.get("/smartcard", response_class=HTMLResponse)
+async def smartcard_page(request: Request):
+    return templates.TemplateResponse("smartcard.html", {"request": request})
+
+@app.get("/nfc", response_class=HTMLResponse)
+async def nfc_page(request: Request):
+    return templates.TemplateResponse("nfc.html", {"request": request})
+
+@app.get("/mifare", response_class=HTMLResponse)
+async def mifare_page(request: Request):
+    return templates.TemplateResponse("mifare.html", {"request": request})
+
+@app.get("/biometric_manager", response_class=HTMLResponse)
+async def biometric_manager_page(request: Request):
+    return templates.TemplateResponse("biometric_manager.html", {"request": request})
+
+@app.get("/biometric_fusion", response_class=HTMLResponse)
+async def biometric_fusion_page(request: Request):
+    return templates.TemplateResponse("biometric_fusion.html", {"request": request})
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    return templates.TemplateResponse("settings.html", {"request": request})
+
+@app.get("/help", response_class=HTMLResponse)
+async def help_page(request: Request):
+    return templates.TemplateResponse("help.html", {"request": request})
+
+# Modal Pages
+@app.get("/modals/nfc/vcard", response_class=HTMLResponse)
+async def nfc_vcard_modal(request: Request):
+    return templates.TemplateResponse("modals/nfc_vcard.html", {"request": request})
+
+@app.get("/modals/nfc/wifi", response_class=HTMLResponse)
+async def nfc_wifi_modal(request: Request):
+    return templates.TemplateResponse("modals/nfc_wifi.html", {"request": request})
+
+@app.get("/modals/nfc/write_text", response_class=HTMLResponse)
+async def nfc_write_text_modal(request: Request):
+    return templates.TemplateResponse("modals/nfc_write_text.html", {"request": request})
+
+@app.get("/modals/nfc/write_url", response_class=HTMLResponse)
+async def nfc_write_url_modal(request: Request):
+    return templates.TemplateResponse("modals/nfc_write_url.html", {"request": request})
+
+# Catch-all route for undefined paths to prevent 404 errors
+@app.get("/{path:path}", response_class=HTMLResponse)
+async def catch_all(request: Request, path: str):
+    logger.warning(f"Undefined route accessed: /{path}")
+    return templates.TemplateResponse("error.html", {"request": request, "error_code": 404, "error_message": f"The page '/{path}' was not found."})
 
 # Exception handlers
 @app.exception_handler(Exception)
@@ -394,12 +435,12 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
     print_colorful_traceback(sys.exc_info())
     if "TemplateNotFound" in str(exc):
-        return templates.TemplateResponse(request, "error.html", {"request": request, "error": f"Template Error: {str(exc)}"}, status_code=500)
+        return templates.TemplateResponse("error.html", {"request": request, "error": f"Template Error: {str(exc)}"}, status_code=500)
     return JSONResponse(status_code=500, content={"status": "error", "message": f"Internal server error: {str(exc)}"})
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: Exception):
-    return templates.TemplateResponse(request, "error.html", {"request": request, "error": "404 - Page Not Found"}, status_code=404)
+    return templates.TemplateResponse("error.html", {"request": request, "error": "404 - Page Not Found"}, status_code=404)
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

@@ -14,14 +14,14 @@ from .notification_routes import notification_router
 
 
 # Create main router
-router = APIRouter(prefix="/ble", tags=["BLE"])
+routes = APIRouter(prefix="/ble", tags=["BLE"])
 
 # Include all sub-routers
-router.include_router(adapter_router)
-router.include_router(device_router)
-router.include_router(service_router)
-router.include_router(health_router)
-router.include_router(notification_router)
+routes.include_router(adapter_router)
+routes.include_router(device_router)
+routes.include_router(service_router)
+routes.include_router(health_router)
+routes.include_router(notification_router)
 
 
-__all__ = ["router"]
+__all__ = ["routes"]

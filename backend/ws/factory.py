@@ -37,6 +37,7 @@ class WebSocketEndpointFactory:
     def __init__(self, router: APIRouter):
         self.router = router
         self.routes: Dict[str, WebSocketRoute] = {}
+        self.handlers: Dict[str, WebSocketHandler] = {}
         
     def create_endpoint(
         self,
@@ -92,33 +93,73 @@ class WebSocketEndpointFactory:
                 async for raw_message in websocket.iter_json():
                     try:
                         # Process message
-                        success = await manager.handle_message(websocket, raw_message)
+                        success = await self.process_message(websocket, name, raw_message)
                         if not success:
                             # If message handling failed, log but continue
                             logger.warning(f"Failed to handle message: {raw_message}")
                     except ValidationError as e:
                         # Handle validation errors for incoming messages
                         await manager.send_error(websocket, f"Invalid message format: {str(e)}")
-                        
+                    except Exception as e:
+                        # Handle other exceptions
+                        logger.exception(f"Error processing message: {str(e)}")
+                        await manager.send_error(websocket, f"Error processing message: {str(e)}")
             except WebSocketDisconnect:
-                # Normal disconnect
-                logger.info(f"Client disconnected from {path}")
+                logger.info(f"WebSocket disconnected from {path}")
             except Exception as e:
-                # Unexpected error
-                logger.error(f"Error in WebSocket endpoint {path}: {str(e)}")
-                await manager.send_error(websocket, "Internal server error")
+                logger.exception(f"Error in WebSocket endpoint {path}: {str(e)}")
             finally:
-                # Always disconnect properly
+                # Always ensure client is disconnected properly
                 await manager.disconnect(websocket)
-        
-        # Register handlers in the manager
-        for msg_type, handler in route.handlers.items():
-            manager.register_message_handler(msg_type, handler)
-        
-        # Store the route
+                
+        # Store route for later handler registration
         self.routes[name] = route
+        logger.info(f"Created WebSocket endpoint: {path} ({name})")
         
         return route
+        
+    async def process_message(self, websocket: WebSocket, endpoint_name: str, message: dict) -> bool:
+        """
+        Process an incoming WebSocket message.
+        
+        Args:
+            websocket: The client WebSocket
+            endpoint_name: The endpoint that received the message
+            message: The parsed JSON message
+            
+        Returns:
+            True if the message was processed successfully, False otherwise
+        """
+        # Extract message type and payload
+        msg_type = message.get("type")
+        payload = message.get("data", {})
+        
+        if not msg_type:
+            await manager.send_error(websocket, "Message type is required")
+            return False
+            
+        # Create a handler key from endpoint + message type
+        handler_key = f"{endpoint_name}.{msg_type}"
+        
+        # First try specific endpoint handler (e.g., "ble_socket.start_scan")
+        handler = self.handlers.get(handler_key)
+        
+        # If not found, try global handler (e.g., "ping")
+        if not handler:
+            handler = self.handlers.get(msg_type)
+            
+        if not handler:
+            await manager.send_error(websocket, f"No handler found for message type: {msg_type}")
+            return False
+            
+        try:
+            # Call handler with websocket and payload
+            await handler(websocket, payload)
+            return True
+        except Exception as e:
+            logger.exception(f"Error in handler for message type {msg_type}: {str(e)}")
+            await manager.send_error(websocket, f"Error in handler: {str(e)}")
+            return False
     
     def document_endpoint(self, name: str) -> dict:
         """Generate documentation for a WebSocket endpoint."""
@@ -161,9 +202,8 @@ class WebSocketEndpointFactory:
             logger.error(f"Cannot register handler: endpoint {endpoint_name} not found")
             return False
             
-        route = self.routes[endpoint_name]
-        route.add_handler(msg_type, handler)
-        manager.register_message_handler(msg_type, handler)
+        handler_key = f"{endpoint_name}.{msg_type}"
+        self.handlers[handler_key] = handler
         return True
     
     def get_all_endpoints(self) -> List[dict]:

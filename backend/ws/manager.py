@@ -173,34 +173,94 @@ class WebSocketManager:
         self.message_handlers[msg_type] = handler
         logger.info(f"Registered handler for message type: {msg_type}")
     
-    async def handle_message(self, websocket: WebSocket, message: dict) -> bool:
-        """Process an incoming message based on its type."""
-        msg_type = message.get("type")
-        payload = message.get("payload", {})
-        
-        if not msg_type:
-            await self.send_error(websocket, "Message missing 'type' field")
+    async def require_authentication(self, websocket: WebSocket) -> bool:
+        """
+        Check if the WebSocket connection has valid authentication.
+        For now, we'll check for a token in query parameters.
+        In a real implementation, this would integrate with your auth system.
+        """
+        try:
+            # Extract token from query parameters
+            query_params = dict(websocket.query_params)
+            token = query_params.get("token")
+            
+            if not token:
+                await websocket.send_text("Authentication required: No token provided")
+                await websocket.close(code=1008, reason="Authentication required")
+                return False
+                
+            # Here you would validate the token against your auth system
+            # For demonstration, we'll accept any non-empty token
+            # In production, replace this with actual token validation
+            if len(token) > 0:
+                logger.info(f"Authentication successful for token: {token[:4]}...")
+                return True
+            else:
+                await websocket.send_text("Authentication failed: Invalid token")
+                await websocket.close(code=1008, reason="Invalid token")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Authentication error: {str(e)}")
+            await websocket.close(code=1011, reason="Server error during authentication")
             return False
             
-        if msg_type in self.message_handlers:
-            try:
-                await self.message_handlers[msg_type](websocket, payload)
-                return True
-            except Exception as e:
-                logger.error(f"Error in message handler for {msg_type}: {str(e)}")
-                await self.send_error(websocket, f"Server error processing {msg_type}")
-                return False
-        else:
-            await self.send_error(websocket, f"Unknown message type: {msg_type}")
+    async def send_personal_message(self, message: dict, websocket: WebSocket) -> bool:
+        """Send a message to a specific client."""
+        if websocket not in self.active_clients:
+            logger.warning("Attempted to send message to disconnected client")
             return False
-    
-    async def send_error(self, websocket: WebSocket, message: str) -> None:
-        """Send an error message to a client."""
-        error_msg = {
+            
+        try:
+            await websocket.send_json(message)
+            self.active_clients[websocket].update_activity()
+            self.message_count += 1
+            return True
+        except Exception as e:
+            logger.error(f"Error sending personal message: {str(e)}")
+            return False
+            
+    async def send_error(self, websocket: WebSocket, error_message: str) -> bool:
+        """Send an error message to a specific client."""
+        error_payload = {
             "type": "error",
-            "payload": {"message": message}
+            "data": {
+                "message": error_message
+            }
         }
-        await self.send_message(websocket, error_msg)
+        return await self.send_personal_message(error_payload, websocket)
+        
+    async def handle_message(self, websocket: WebSocket, message: dict) -> bool:
+        """Handle an incoming message based on its type."""
+        if websocket not in self.active_clients:
+            logger.warning("Received message from disconnected client")
+            return False
+            
+        # Update client activity timestamp
+        self.active_clients[websocket].update_activity()
+            
+        # Extract message type and data
+        msg_type = message.get("type")
+        data = message.get("data", {})
+            
+        if not msg_type:
+            await self.send_error(websocket, "Message type is required")
+            return False
+            
+        # Find handler for this message type
+        handler = self.message_handlers.get(msg_type)
+        if not handler:
+            await self.send_error(websocket, f"No handler found for message type: {msg_type}")
+            return False
+            
+        try:
+            # Call the handler with websocket and data
+            await handler(websocket, data)
+            return True
+        except Exception as e:
+            logger.exception(f"Error in message handler for type {msg_type}: {str(e)}")
+            await self.send_error(websocket, f"Error handling message: {str(e)}")
+            return False
     
     async def authenticate_client(self, websocket: WebSocket, user_id: str) -> bool:
         """Set the user ID for a client, marking them as authenticated."""
@@ -209,13 +269,6 @@ class WebSocketManager:
             logger.info(f"Client {self.active_clients[websocket].client_id} authenticated as user {user_id}")
             return True
         return False
-    
-    async def require_authentication(self, websocket: WebSocket) -> bool:
-        """Check if a client is authenticated, send error if not."""
-        if not self.is_authenticated(websocket):
-            await self.send_error(websocket, "Authentication required")
-            return False
-        return True
     
     def get_connection_stats(self) -> dict:
         """Get statistics about current WebSocket connections."""

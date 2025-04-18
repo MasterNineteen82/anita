@@ -3,13 +3,13 @@ from typing import Dict, List, Set, Optional, Any
 
 from fastapi import WebSocket, APIRouter, Depends
 
-from ws.manager import manager
-from ws.factory import websocket_factory
-from ws.events import create_event, Location3D
-from backend.modules.monitoring import UWBPositionMonitor, monitoring_manager
+from backend.ws.manager import manager
+from backend.ws.factory import websocket_factory
+from backend.ws.events import create_event, Location3D
+from backend.modules.monitors import UWBPositionMonitor, monitoring_manager
 
-from repositories.uwb_repository import UWBRepository
-from services.uwb_system import UWBSystem
+from backend.repositories.uwb_repository import UWBRepository
+from backend.services.uwb_system import UWBSystem
 
 logger = logging.getLogger(__name__)
 

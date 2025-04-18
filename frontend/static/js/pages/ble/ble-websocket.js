@@ -18,7 +18,17 @@ export class BleWebSocket {
         this.isConnecting = false;
         this.retryCount = 0;
         this.pingInterval = null;
-        this.maxRetries = 5;
+        this.maxRetries = 10;  // Increased from 5
+        this.connectionHealth = 100;
+        this.lastPingSent = null;
+        this.lastPongReceived = null;
+        this.pingTimeout = null;
+        this.heartbeatInterval = null;
+        this.connectionStatus = 'disconnected'; // disconnected, connecting, connected
+        this.messageQueue = [];  // Queue for messages during disconnection
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+        this.reconnectInterval = 3000;
     }
     
     /**
@@ -26,6 +36,7 @@ export class BleWebSocket {
      */
     async initialize() {
         console.log('Initializing BLE WebSocket connection');
+        this.setupHeartbeat();
         try {
             return await this.connect();
         } catch (error) {
@@ -38,137 +49,196 @@ export class BleWebSocket {
      * Connect to the WebSocket server
      */
     async connect() {
-        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            console.log('WebSocket already connected');
-            return this.socket;
+        if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
+            console.log('WebSocket is already connecting');
+            return new Promise((resolve, reject) => {
+                // Wait for connection to complete or fail
+                const checkConnection = setInterval(() => {
+                    if (this.socket.readyState === WebSocket.OPEN) {
+                        clearInterval(checkConnection);
+                        resolve(this.socket);
+                    } else if (this.socket.readyState === WebSocket.CLOSED) {
+                        clearInterval(checkConnection);
+                        reject(new Error('WebSocket connection closed during connection attempt'));
+                    }
+                }, 100);
+            });
         }
         
-        if (this.isConnecting) {
-            console.log('WebSocket connection already in progress');
-            return null;
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            console.log('WebSocket is already connected');
+            return Promise.resolve(this.socket);
         }
         
         this.isConnecting = true;
+        this.connectionStatus = 'connecting';
+        this.emitStatusChange();
+        console.log(`Connecting to WebSocket at ${this.endpoint}`);
         
-        try {
-            // Use consistent WebSocket URL format
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}${this.endpoint}`;
-            
-            console.log(`Connecting to WebSocket: ${wsUrl}`);
-            
-            return new Promise((resolve, reject) => {
-                const socket = new WebSocket(wsUrl);
+        return new Promise((resolve, reject) => {
+            try {
+                // Calculate backoff with jitter
+                const backoff = this.retryCount === 0 ? 0 : 
+                    Math.min(30000, (Math.pow(2, this.retryCount) * 1000) + (Math.random() * 1000));
                 
-                socket.onopen = () => {
-                    console.log('WebSocket connection established');
-                    this.socket = socket;
-                    this.isConnecting = false;
-                    this.retryCount = 0;
-                    this.startPingInterval();
-                    
-                    // Emit connection event
-                    if (window.BleEvents) {
-                        window.BleEvents.emit(BleEvents.WEBSOCKET_CONNECTED, { timestamp: Date.now() });
-                    }
-                    
-                    resolve(socket);
-                };
+                if (this.retryCount > 0) {
+                    console.log(`Retrying connection (attempt ${this.retryCount}) after ${Math.round(backoff)}ms delay`);
+                    BleUI.showToast(`Retrying WebSocket Connection (Attempt ${this.retryCount})`, 'info');
+                }
                 
-                socket.onerror = (error) => {
-                    console.error('WebSocket connection error:', error);
-                    this.isConnecting = false;
-                    
-                    // Emit error event
-                    if (window.BleEvents) {
-                        window.BleEvents.emit(BleEvents.WEBSOCKET_ERROR, { error, timestamp: Date.now() });
+                // Wait for backoff time before connecting
+                setTimeout(() => {
+                    try {
+                        // Set protocol to match page protocol
+                        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                        const host = window.location.host;
+                        // Determine full WebSocket URL
+                        const wsUrl = this.endpoint.startsWith('ws') ? 
+                            this.endpoint : 
+                            `${protocol}//${host}${this.endpoint.startsWith('/') ? this.endpoint : '/' + this.endpoint}`;
+                        
+                        this.socket = new WebSocket(wsUrl);
+                        
+                        this.socket.onopen = (event) => {
+                            this.isConnecting = false;
+                            this.connectionStatus = 'connected';
+                            this.retryCount = 0;
+                            this.reconnectAttempts = 0; // Reset reconnection attempts
+                            this.connectionHealth = 100;
+                            
+                            console.log('WebSocket connection established');
+                            
+                            // Start ping interval
+                            this.startPingInterval();
+                            
+                            // Process any queued messages
+                            this.processQueuedMessages();
+                            
+                            BleEvents.emit('WS_CONNECTED', { status: 'connected' });
+                            BleUI.showToast('WebSocket Connected', 'success');
+                            this.emitStatusChange();
+                            
+                            resolve(this.socket);
+                        };
+                        
+                        this.socket.onmessage = (event) => {
+                            // Handle different message types
+                            try {
+                                // Handle string ping messages
+                                if (typeof event.data === 'string' && !event.data.startsWith('{')) {
+                                    if (event.data.trim() === 'ping') {
+                                        this.sendPong();
+                                        return;
+                                    }
+                                    return;
+                                }
+                                
+                                // Parse JSON messages
+                                const message = JSON.parse(event.data);
+                                
+                                // Handle ping messages
+                                if (message.type === 'ping') {
+                                    this.sendPong();
+                                    return;
+                                }
+                                
+                                // Handle other message types
+                                this.handleMessage(message);
+                            } catch (error) {
+                                console.error('Error handling WebSocket message:', error);
+                                BleUI.showToast('WebSocket Message Error', 'error');
+                            }
+                        };
+                        
+                        this.socket.onclose = (event) => {
+                            this.isConnecting = false;
+                            this.connectionStatus = 'disconnected';
+                            console.log(`WebSocket connection closed: code=${event.code}, reason=${event.reason}`);
+                            BleUI.showToast(`WebSocket Closed: ${event.reason || 'Unknown reason'}`, 'error');
+                            
+                            // Clear ping interval
+                            this.clearPingInterval();
+                            
+                            // Attempt reconnection if not closed cleanly
+                            if (!event.wasClean && this.retryCount < this.maxRetries) {
+                                this.retryCount++;
+                                console.log(`Scheduling reconnection attempt ${this.retryCount}/${this.maxRetries}`);
+                                setTimeout(() => this.connect(), this.getBackoffDelay());
+                            } else {
+                                this.handleReconnect();
+                            }
+                            this.emitStatusChange();
+                        };
+                        
+                        this.socket.onerror = (error) => {
+                            this.isConnecting = false;
+                            console.error('WebSocket error:', error);
+                            this.connectionHealth = Math.max(0, this.connectionHealth - 20);
+                            BleUI.showToast('WebSocket Error', 'error');
+                            this.emitStatusChange();
+                            // Don't reject here, let onclose handle reconnection
+                        };
+                    } catch (error) {
+                        this.isConnecting = false;
+                        console.error('Error creating WebSocket connection:', error);
+                        BleUI.showToast('WebSocket Connection Error', 'error');
+                        reject(error);
                     }
+                }, backoff);
+            } catch (error) {
+                this.isConnecting = false;
+                console.error('Error in connect method:', error);
+                BleUI.showToast('WebSocket Connection Error', 'error');
+                reject(error);
+            }
+        });
+    }
+    
+    /**
+     * Emit a status change event
+     */
+    emitStatusChange() {
+        if (typeof BleEvents !== 'undefined') {
+            BleEvents.emit('websocket.status', {
+                status: this.connectionStatus,
+                health: this.connectionHealth,
+                retryCount: this.retryCount
+            });
+        }
+    }
+    
+    /**
+     * Setup heartbeat monitoring for health checking
+     */
+    setupHeartbeat() {
+        // Clear existing heartbeat
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+        }
+        
+        // Check connection health every 10 seconds
+        this.heartbeatInterval = setInterval(() => {
+            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                // Check if we've received a pong recently
+                if (this.lastPingSent && !this.lastPongReceived) {
+                    // No pong received since last ping
+                    this.connectionHealth -= 10;
+                    this.connectionHealth = Math.max(0, this.connectionHealth);
                     
-                    reject(error);
-                };
-                
-                socket.onclose = (event) => {
-                    console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
-                    this.isConnecting = false;
-                    this.socket = null;
-                    
-                    // Clear ping interval
-                    if (this.pingInterval) {
-                        clearInterval(this.pingInterval);
-                        this.pingInterval = null;
-                    }
-                    
-                    // Emit disconnection event
-                    if (window.BleEvents) {
-                        window.BleEvents.emit(BleEvents.WEBSOCKET_DISCONNECTED, { 
-                            code: event.code,
-                            reason: event.reason,
-                            timestamp: Date.now()
-                        });
-                    }
-                    
-                    // Schedule reconnection if not manually closed
-                    if (event.code !== 1000) {
+                    if (this.connectionHealth === 0) {
+                        console.warn('WebSocket connection appears to be dead, forcing reconnect');
+                        // Force close and reconnect
+                        this.socket.close();
                         this.scheduleReconnect();
                     }
-                };
+                } else {
+                    // Got a pong, improve health
+                    this.connectionHealth = Math.min(100, this.connectionHealth + 5);
+                }
                 
-                socket.onmessage = this.handleMessage.bind(this);
-            });
-        } catch (error) {
-            console.error('Error creating WebSocket connection:', error);
-            this.isConnecting = false;
-            throw error;
-        }
-    }
-    
-    /**
-     * Schedule a reconnection attempt
-     */
-    scheduleReconnect() {
-        if (this.retryCount >= this.maxRetries) {
-            console.log('Max reconnect attempts reached');
-            return;
-        }
-        
-        this.retryCount++;
-        const delay = Math.min(30000, 1000 * Math.pow(1.5, this.retryCount - 1));
-        
-        console.log(`Scheduling reconnect attempt ${this.retryCount} in ${delay}ms`);
-        
-        setTimeout(() => {
-            console.log(`Attempting reconnect ${this.retryCount}/${this.maxRetries}`);
-            this.connect().catch(error => {
-                console.error('Reconnection failed:', error);
-            });
-        }, delay);
-    }
-    
-    /**
-     * Clean up WebSocket resources
-     */
-    cleanup() {
-        if (this.pingInterval) {
-            clearInterval(this.pingInterval);
-            this.pingInterval = null;
-        }
-        
-        if (this.socket) {
-            // Remove all event listeners
-            this.socket.onopen = null;
-            this.socket.onmessage = null;
-            this.socket.onclose = null;
-            this.socket.onerror = null;
-            
-            // Close the socket if it's still open
-            if (this.socket.readyState === WebSocket.OPEN) {
-                this.socket.close();
+                this.emitStatusChange();
             }
-            
-            this.socket = null;
-        }
-        
-        this.isConnecting = false;
+        }, 10000);
     }
     
     /**
@@ -182,96 +252,248 @@ export class BleWebSocket {
         
         // Send a ping every 30 seconds
         this.pingInterval = setInterval(() => {
-            this.sendCommand('ping', { timestamp: Date.now() });
+            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                this.lastPingSent = Date.now();
+                this.lastPongReceived = null;
+                
+                this.send(JSON.stringify({
+                    type: 'ping',
+                    timestamp: this.lastPingSent
+                }));
+                
+                // Set a timeout to detect missed pongs
+                if (this.pingTimeout) {
+                    clearTimeout(this.pingTimeout);
+                }
+                
+                this.pingTimeout = setTimeout(() => {
+                    if (!this.lastPongReceived) {
+                        console.warn('No pong received within timeout');
+                        this.connectionHealth -= 15;
+                        this.connectionHealth = Math.max(0, this.connectionHealth);
+                        this.emitStatusChange();
+                    }
+                }, 5000); // 5 second timeout for pong
+            }
         }, 30000);
     }
     
     /**
      * Handle incoming WebSocket messages
      */
-    handleMessage(event) {
+    handleMessage(message) {
         try {
-            const message = JSON.parse(event.data);
-            
-            if (!message || !message.type) {
-                console.warn('Invalid WebSocket message format', message);
-                return;
-            }
-            
-            // Log incoming message for debugging
-            console.log('WebSocket message received:', message);
+            // Log incoming messages for debugging
+            console.log('Received WebSocket message:', message);
             
             // Handle different message types
             switch (message.type) {
-                case 'ping':
-                    console.log('ping received');
-                    // Respond with pong
-                    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                        this.socket.send(JSON.stringify({
-                            type: 'pong',
-                            timestamp: Date.now()
-                        }));
-                    }
+                case MessageType.ADAPTERS_DISCOVERED:
+                    BleEvents.emit(BLE_EVENTS.ADAPTERS_DISCOVERED, message.data);
+                    BleUI.showToast('Bluetooth Adapters Discovered', 'info');
                     break;
-                    
-                case 'pong':
-                    console.log('pong received');
-                    // Update connection health metrics
-                    if (this.lastPingSent) {
-                        const latency = Date.now() - this.lastPingSent;
-                        this.lastPingLatency = latency;
-                        
-                        if (window.BleEvents) {
-                            window.BleEvents.emit('websocket.latency', { latency });
-                        }
-                    }
-                    this.lastPingSent = null;
+                case MessageType.ADAPTER_SELECTED:
+                    BleEvents.emit(BLE_EVENTS.ADAPTER_SELECTED, message.data);
+                    BleUI.showToast(`Adapter Selected: ${message.data.adapter_name || message.data.adapter_id}`, 'success');
                     break;
-                    
-                case 'scan':
-                    this.handleScanMessage(message);
+                case MessageType.ADAPTER_STATUS:
+                    BleEvents.emit(BLE_EVENTS.ADAPTER_STATUS, message.data);
                     break;
-                    
-                case 'device':
-                    this.handleDeviceMessage(message);
-                    break;
-                    
-                case 'service':
-                    this.handleServiceMessage(message);
-                    break;
-                    
-                case 'characteristic':
-                    this.handleCharacteristicMessage(message);
-                    break;
-                    
-                case 'notification':
-                    this.handleNotificationMessage(message);
-                    break;
-                    
-                case 'error':
-                    this.handleErrorMessage(message);
-                    break;
-                    
                 default:
-                    console.warn('Unknown message type:', message.type);
-                    if (window.BleLogger) {
-                        window.BleLogger.warn('WebSocket', 'message', `Unknown message type: ${message.type}`);
-                    }
+                    // Forward other messages to appropriate handlers
+                    BleEvents.emit('WS_MESSAGE', message);
+                    break;
             }
-            
-            // Emit general message event
-            if (window.BleEvents) {
-                window.BleEvents.emit('websocket.message', { message });
-            }
-            
         } catch (error) {
-            console.error('Error handling WebSocket message:', error);
-            if (window.BleLogger) {
-                window.BleLogger.error('WebSocket', 'message', 'Error parsing message', { 
-                    error: error.message,
-                    data: event.data
-                });
+            console.error('Error processing WebSocket message:', error);
+        }
+    }
+    
+    /**
+     * Send command to discover Bluetooth adapters
+     */
+    sendDiscoverAdaptersCommand() {
+        const command = {
+            type: 'discover_adapters',
+            data: {}
+        };
+        this.send(JSON.stringify(command));
+        BleUI.showToast('Discovering Bluetooth Adapters...', 'info');
+        console.log('Sent discover adapters command');
+    }
+    
+    /**
+     * Send command to select a specific Bluetooth adapter
+     * @param {string} adapterId - ID of the adapter to select
+     */
+    sendSelectAdapterCommand(adapterId) {
+        const command = {
+            type: 'select_adapter',
+            data: {
+                id: adapterId
             }
+        };
+        this.send(JSON.stringify(command));
+        BleUI.showToast(`Selecting Adapter: ${adapterId}`, 'info');
+        console.log(`Sent select adapter command for ID: ${adapterId}`);
+    }
+    
+    /**
+     * Send command to get information about a specific adapter or the current one
+     * @param {string} adapterId - ID of the adapter (optional)
+     */
+    sendGetAdapterInfoCommand(adapterId = null) {
+        const command = {
+            type: 'get_adapter_info',
+            data: adapterId ? { id: adapterId } : {}
+        };
+        this.send(JSON.stringify(command));
+        console.log(`Sent get adapter info command${adapterId ? ' for ID: ' + adapterId : ''}`);
+    }
+    
+    /**
+     * Schedule reconnection with exponential backoff
+     */
+    scheduleReconnect() {
+        if (this.retryCount >= this.maxRetries) {
+            console.error(`Max reconnection attempts (${this.maxRetries}) reached`);
+            BleLogger.error('WebSocket', 'reconnect', 'Maximum reconnection attempts reached', {
+                attempts: this.retryCount,
+                maxRetries: this.maxRetries
+            });
+            return;
+        }
+        
+        // Calculate delay with exponential backoff and jitter
+        // Base: 1000ms * 2^retry with a max of 30 seconds plus random jitter
+        const baseDelay = Math.min(30000, 1000 * Math.pow(2, this.retryCount));
+        const jitter = Math.random() * 1000; // Add up to 1 second of jitter
+        const delay = baseDelay + jitter;
+        
+        this.retryCount++;
+        
+        console.log(`Scheduling reconnect attempt ${this.retryCount}/${this.maxRetries} in ${Math.round(delay/1000)}s`);
+        BleLogger.info('WebSocket', 'reconnect', `Reconnecting in ${Math.round(delay/1000)}s`, {
+            attempt: this.retryCount,
+            maxRetries: this.maxRetries,
+            delay: delay
+        });
+        
+        setTimeout(() => {
+            console.log(`Attempting reconnect ${this.retryCount}/${this.maxRetries}`);
+            this.connect().catch(error => {
+                console.error('Reconnection failed:', error);
+            });
+        }, delay);
+    }
+    
+    /**
+     * Send a message through the WebSocket
+     */
+    send(message) {
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            console.warn('WebSocket not connected, queueing message');
+            // Queue message for when connection is restored
+            this.messageQueue.push(message);
+            return false;
+        }
+        
+        try {
+            this.socket.send(message);
+            return true;
+        } catch (error) {
+            console.error('Error sending WebSocket message:', error);
+            BleLogger.error('WebSocket', 'message', 'Failed to send WebSocket message', {
+                error: error.message
+            });
+            return false;
+        }
+    }
+    
+    /**
+     * Process any queued messages after reconnection
+     */
+    processQueuedMessages() {
+        if (this.messageQueue.length === 0) {
+            return;
+        }
+        
+        console.log(`Processing ${this.messageQueue.length} queued messages`);
+        BleUI.showToast(`Processing ${this.messageQueue.length} Queued Messages`, 'info');
+        
+        while (this.messageQueue.length > 0) {
+            const message = this.messageQueue.shift();
+            try {
+                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                    this.socket.send(JSON.stringify(message));
+                    console.log('Sent queued message:', message);
+                } else {
+                    console.error('Cannot send queued message, WebSocket is not open:', message);
+                    this.messageQueue.unshift(message); // Put it back in the queue
+                    break;
+                }
+            } catch (error) {
+                console.error('Error sending queued message:', error);
+                this.messageQueue.unshift(message); // Put it back in the queue
+                break;
+            }
+        }
+    }
+    
+    /**
+     * Queue a message to be sent when connection is restored
+     * @param {Object} message - The message to queue
+     */
+    queueMessage(message) {
+        this.messageQueue.push(message);
+        console.log(`Queued message, queue length: ${this.messageQueue.length}`);
+        BleUI.showToast(`Message Queued (${this.messageQueue.length} in queue)`, 'info');
+        
+        // If not already connecting, attempt to reconnect
+        if (!this.isConnecting && this.connectionStatus !== 'connected') {
+            console.log('Triggering reconnection due to queued message');
+            this.connect().catch(error => {
+                console.error('Reconnection for queued message failed:', error);
+            });
+        }
+    }
+    
+    /**
+     * Clean up WebSocket resources
+     */
+    cleanup() {
+        if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+            this.pingInterval = null;
+        }
+        
+        if (this.pingTimeout) {
+            clearTimeout(this.pingTimeout);
+            this.pingTimeout = null;
+        }
+        
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+        
+        if (this.socket) {
+            // Remove all event listeners
+            this.socket.onopen = null;
+            this.socket.onclose = null;
+            this.socket.onerror = null;
+            this.socket.onmessage = null;
+            
+            // Close the socket if it's not already closed
+            if (this.socket.readyState !== WebSocket.CLOSED) {
+                try {
+                    this.socket.close();
+                } catch (e) {
+                    console.error('Error closing WebSocket:', e);
+                }
+            }
+            
+            this.socket = null;
         }
     }
     
@@ -544,6 +766,95 @@ export class BleWebSocket {
         // Display error in UI
         if (window.BleUI && window.BleUI.showToast) {
             window.BleUI.showToast(message.error || 'Server error', 'error');
+        }
+    }
+    
+    /**
+     * Send a pong response
+     */
+    sendPong() {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            try {
+                this.socket.send(JSON.stringify({ 
+                    type: 'pong',
+                    timestamp: Date.now()
+                }));
+                this.lastPongReceived = Date.now();
+            } catch (error) {
+                console.error('Error sending pong message:', error);
+            }
+        }
+    }
+    
+    /**
+     * Process any messages queued during disconnection
+     */
+    processQueuedMessages() {
+        if (this.messageQueue.length === 0) {
+            return;
+        }
+        
+        console.log(`Processing ${this.messageQueue.length} queued messages`);
+        BleUI.showToast(`Processing ${this.messageQueue.length} Queued Messages`, 'info');
+        
+        while (this.messageQueue.length > 0) {
+            const message = this.messageQueue.shift();
+            try {
+                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                    this.socket.send(JSON.stringify(message));
+                    console.log('Sent queued message:', message);
+                } else {
+                    console.error('Cannot send queued message, WebSocket is not open:', message);
+                    this.messageQueue.unshift(message); // Put it back in the queue
+                    break;
+                }
+            } catch (error) {
+                console.error('Error sending queued message:', error);
+                this.messageQueue.unshift(message); // Put it back in the queue
+                break;
+            }
+        }
+    }
+    
+    /**
+     * Queue a message to be sent when connection is restored
+     * @param {Object} message - The message to queue
+     */
+    queueMessage(message) {
+        this.messageQueue.push(message);
+        console.log(`Queued message, queue length: ${this.messageQueue.length}`);
+        BleUI.showToast(`Message Queued (${this.messageQueue.length} in queue)`, 'info');
+        
+        // If not already connecting, attempt to reconnect
+        if (!this.isConnecting && this.connectionStatus !== 'connected') {
+            console.log('Triggering reconnection due to queued message');
+            this.connect().catch(error => {
+                console.error('Reconnection for queued message failed:', error);
+            });
+        }
+    }
+    
+    /**
+     * Handle WebSocket reconnection
+     */
+    handleReconnect() {
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            console.log(`Attempting reconnection ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+            BleUI.showToast(`Reconnecting WebSocket (${this.reconnectAttempts}/${this.maxReconnectAttempts})`, 'info');
+            setTimeout(() => {
+                this.connect().catch(error => {
+                    console.error(`Reconnection attempt ${this.reconnectAttempts} failed:`, error);
+                    BleUI.showToast(`Reconnection Failed (${this.reconnectAttempts}/${this.maxReconnectAttempts})`, 'error');
+                    this.handleReconnect();
+                });
+            }, this.reconnectInterval);
+        } else {
+            console.error('Maximum reconnection attempts reached. Giving up.');
+            BleUI.showToast('WebSocket Reconnection Failed: Max Attempts Reached', 'error');
+            BleEvents.emit('WS_DISCONNECTED', { status: 'disconnected', reason: 'max attempts reached' });
+            this.connectionStatus = 'disconnected';
+            this.emitStatusChange();
         }
     }
 }

@@ -569,7 +569,10 @@ class BLEDeviceInfo(BaseModel):
         
 # Add these models to your existing ble_models.py file
 
+# ============================================================================
 # Request Models
+# ============================================================================
+
 class WriteRequest(BaseModel):
     """Request model for writing to a characteristic."""
     characteristic: str
@@ -735,6 +738,19 @@ class AdapterSelectResponse(BaseModel):
 # ============================================================================
 # System Health Models
 # ============================================================================
+
+class AdapterInfo(BaseModel):
+    """Bluetooth adapter information model."""
+    id: str = Field(..., description="The adapter ID or address")
+    name: Optional[str] = Field(None, description="The adapter name")
+    address: Optional[str] = Field(None, description="The adapter MAC address")
+    available: bool = Field(True, description="Whether the adapter is available")
+    status: Optional[str] = Field(None, description="The adapter status")
+    description: Optional[str] = Field(None, description="The adapter description")
+    manufacturer: Optional[str] = Field(None, description="The adapter manufacturer")
+    error: Optional[str] = Field(None, description="Error information if there was an issue")
+    system: Optional[Dict[str, Any]] = Field(None, description="System information")
+    version: Optional[str] = Field(None, description="Bluetooth version")
 
 class BluetoothHealthReport(BaseModel):
     """Bluetooth health report model."""

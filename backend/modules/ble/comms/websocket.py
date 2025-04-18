@@ -42,6 +42,7 @@ async def websocket_endpoint(websocket: WebSocket):
             "status": "connected",
             "message": "WebSocket connected"
         })
+        logger.debug(f"Sent initial connection messages to {websocket.client}")
         
         # Process messages until disconnection
         while True:
@@ -52,15 +53,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Parse and process the message
                 try:
                     message = json.loads(data)
+                    logger.debug(f"Received message from {websocket.client}: {message.get('type', 'unknown')}")
                     await process_message(websocket, message)
                 except json.JSONDecodeError:
-                    logger.warning(f"Received invalid JSON: {data}")
+                    logger.warning(f"Received invalid JSON from {websocket.client}: {data}")
             except asyncio.TimeoutError:
                 # Keep-alive if no message received
                 try:
                     # Send a ping to check connection
                     await websocket.send_json({"type": "ping"})
-                    logger.debug("Sent ping to client")
+                    logger.debug(f"Sent ping to client {websocket.client}")
                 except Exception:
                     # If sending ping fails, connection is probably closed
                     logger.info(f"Connection lost during keep-alive: {websocket.client}")
@@ -68,9 +70,8 @@ async def websocket_endpoint(websocket: WebSocket):
             except WebSocketDisconnect:
                 logger.info(f"WebSocket disconnected: {websocket.client}")
                 break
-        
     except Exception as e:
-        logger.error(f"WebSocket error: {e}", exc_info=True)
+        logger.error(f"WebSocket error for {websocket.client}: {e}", exc_info=True)
     finally:
         # Clean up on disconnection
         if websocket in active_connections:
@@ -81,7 +82,7 @@ async def process_message(websocket: WebSocket, message: Dict[str, Any]):
     """Process incoming WebSocket messages."""
     try:
         message_type = message.get("type", "unknown")
-        logger.debug(f"Received WebSocket message: {message_type}")
+        logger.debug(f"Processing WebSocket message: {message_type} from {websocket.client}")
         
         # Map of message types to handler functions
         handlers = {
@@ -92,18 +93,19 @@ async def process_message(websocket: WebSocket, message: Dict[str, Any]):
             "disconnect_request": handle_disconnect_request,
             "get_services": handle_get_services,
             "connection_status": handle_connection_status,  # Add handler for connection_status
+            "reconnect_request": handle_reconnect_request  # Add handler for reconnection requests
         }
         
         # Call the appropriate handler if it exists
         if message_type in handlers:
             await handlers[message_type](websocket, message)
         else:
-            logger.debug(f"No handler for message type: {message_type}")
+            logger.debug(f"No handler for message type: {message_type} from {websocket.client}")
     except Exception as e:
-        logger.error(f"Error processing message {message.get('type', 'unknown')}: {e}")
+        logger.error(f"Error processing message from {websocket.client}: {e}", exc_info=True)
         await websocket.send_json({
             "type": "error",
-            "message": f"Failed to process message: {str(e)}"
+            "message": f"Error processing message: {str(e)}"
         })
 
 # Add these functions after process_message but before handle_connection_status
@@ -284,6 +286,16 @@ async def handle_connection_status(websocket: WebSocket, message: Dict[str, Any]
         })
     except Exception as e:
         logger.error(f"Error handling connection status: {e}")
+
+async def handle_reconnect_request(websocket: WebSocket, message: Dict[str, Any]):
+    """Handle client reconnection request."""
+    logger.info(f"Reconnection request received from {websocket.client}")
+    await websocket.send_json({
+        "type": "reconnect_response",
+        "status": "accepted",
+        "message": "Reconnection accepted"
+    })
+    logger.debug(f"Sent reconnection acceptance to {websocket.client}")
 
 async def broadcast_message(message: Dict[str, Any]):
     """Broadcast a message to all connected clients."""
@@ -1116,4 +1128,3 @@ class BleWebSocketManager:
 
 # Create a singleton instance
 websocket_manager = BleWebSocketManager()
-

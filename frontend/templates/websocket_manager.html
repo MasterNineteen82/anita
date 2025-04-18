@@ -51,6 +51,24 @@
             <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span> Disconnected
           </div>
         </div>
+        <div class="py-2 px-3 bg-gray-700 bg-opacity-50 rounded flex justify-between items-center">
+          <div class="flex items-center">
+            <i class="fas fa-bluetooth text-indigo-400 mr-3"></i>
+            <span>BLE WebSocket</span>
+          </div>
+          <div id="ble-connection-status" class="flex items-center text-sm text-yellow-400">
+            <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span> Disconnected
+          </div>
+        </div>
+        <div class="py-2 px-3 bg-gray-700 bg-opacity-50 rounded flex justify-between items-center">
+          <div class="flex items-center">
+            <i class="fas fa-network-wired text-teal-400 mr-3"></i>
+            <span>MQTT WebSocket</span>
+          </div>
+          <div id="mqtt-connection-status" class="flex items-center text-sm text-yellow-400">
+            <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span> Disconnected
+          </div>
+        </div>
       </div>
     {% endcall %}
 
@@ -66,6 +84,8 @@
             <option value="uwb">UWB WebSocket</option>
             <option value="biometric">Biometric WebSocket</option>
             <option value="card">Card WebSocket</option>
+            <option value="ble">BLE WebSocket</option>
+            <option value="mqtt">MQTT WebSocket</option>
           </select>
         </div>
         <div>
@@ -76,44 +96,74 @@
           <label for="message-payload" class="block mb-1 text-sm text-gray-300">Payload (JSON)</label>
           <textarea id="message-payload" rows="4" placeholder="{}" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white font-mono text-sm"></textarea>
         </div>
+        <div>
+          <label for="auth-token" class="block mb-1 text-sm text-gray-300">Authentication Token</label>
+          <input type="password" id="auth-token" placeholder="Enter authentication token" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white">
+        </div>
+        <div class="flex items-center mt-2">
+          <input type="checkbox" id="save-token" class="mr-2">
+          <label for="save-token" class="text-sm text-gray-300">Save token locally</label>
+        </div>
       </div>
     {% endcall %}
 
     <!-- Connection Controller Card -->
     {% call render_card(title="Connection Controller", icon="plug", id="connection-controller", footer_buttons=[
-      {"id": "connect-all-btn", "icon": "power-on", "text": "Connect All", "primary": true},
-      {"id": "disconnect-all-btn", "icon": "power-off", "text": "Disconnect All"}
+      {"id": "connect-all-btn", "icon": "link", "text": "Connect All", "primary": true},
+      {"id": "disconnect-all-btn", "icon": "unlink", "text": "Disconnect All"}
     ]) %}
       <div class="space-y-3">
         <div class="py-2 px-3 bg-gray-700 rounded">
           <div class="flex justify-between items-center mb-2">
             <span class="text-sm">UWB WebSocket</span>
             <div class="flex space-x-2">
-              <button id="connect-uwb-btn" class="bg-green-600 hover:bg-green-500 text-white text-xs py-1 px-2 rounded">Connect</button>
-              <button id="disconnect-uwb-btn" class="bg-red-600 hover:bg-red-500 text-white text-xs py-1 px-2 rounded">Disconnect</button>
+              <button id="connect-uwb-btn" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">Connect</button>
+              <button id="disconnect-uwb-btn" class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs">Disconnect</button>
             </div>
           </div>
-          <div class="text-xs text-gray-400">ws://localhost:8000/ws/uwb</div>
         </div>
         <div class="py-2 px-3 bg-gray-700 rounded">
           <div class="flex justify-between items-center mb-2">
             <span class="text-sm">Biometric WebSocket</span>
             <div class="flex space-x-2">
-              <button id="connect-biometric-btn" class="bg-green-600 hover:bg-green-500 text-white text-xs py-1 px-2 rounded">Connect</button>
-              <button id="disconnect-biometric-btn" class="bg-red-600 hover:bg-red-500 text-white text-xs py-1 px-2 rounded">Disconnect</button>
+              <button id="connect-biometric-btn" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">Connect</button>
+              <button id="disconnect-biometric-btn" class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs">Disconnect</button>
             </div>
           </div>
-          <div class="text-xs text-gray-400">ws://localhost:8000/ws/biometric</div>
         </div>
         <div class="py-2 px-3 bg-gray-700 rounded">
           <div class="flex justify-between items-center mb-2">
             <span class="text-sm">Card WebSocket</span>
             <div class="flex space-x-2">
-              <button id="connect-card-btn" class="bg-green-600 hover:bg-green-500 text-white text-xs py-1 px-2 rounded">Connect</button>
-              <button id="disconnect-card-btn" class="bg-red-600 hover:bg-red-500 text-white text-xs py-1 px-2 rounded">Disconnect</button>
+              <button id="connect-card-btn" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">Connect</button>
+              <button id="disconnect-card-btn" class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs">Disconnect</button>
             </div>
           </div>
-          <div class="text-xs text-gray-400">ws://localhost:8000/ws/card</div>
+        </div>
+        <div class="py-2 px-3 bg-gray-700 rounded">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm">BLE WebSocket</span>
+            <div class="flex space-x-2">
+              <button id="connect-ble-btn" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">Connect</button>
+              <button id="disconnect-ble-btn" class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs">Disconnect</button>
+            </div>
+          </div>
+        </div>
+        <div class="py-2 px-3 bg-gray-700 rounded">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm">MQTT WebSocket</span>
+            <div class="flex space-x-2">
+              <button id="connect-mqtt-btn" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">Connect</button>
+              <button id="disconnect-mqtt-btn" class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs">Disconnect</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Connection Stats Element (will be created by JS if not present) -->
+      <div id="connection-stats" class="mt-4 p-3 bg-gray-800 rounded text-sm text-gray-300">
+        <h3 class="font-bold mb-2">Connection Statistics</h3>
+        <div id="stats-content" class="grid grid-cols-2 gap-2">
+          <!-- Will be populated by JS -->
         </div>
       </div>
     {% endcall %}
@@ -122,49 +172,47 @@
   <!-- Second Row -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
     <!-- Message Log Card -->
-    {% call render_card(title="Message Log", icon="terminal", id="message-log", footer_buttons=[
-      {"id": "clear-log-btn", "icon": "trash", "text": "Clear Log"},
-      {"id": "export-log-btn", "icon": "download", "text": "Export", "primary": true}
+    {% call render_card(title="Message Log", icon="list", id="message-log", footer_buttons=[
+      {"id": "clear-log-btn", "icon": "trash", "text": "Clear Log"}
     ]) %}
-      <div class="space-y-3">
-        <div class="flex gap-2 mb-2">
-          <input type="text" id="filter-log" class="flex-grow bg-gray-700 border border-gray-600 text-white rounded py-1 px-3" placeholder="Filter messages...">
-          <select id="filter-endpoint" title="Filter by Endpoint" class="bg-gray-700 border border-gray-600 text-white rounded py-1 px-2">
-            <option value="all">All</option>
+      <div class="space-y-2">
+        <div class="flex gap-2 mb-3">
+          <input type="text" id="filter-log" placeholder="Filter logs..." class="flex-1 bg-gray-700 border border-gray-600 rounded py-1 px-2 text-white text-sm">
+          <select id="filter-endpoint" class="bg-gray-700 border border-gray-600 rounded py-1 px-2 text-white text-sm">
+            <option value="all">All Endpoints</option>
             <option value="uwb">UWB</option>
             <option value="biometric">Biometric</option>
             <option value="card">Card</option>
+            <option value="ble">BLE</option>
+            <option value="mqtt">MQTT</option>
+            <option value="system">System</option>
           </select>
-          <select id="filter-direction" title="Filter by Direction" class="bg-gray-700 border border-gray-600 text-white rounded py-1 px-2">
-            <option value="all">All</option>
-            <option value="incoming">Incoming</option>
-            <option value="outgoing">Outgoing</option>
+          <select id="filter-direction" class="bg-gray-700 border border-gray-600 rounded py-1 px-2 text-white text-sm">
+            <option value="all">All Types</option>
+            <option value="sent">Sent</option>
+            <option value="received">Received</option>
+            <option value="system">System</option>
           </select>
         </div>
-        <div id="log-container" class="h-80 bg-gray-900 p-3 rounded overflow-y-auto font-mono text-xs">
-          <div class="text-gray-400 text-center py-10">WebSocket message log will appear here</div>
+        <div id="log-container" class="h-64 overflow-y-auto p-2 bg-gray-800 rounded text-sm">
+          <!-- Log entries will be added here by JavaScript -->
         </div>
       </div>
     {% endcall %}
 
-    <!-- Event Monitor Card -->
-    {% call render_card(title="Event Monitor", icon="chart-line", id="event-monitor", footer_buttons=[
-      {"id": "clear-events-btn", "icon": "trash", "text": "Clear"},
-      {"id": "toggle-autofollow-btn", "icon": "arrows-alt-v", "text": "Auto-follow"}
+    <!-- Events Card -->
+    {% call render_card(title="Events", icon="bell", id="events-log", footer_buttons=[
+      {"id": "clear-events-btn", "icon": "trash", "text": "Clear Events"}
     ]) %}
-      <div class="space-y-3">
-        <div class="flex justify-between items-center mb-2">
-          <span class="text-sm">Real-time Event Stream</span>
-          <div class="flex items-center">
-            <span class="mr-2 text-xs">Auto-update</span>
-            <label for="auto-update-events" class="relative inline-block w-10 h-5">
-              <input type="checkbox" id="auto-update-events" class="opacity-0 w-0 h-0" aria-label="Auto-update events">
-              <span class="absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-700 rounded-full transition-all duration-300 before:absolute before:h-3.5 before:w-3.5 before:rounded-full before:bg-green-500 before:content-[''] before:left-1 before:bottom-0.75 before:transition-all before:duration-300 checked:before:translate-x-5"></span>
-            </label>
-          </div>
+      <div class="space-y-2">
+        <div class="flex items-center mb-3">
+          <label class="flex items-center text-sm">
+            <input type="checkbox" id="auto-update-events" class="mr-2" checked>
+            Auto-update events
+          </label>
         </div>
-        <div id="event-container" class="h-80 bg-gray-900 p-3 rounded overflow-y-auto font-mono text-xs">
-          <div class="text-gray-400 text-center py-10">System events will appear here in real-time</div>
+        <div id="event-container" class="h-64 overflow-y-auto p-2 bg-gray-800 rounded text-sm">
+          <!-- Event entries will be added here by JavaScript -->
         </div>
       </div>
     {% endcall %}
@@ -172,37 +220,13 @@
 
   <!-- Third Row -->
   <div class="grid grid-cols-1 gap-6">
-    <!-- WebSocket Configuration Card -->
-    {% call render_card(title="WebSocket Configuration", icon="cogs", id="websocket-config", footer_buttons=[
-      {"id": "save-config-btn", "icon": "save", "text": "Save Config", "primary": true}
-    ]) %}
-      <div class="space-y-3">
-        <div>
-          <label for="uwb-url" class="block mb-1 text-sm text-gray-300">UWB WebSocket URL</label>
-          <input type="text" id="uwb-url" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white" value="ws://localhost:8000/ws/uwb">
-        </div>
-        <div>
-          <label for="biometric-url" class="block mb-1 text-sm text-gray-300">Biometric WebSocket URL</label>
-          <input type="text" id="biometric-url" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white" value="ws://localhost:8000/ws/biometric">
-        </div>
-        <div>
-          <label for="card-url" class="block mb-1 text-sm text-gray-300">Card WebSocket URL</label>
-          <input type="text" id="card-url" class="w-full bg-gray-700 border border-gray-600 rounded py-2 px-3 text-white" value="ws://localhost:8000/ws/card">
-        </div>
-      </div>
-    {% endcall %}
-  </div>
-
-  <!-- Fourth Row -->
-  <div class="grid grid-cols-1 gap-6">
     <!-- WebSocket Activity Log Card -->
     {% call render_card(title="WebSocket Activity Log", icon="history", id="websocket-log", footer_buttons=[
       {"id": "clear-log-btn", "icon": "trash", "text": "Clear Log"},
       {"id": "export-log-btn", "icon": "download", "text": "Export Log", "primary": true}
     ]) %}
-      <div id="log-container" class="h-48 bg-gray-900 rounded p-3 overflow-y-auto font-mono text-sm">
-        <div class="text-gray-500">[System] WebSocket Manager initialized</div>
-        <div class="text-blue-400">[Info] Waiting for WebSocket connections...</div>
+      <div id="activity-log" class="h-64 overflow-y-auto p-2 bg-gray-800 rounded text-sm">
+        <!-- Activity log entries will be added here by JavaScript -->
       </div>
     {% endcall %}
   </div>
@@ -211,4 +235,17 @@
 
 {% block page_scripts %}
 <script type="module" src="/static/js/pages/websocket-manager.js"></script>
+<script type="module" src="/static/js/pages/websocket-debug.js"></script>
+<script>
+  // Ensure script is loaded and DOM ready
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM fully loaded and parsed');
+    // This will help diagnose if there are any DOM-related issues
+    setTimeout(() => {
+      if (window.debugWebSocketManager) {
+        window.debugWebSocketManager();
+      }
+    }, 500);
+  });
+</script>
 {% endblock %}

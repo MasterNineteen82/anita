@@ -4,69 +4,288 @@
  */
 export class BleApiClient {
     constructor(options = {}) {
-        this.baseUrl = options.baseUrl || '/api/ble';
+        // Don't add /api/ble to baseUrl - we'll handle this in the request method
+        this.baseUrl = options.baseUrl || '';
+        this.maxRetries = options.maxRetries || 3;
+        this.backoffFactor = options.backoffFactor || 1.5;
+        this.initialDelay = options.initialDelay || 500;
         this.mockFallback = options.mockFallback === true; // Default to false unless explicitly true
-        this.logger = options.logger || console;
+        // Use provided logger or fallback to console
+        this.logger = options.logger || {
+            info: console.info,
+            debug: console.debug || console.log,
+            warning: console.warn,
+            error: console.error,
+            log: console.log
+        };
+        // Safely bind log method only if it exists
+        this.log = (this.logger.log && typeof this.logger.log.bind === 'function') ? this.logger.log.bind(this.logger) : () => {};
         this.debug = options.debug || false;
+        this.defaultRetries = 3;
+        this.defaultTimeout = 10000;
     }
 
     /**
-     * Make a request to the BLE API
+     * Make a request to the API
+     * @param {string} endpoint - API endpoint
+     * @param {Object} options - Request options
+     * @returns {Promise<Object>} - API response
      */
     async request(endpoint, options = {}) {
-        const url = `${this.baseUrl}${endpoint}`;
-        const method = options.method || 'GET';
-        const body = options.body;
+        const url = this.getEndpointUrl(endpoint);
+        const requestOptions = this.prepareRequestOptions(options);
         
+        // Retry configuration
+        const maxRetries = options.retries || this.defaultRetries;
+        const timeout = options.timeout || this.defaultTimeout;
+        let attempt = 0;
+        let lastError = null;
+        
+        // Track request for debugging
+        const requestId = Math.random().toString(36).substring(2, 10);
+        this.logger.info(`[${requestId}] API Request to ${endpoint}`, options.body || {});
+        
+        // Notify about request start
+        if (typeof BleLogger !== 'undefined') {
+            BleLogger.debug('API', 'request', `Starting request to ${endpoint}`, { 
+                requestId,
+                method: requestOptions.method,
+                endpoint
+            });
+        }
+        
+        // Add timeout controller
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+            controller.abort();
+        }, timeout);
+        
+        requestOptions.signal = controller.signal;
+        
+        // Start retry loop
+        while (attempt <= maxRetries) {
+            try {
+                attempt++;
+                
+                // Add exponential backoff delay for retries
+                if (attempt > 1) {
+                    const delay = Math.min(5000, 500 * Math.pow(this.backoffFactor, attempt - 1));
+                    
+                    if (typeof BleLogger !== 'undefined') {
+                        BleLogger.debug('API', 'retry', `Retrying request to ${endpoint} (${attempt}/${maxRetries + 1})`, {
+                            requestId,
+                            delay
+                        });
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+                
+                // Make request
+                const startTime = Date.now();
+                const response = await fetch(url, requestOptions);
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+                
+                // Check status code
+                if (!response.ok) {
+                    const errorBody = await this.getErrorBody(response);
+                    
+                    // Log the error
+                    if (typeof BleLogger !== 'undefined') {
+                        BleLogger.warn('API', 'error', `Error response from ${endpoint}: ${response.status}`, {
+                            requestId,
+                            status: response.status,
+                            statusText: response.statusText,
+                            errorBody,
+                            duration
+                        });
+                    }
+                    
+                    throw new Error(`API error: ${response.status} ${response.statusText} - ${errorBody.detail || errorBody.message || 'No error details'}`);
+                }
+                
+                // Parse response
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    // Empty response or not JSON
+                    this.logger.warn(`[${requestId}] Response is not valid JSON:`, e);
+                    
+                    if (typeof BleLogger !== 'undefined') {
+                        BleLogger.warn('API', 'parse', `Response parsing error for ${endpoint}`, {
+                            requestId,
+                            error: e.message,
+                            status: response.status,
+                            duration
+                        });
+                    }
+                    
+                    // Return empty success for 204 No Content
+                    if (response.status === 204) {
+                        return { success: true };
+                    }
+                    
+                    throw new Error(`Failed to parse API response: ${e.message}`);
+                }
+                
+                // Log successful response
+                if (typeof BleLogger !== 'undefined') {
+                    BleLogger.debug('API', 'success', `Successful response from ${endpoint}`, {
+                        requestId,
+                        duration,
+                        status: response.status
+                    });
+                }
+                
+                this.logger.info(`[${requestId}] API Response from ${endpoint} (${duration}ms):`, data);
+                
+                // Cleanup timeout
+                clearTimeout(timeoutId);
+                
+                return data;
+            } catch (error) {
+                lastError = error;
+                
+                // Special handling for abort (timeout)
+                if (error.name === 'AbortError') {
+                    this.logger.error(`[${requestId}] Request to ${endpoint} timed out after ${timeout}ms`);
+                    
+                    if (typeof BleLogger !== 'undefined') {
+                        BleLogger.error('API', 'timeout', `Request to ${endpoint} timed out`, {
+                            requestId,
+                            timeout,
+                            attempt
+                        });
+                    }
+                    
+                    // Don't retry on timeout if this is POST/PUT (mutation)
+                    if (requestOptions.method !== 'GET' && requestOptions.method !== 'HEAD') {
+                        break;
+                    }
+                } else {
+                    this.logger.error(`[${requestId}] API Error in attempt ${attempt}/${maxRetries + 1}:`, error.message);
+                    
+                    if (typeof BleLogger !== 'undefined') {
+                        BleLogger.error('API', 'error', `Request to ${endpoint} failed: ${error.message}`, {
+                            requestId,
+                            attempt,
+                            method: requestOptions.method
+                        });
+                    }
+                }
+                
+                // Last attempt, use mock or fail
+                if (attempt > maxRetries) {
+                    // Clean up timeout
+                    clearTimeout(timeoutId);
+                    
+                    if (this.mockFallback) {
+                        this.logger.info(`[${requestId}] Using mock response after ${attempt} failed attempts`);
+                        
+                        if (typeof BleLogger !== 'undefined') {
+                            BleLogger.info('API', 'fallback', `Using mock response for ${endpoint} after ${attempt} failures`, {
+                                requestId
+                            });
+                        }
+                        
+                        return this.getMockResponse(endpoint, options);
+                    } else {
+                        throw lastError;
+                    }
+                }
+            }
+        }
+        
+        // Clean up timeout if we somehow exited the loop
+        clearTimeout(timeoutId);
+        
+        // This should not happen, but just in case
+        if (lastError) {
+            throw lastError;
+        }
+        
+        return { success: false, error: 'Unknown error' };
+    }
+
+    /**
+     * Get error details from error response
+     * @param {Response} response - Fetch response
+     * @returns {Object} - Error details
+     */
+    async getErrorBody(response) {
+        try {
+            return await response.json();
+        } catch (e) {
+            // Not a JSON response, return generic error object
+            return {
+                status: response.status,
+                statusText: response.statusText,
+                detail: 'Failed to parse error response'
+            };
+        }
+    }
+
+    /**
+     * Prepare request options with correct formatting
+     * @param {Object} options - Request options
+     * @returns {Object} - Prepared options
+     */
+    prepareRequestOptions(options = {}) {
         const requestOptions = {
-            method,
+            method: options.method || 'GET',
             headers: {
                 'Content-Type': 'application/json',
                 ...options.headers
-            }
+            },
+            credentials: 'same-origin'
         };
         
-        if (body && (method === 'POST' || method === 'PUT')) {
-            requestOptions.body = JSON.stringify(body);
-        }
-        
-        if (this.debug) {
-            this.logger.debug(`BLE API Request: ${method} ${url}`, body || '');
-        }
-        
-        try {
-            // Always use the original fetch function to bypass mock interceptors
-            const originalFetch = window.originalFetch || window.fetch;
-            const response = await originalFetch(url, requestOptions);
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`API Error (${response.status}): ${errorText}`);
-            }
-            
-            // Handle empty responses
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const data = await response.json();
-                return data;
+        // Add body for non-GET requests
+        if (options.body && (requestOptions.method !== 'GET' && requestOptions.method !== 'HEAD')) {
+            // Make sure we don't double-stringify the body
+            if (typeof options.body === 'string') {
+                requestOptions.body = options.body;
             } else {
-                const text = await response.text();
-                return text || { success: true };
+                requestOptions.body = JSON.stringify(options.body);
             }
-        } catch (error) {
-            this.logger.error(`BLE API Error: ${error.message}`);
-            
-            // Never use mock fallback, always throw the real error
-            throw error;
         }
+        
+        return requestOptions;
+    }
+
+    /**
+     * Get the full URL for the given endpoint
+     * @param {string} endpoint - API endpoint
+     * @returns {string} - Full URL
+     */
+    getEndpointUrl(endpoint) {
+        // Get rid of any existing /api/ble prefix in the endpoint
+        const cleanEndpoint = endpoint.replace(/^\/?(api\/ble\/?)?/, '');
+        
+        // Make sure the clean endpoint starts with a slash
+        const normalizedEndpoint = cleanEndpoint.startsWith('/') ? cleanEndpoint : '/' + cleanEndpoint;
+        
+        // Construct the full URL
+        return `${this.baseUrl}/api/ble${normalizedEndpoint}`;
     }
 
     /**
      * Get adapter information
      */
     async getAdapterInfo() {
+        this.logger.info('Getting adapter information'); // Use logger.info
         try {
-            return await this.request('/adapter/info');
+            // Correct endpoint: /api/ble/adapter/adapters
+            const response = await this.request('/api/ble/adapter/adapters', { method: 'GET' });
+            
+            // Check if the response structure is as expected
+            if (response && Array.isArray(response.adapters)) {
+                return response.adapters;
+            } else {
+                throw new Error('Invalid response structure');
+            }
         } catch (error) {
             if (this.mockFallback) {
                 this.logger.warn('Falling back to mock adapter info');
@@ -94,57 +313,45 @@ export class BleApiClient {
     }
 
     /**
-     * Select an adapter
-     * @param {string} adapterId The ID or address of the adapter to select
+     * Select a Bluetooth adapter
+     * @param {string} adapterId - The ID of the adapter to select
      */
     async selectAdapter(adapterId) {
+        this.logger.info(`Selecting adapter: ${adapterId}`); // Use logger.info
         try {
-            // Use the correct request format expected by the backend
-            return await this.request('/adapter/select', {
+            // Correct endpoint: /api/ble/adapter/select
+            return await this.request('/api/ble/adapter/select', {
                 method: 'POST',
-                body: { id: adapterId } // IMPORTANT: Use 'id', not 'adapter_id' or 'address'
+                body: JSON.stringify({ adapter_id: adapterId }),
             });
         } catch (error) {
-            if (this.mockFallback) {
-                this.logger.warn(`Falling back to mock adapter selection: ${adapterId}`);
-                return {
-                    status: "success",
-                    adapter: {
-                        id: adapterId,
-                        name: "Mock Bluetooth Adapter",
-                        address: adapterId,
-                        available: true,
-                        status: "available"
-                    },
-                    message: "Adapter selected successfully (mock)"
-                };
-            }
-            throw error;
+            this.logger.error({ 
+                category: 'API Error', 
+                message: `Error selecting adapter ${adapterId}: ${error.message}`, 
+                details: error 
+            });
+            throw error; // Re-throw after logging
         }
     }
 
     /**
-     * Reset an adapter
-     * @param {string} adapterId The ID or address of the adapter to reset
+     * Reset a Bluetooth adapter
+     * @param {string} adapterId - The ID of the adapter to reset
      */
     async resetAdapter(adapterId) {
         try {
-            return await this.request('/adapter/reset', {
+            if (!adapterId) {
+                throw new Error('Adapter ID is required');
+            }
+            
+            return await this.request('/device/adapter/reset', {
                 method: 'POST',
-                body: { adapter_id: adapterId, force: true }
+                body: { adapter_id: adapterId }
             });
         } catch (error) {
             if (this.mockFallback) {
                 this.logger.warn('Falling back to mock adapter reset');
-                return {
-                    status: "success",
-                    message: "Adapter reset successfully (mock)",
-                    details: {
-                        success: true,
-                        adapter_address: adapterId,
-                        actions_taken: ["Simulated adapter reset"]
-                    }
-                };
+                return { success: true, message: 'Mock adapter reset' };
             }
             throw error;
         }
@@ -155,17 +362,17 @@ export class BleApiClient {
      */
     async getAdapterHealth() {
         try {
-            return await this.request('/adapter/health');
+            return await this.request('/device/adapter/health');
         } catch (error) {
             if (this.mockFallback) {
                 this.logger.warn('Falling back to mock adapter health');
                 return {
-                    status: "available",
-                    issues: [],
-                    uptime: 3600,
-                    scan_success_rate: 100,
-                    connection_success_rate: 95,
-                    timestamp: Date.now()
+                    status: "healthy",
+                    details: {
+                        scan_count: 42,
+                        uptime: 3600,
+                        error_count: 0
+                    }
                 };
             }
             throw error;
@@ -179,22 +386,213 @@ export class BleApiClient {
      */
     async setAdapterPower(powerOn, adapterId = null) {
         try {
-            const state = powerOn ? 'on' : 'off';
-            const queryParams = adapterId ? `?adapter_id=${adapterId}` : '';
-            return await this.request(`/adapter/power/${state}${queryParams}`, {
-                method: 'POST'
+            return await this.request('/device/adapter/power', {
+                method: 'POST',
+                body: {
+                    power: powerOn,
+                    adapter_id: adapterId
+                }
             });
         } catch (error) {
             if (this.mockFallback) {
-                this.logger.warn(`Falling back to mock adapter power: ${powerOn}`);
+                this.logger.warn('Falling back to mock adapter power setting');
+                return { success: true, state: powerOn ? 'on' : 'off' };
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Connect to a BLE device
+     * @param {string} address The address of the device to connect to
+     * @param {Object} options Optional connection parameters 
+     */
+    async connectToDevice(address, options = {}) {
+        try {
+            const connectionParams = {
+                address: address,
+                timeout: options.timeout || 10, // Default 10 seconds timeout
+                retry: options.retry === true,
+                auto_reconnect: options.autoReconnect === true
+            };
+            
+            return await this.request('/device/connect', {
+                method: 'POST',
+                body: connectionParams
+            });
+        } catch (error) {
+            if (this.mockFallback) {
+                this.logger.warn(`Falling back to mock device connection: ${address}`);
                 return {
                     status: "success",
-                    message: `Adapter power set to ${powerOn ? 'on' : 'off'} (mock)`,
-                    adapter_id: adapterId || "current"
+                    result: {
+                        connected: true,
+                        device: {
+                            address: address,
+                            name: "Mock Connected Device",
+                            services: [
+                                { uuid: "1800", name: "Generic Access" },
+                                { uuid: "180F", name: "Battery Service" }
+                            ]
+                        }
+                    }
                 };
             }
             throw error;
         }
+    }
+    
+    /**
+     * Disconnect from a BLE device
+     * @param {string} address The address of the device to disconnect from
+     */
+    async disconnectDevice(address) {
+        try {
+            return await this.request('/device/disconnect', {
+                method: 'POST',
+                body: { address }
+            });
+        } catch (error) {
+            if (this.mockFallback) {
+                this.logger.warn(`Falling back to mock device disconnection: ${address}`);
+                return {
+                    status: "success",
+                    result: { disconnected: true }
+                };
+            }
+            throw error;
+        }
+    }
+    
+    /**
+     * Get the connected device information
+     */
+    async getConnectedDevices() {
+        this.logger.info('Getting connected devices'); // Use logger.info
+        try {
+            // Correct endpoint: /api/ble/device/info
+            const response = await this.request('/api/ble/device/info', { method: 'GET' });
+            // Backend /device/info likely returns a single object or null
+            // Adapt response handling as needed based on actual backend structure
+            // Assuming it returns { status: 'success', device: {...} } or similar
+            return response.device ? [response.device] : []; // Return as array for consistency?
+        } catch (error) {
+            if (this.mockFallback) {
+                this.logger.warn('Falling back to mock connected devices');
+                return {
+                    status: "success",
+                    connected: false,
+                    devices: []
+                };
+            }
+            throw error;
+        }
+    }
+    
+    /**
+     * Get device characteristics
+     * @param {string} address Device address
+     * @param {string} serviceUuid Optional service UUID to filter
+     */
+    async getDeviceCharacteristics(address, serviceUuid = null) {
+        try {
+            const endpoint = serviceUuid ? 
+                `/device/${address}/service/${serviceUuid}/characteristics` :
+                `/device/${address}/characteristics`;
+                
+            return await this.request(endpoint);
+        } catch (error) {
+            if (this.mockFallback) {
+                this.logger.warn(`Falling back to mock device characteristics: ${address}`);
+                return {
+                    status: "success",
+                    characteristics: [
+                        { 
+                            uuid: "2A19", 
+                            name: "Battery Level", 
+                            properties: ["read", "notify"],
+                            service_uuid: "180F"
+                        }
+                    ]
+                };
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Start scanning for BLE devices
+     * @param {Object} options Scan options
+     * @param {number} options.scan_time Scan duration in seconds
+     * @param {boolean} options.active Use active scanning
+     * @param {string} options.name_prefix Filter by name prefix
+     * @param {Array} options.service_uuids Filter by service UUIDs
+     * @returns {Promise<Object>} Scan result
+     */
+    async startScan(options = {}) {
+        const scanOptions = {
+            scan_time: options.scan_time || 5,  // Scan for 5 seconds by default
+            active: options.active !== false,   // Use active scanning by default
+            name_prefix: options.name_prefix || null,
+            service_uuids: options.service_uuids || null,
+            mock: false  // Don't use mock devices by default
+        };
+
+        try {
+            return await this.request('/device/scan', {
+                method: 'POST',
+                body: scanOptions
+            });
+        } catch (error) {
+            if (this.mockFallback) {
+                return this.getMockScanResult();
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Get discovered devices
+     * @returns {Promise<Object>} List of discovered devices
+     */
+    async getDiscoveredDevices() {
+        try {
+            return await this.request('/device/discovered');
+        } catch (error) {
+            if (this.mockFallback) {
+                return this.getMockDiscoveredDevices();
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Get mock response for the given endpoint
+     * @param {string} endpoint - API endpoint
+     * @param {Object} options - Request options
+     * @returns {Object} - Mock response
+     */
+    getMockResponse(endpoint, options) {
+        // Implement mock response logic here
+        return {};
+    }
+
+    /**
+     * Get mock scan result
+     * @returns {Object} - Mock scan result
+     */
+    getMockScanResult() {
+        // Implement mock scan result logic here
+        return {};
+    }
+
+    /**
+     * Get mock discovered devices
+     * @returns {Object} - Mock discovered devices
+     */
+    getMockDiscoveredDevices() {
+        // Implement mock discovered devices logic here
+        return {};
     }
 }
 

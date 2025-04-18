@@ -41,6 +41,9 @@
     
     <!-- Add Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Add Feather Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
 {% endblock %}
 
 {% block title %}BLE Dashboard{% endblock %}
@@ -56,364 +59,725 @@
 
     <!-- Main Grid Container -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- Row 1: Adapter Information + Device Scanner -->
+        <!-- Row 1: Adapter Information + Device Scanner + Connected Devices -->
         
         {% call render_card(title="Adapter Information", icon="bluetooth", id="ble-adapter-info-card") %}
             <div class="space-y-4 p-4">
-                <div class="text-gray-500">Fetching adapter information...</div>
-                
-                <div id="adapter-info-content" class="space-y-4 p-4">
-                    <!-- Adapter Name -->
-                    <div class="mb-3">
-                        <label class="block text-sm text-gray-400 mb-1">Name</label>
-                        <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-name">Loading...</div>
+                <div id="adapter-info-content" class="space-y-4">
+                    <!-- Adapter selector dropdown -->
+                    <div id="adapter-selector-container" class="mb-4">
+                        <!-- Will be populated by JS -->
+                    </div>
+                    
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-blue-900 rounded-full flex items-center justify-center mr-4">
+                            <i data-feather="bluetooth" class="text-blue-300"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-medium" id="adapter-name">Loading...</h3>
+                            <p class="text-gray-400 text-sm" id="adapter-address">Loading...</p>
+                        </div>
                     </div>
                 
-                    <!-- Adapter Address -->
-                    <div class="mb-3">
-                        <label class="block text-sm text-gray-400 mb-1">Address</label>
-                        <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-address">Loading...</div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- Adapter Status -->
+                        <div class="bg-gray-800 p-3 rounded-lg">
+                            <div class="text-sm text-gray-400">Status</div>
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 rounded-full mr-2" id="adapter-status-indicator"></div>
+                                <div class="font-medium" id="adapter-status-text">Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Adapter Type -->
+                        <div class="bg-gray-800 p-3 rounded-lg">
+                            <div class="text-sm text-gray-400">Type</div>
+                            <div class="font-medium" id="adapter-type">Loading...</div>
+                        </div>
                     </div>
                 
-                    <!-- Adapter Type -->
-                    <div class="mb-3">
-                        <label class="block text-sm text-gray-400 mb-1">Type</label>
-                        <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-type">Loading...</div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- Adapter Manufacturer -->
+                        <div class="bg-gray-800 p-3 rounded-lg">
+                            <div class="text-sm text-gray-400">Manufacturer</div>
+                            <div class="font-medium" id="adapter-manufacturer">Loading...</div>
+                        </div>
+                        
+                        <!-- Adapter Platform -->
+                        <div class="bg-gray-800 p-3 rounded-lg">
+                            <div class="text-sm text-gray-400">Platform</div>
+                            <div class="font-medium" id="adapter-platform">Loading...</div>
+                        </div>
                     </div>
-                
-                    <!-- Adapter Status -->
-                    <div class="mb-3">
-                        <label class="block text-sm text-gray-400 mb-1">Status</label>
-                        <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-status-text">Loading...</div>
+                    
+                    <div class="flex space-x-2 pt-2">
+                        <button id="adapter-refresh-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+                            <i data-feather="refresh-cw" class="w-4 h-4 mr-2"></i>
+                            Refresh
+                        </button>
+                        
+                        <button id="adapter-reset-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center">
+                            <i data-feather="power" class="w-4 h-4 mr-2"></i>
+                            Reset
+                        </button>
                     </div>
-                
-                    <!-- Adapter Manufacturer -->
-                    <div class="mb-3">
-                        <label class="block text-sm text-gray-400 mb-1">Manufacturer</label>
-                        <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-manufacturer">Loading...</div>
-                    </div>
-                
-                    <!-- Adapter Platform -->
-                    <div class="mb-3">
-                        <label class="block text-sm text-gray-400 mb-1">Platform</label>
-                        <div class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" id="adapter-platform">Loading...</div>
-                    </div>
-                </div>
-                
-                <!-- Refresh Button -->
-                <div class="mt-4 flex justify-end">
-                    <button type="button" id="refresh-adapter-btn" class="ble-btn ble-btn-secondary">
-                        <i class="fas fa-sync mr-2"></i> Refresh Adapter Info
-                    </button>
                 </div>
             </div>
         {% endcall %}
-        
+
+        <!-- Device Scanner Card -->
         {% call render_card(title="Device Scanner", icon="search", id="ble-device-scanner-card") %}
             <div id="scan-container" class="p-4">
-                <!-- Scan Status -->
-                <div class="flex items-center justify-between mb-4">
+                <!-- Scan Controls -->
+                <div class="flex flex-wrap items-center justify-between mb-4 gap-2">
+                    <div class="flex items-center space-x-2">
+                        <button id="scan-btn" class="btn btn-primary flex items-center space-x-1">
+                            <i data-feather="refresh-cw" class="w-4 h-4"></i>
+                            <span>Scan</span>
+                        </button>
+                        <button id="stop-scan-btn" class="btn btn-danger flex items-center space-x-1 hidden">
+                            <i data-feather="square" class="w-4 h-4"></i>
+                            <span>Stop</span>
+                        </button>
+                        <button id="clear-devices-btn" class="btn text-gray-400 hover:text-white flex items-center space-x-1">
+                            <i data-feather="trash-2" class="w-4 h-4"></i>
+                            <span>Clear</span>
+                        </button>
+                    </div>
                     <div class="flex items-center">
-                        <span id="scan-status" class="mr-2 inline-flex items-center">
-                            <span class="w-3 h-3 rounded-full bg-gray-500 mr-2"></span>
-                            <span class="text-gray-400">Inactive</span>
-                        </span>
-                    </div>
-                    <div class="flex space-x-2">
-                        <button type="button" id="scan-btn" class="ble-btn ble-btn-primary">
-                            <i class="fas fa-search mr-2"></i>Scan for Devices
-                        </button>
-                        <button type="button" id="stop-scan-btn" class="ble-btn ble-btn-secondary hidden">
-                            <i class="fas fa-stop mr-2"></i>Stop Scan
+                        <button id="scan-options-toggle" class="text-sm text-blue-400 hover:text-blue-300 flex items-center">
+                            <i data-feather="chevron-down" class="w-4 h-4 mr-1"></i> Show Options
                         </button>
                     </div>
                 </div>
-                
-                <!-- Scan Progress -->
-                <div class="mb-4">
-                    <label class="block text-sm text-gray-400 mb-1">Scan Progress</label>
-                    <div class="relative w-full bg-gray-700 rounded-full h-2">
-                        <div id="scan-progress" class="absolute bg-blue-500 h-2 rounded-full ble-progress-bar"></div>
+
+                <!-- Scan Status -->
+                <div id="scan-status" class="mb-4 hidden">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-sm">Scanning...</span>
+                        <span id="scan-time-remaining" class="text-sm">5s</span>
+                    </div>
+                    <div class="bg-gray-700 h-1 rounded-full overflow-hidden">
+                        <div id="scan-progress-bar" class="bg-blue-500 h-1 rounded-full" style="width: 0%"></div>
                     </div>
                 </div>
-                
-                <!-- Scan Duration -->
-                <div class="mb-4">
-                    <label for="scan-time" class="block text-sm text-gray-400 mb-1">Scan Duration</label>
-                    <select id="scan-time" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
-                        <option value="3">3 seconds</option>
-                        <option value="5" selected>5 seconds</option>
-                        <option value="10">10 seconds</option>
-                        <option value="15">15 seconds</option>
-                    </select>
+
+                <!-- Scan Options Panel -->
+                <div id="scan-options-panel" class="mb-4 bg-gray-800 p-3 rounded-lg hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="scan-time">Scan Duration (seconds)</label>
+                            <input type="number" id="scan-time" class="form-input bg-gray-700" min="1" max="30" value="5">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="name-filter">Name Filter (optional)</label>
+                            <input type="text" id="name-filter" class="form-input bg-gray-700" placeholder="e.g., 'Arduino'">
+                        </div>
+                        <div class="flex items-center">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="active-scan-toggle" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="ml-2">Active Scan</span>
+                        </div>
+                    </div>
                 </div>
-                
-                <!-- Active Scanning Toggle -->
+
+                <!-- Device Filter -->
                 <div class="mb-4">
-                    <label class="inline-flex items-center">
-                        <input type="checkbox" id="active-scanning" class="form-checkbox h-5 w-5 text-blue-600 rounded" checked>
-                        <span class="ml-2 text-gray-400">Active scanning</span>
-                    </label>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="relative flex-grow">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-2">
+                                <i data-feather="filter" class="w-4 h-4 text-gray-400"></i>
+                            </span>
+                            <input type="text" id="device-filter" class="w-full pl-9 form-input bg-gray-700 text-sm" placeholder="Filter devices...">
+                        </div>
+                        <div class="flex items-center space-x-3 text-sm text-gray-400">
+                            <label class="flex items-center">
+                                <input type="radio" name="filter-type" id="filter-by-name" class="mr-1" checked>
+                                Name
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="filter-type" id="filter-by-address" class="mr-1">
+                                Address
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <label class="block text-sm text-gray-400 mb-1">Signal Strength (min: <span id="signal-filter-value">-100</span>)</label>
+                        <input type="range" id="filter-by-signal" class="w-full" min="-100" max="-30" value="-100">
+                    </div>
                 </div>
-                
+
                 <!-- Device List -->
-                <div id="devices-list" class="mt-4">
-                    <div class="text-gray-500">No devices found. Click the scan button to start scanning.</div>
+                <div class="mt-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-sm font-medium">Discovered Devices</h3>
+                        <span id="device-count" class="text-xs text-gray-400">No devices found</span>
+                    </div>
+                    <div class="device-list">
+                        <div id="discovered-devices-list" class="space-y-2">
+                            <div id="no-devices-message" class="text-center py-4 text-gray-400">
+                                <div class="flex flex-col items-center">
+                                    <i data-feather="bluetooth-off" class="w-8 h-8 mb-2 text-gray-600"></i>
+                                    <p>No devices found. Start scanning to discover BLE devices.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+
+        <!-- Connected Device Information Card -->
+        {% call render_card(title="Connected Device", icon="link", id="ble-device-info-card") %}
+            <div class="p-4">
+                <div id="no-device-message" class="text-center py-4 text-gray-400">
+                    <div class="flex flex-col items-center">
+                        <i data-feather="bluetooth-off" class="w-12 h-12 mb-2 text-gray-600"></i>
+                        <p>No device connected</p>
+                        <p class="text-sm mt-2">Use the Device Scanner to find and connect to a device</p>
+                    </div>
                 </div>
                 
-                <!-- Clear Devices Button -->
-                <div class="mt-4 flex justify-end">
-                    <button type="button" id="clear-devices-btn" class="ble-btn ble-btn-tertiary">
-                        <i class="fas fa-trash mr-2"></i> Clear Devices
-                    </button>
-                </div>
-            </div>
-        {% endcall %}
-
-        <!-- Row 2: Connected Device + Device Services -->
-        {% call render_card(title="Connected Device", icon="microchip",  id="ble-device-card") %}
-            <div id="device-info-content" class="p-4">
-                <div class="text-gray-500">No device connected</div>
-            </div>
-            <!-- Battery information container -->
-            <div id="battery-container" class="mt-4 ble-battery-container hidden">
-                <i id="battery-icon" class="fas fa-battery-half ble-battery-icon mr-2"></i>
-                <div class="flex-1">
-                    <div class="text-sm font-medium text-gray-400">Battery Level</div>
-                    <div id="battery-level" class="text-lg font-bold ble-battery-level">--</div>
-                </div>
-                <button id="refresh-battery" type="button" title="Refresh battery level" class="ble-btn ble-btn-tertiary">
-                    <i class="fas fa-sync"></i>
-                </button>
-            </div>
-            <div class="mt-4 flex justify-end">
-                <button type="button" id="disconnect-btn" class="ble-btn ble-btn-danger hidden">
-                    <i class="fas fa-times mr-2"></i>Disconnect
-                </button>
-            </div>
-        {% endcall %}
-
-        {% call render_card(title="Device Services", icon="server", id="ble-services-card") %}
-            <div id="services-list" class="p-4">
-                <div class="text-gray-500">Connect to a device to view services</div>
-            </div>
-        {% endcall %}
-
-        <!-- Row 3: Data Visualization + Notifications -->
-        {% call render_card(title="Data Visualization", icon="chart-line", id="ble-data-card") %}
-            <div class="p-4">
-                <div id="data-visualization-container">
-                    <div class="text-center text-gray-500 py-8">
-                        Subscribe to a characteristic to visualize data.
+                <div id="device-info" class="hidden">
+                    <!-- Connection Status -->
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <span id="device-status-indicator" class="connection-status status-disconnected"></span>
+                            <span id="device-status-text" class="ml-2 text-red-500">Disconnected</span>
+                        </div>
+                        <button id="disconnect-btn" class="btn btn-danger py-1 px-3 text-sm">
+                            Disconnect
+                        </button>
                     </div>
                     
-                    <div id="data-viz-content" class="hidden">
-                        <div class="flex space-x-4 mb-4">
-                            <select title="Visualization Type" id="visualization-type" class="w-auto bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
-                                <option value="line">Line Chart</option>
-                                <option value="bar">Bar Chart</option>
-                                <option value="gauge">Gauge</option>
-                                <option value="raw">Raw Data</option>
-                            </select>
-                            
-                            <button type="button" id="clear-data-btn" class="ble-btn ble-btn-secondary">
-                                <i class="fas fa-trash mr-1"></i> Clear Data
+                    <!-- Device Details -->
+                    <div class="bg-gray-800 p-3 rounded-lg mb-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="text-xs text-gray-400 mb-1">Name</div>
+                                <div id="device-name" class="font-semibold">--</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-400 mb-1">Address</div>
+                                <div id="device-address" class="font-mono text-sm">--</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-400 mb-1">RSSI</div>
+                                <div id="device-rssi" class="flex items-center">
+                                    <span class="mr-2">--</span>
+                                    <div id="device-signal-indicator"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-400 mb-1">MTU</div>
+                                <div id="device-mtu" class="flex items-center">
+                                    <span>--</span>
+                                    <button id="request-mtu-btn" class="ml-2 text-blue-400 hover:text-blue-300 text-xs p-1">
+                                        <i data-feather="edit-2" class="w-3 h-3"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Device Actions -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <button id="refresh-services-btn" class="btn btn-secondary py-1 px-3 text-sm flex items-center">
+                            <i data-feather="refresh-cw" class="w-3 h-3 mr-1"></i> Refresh Services
+                        </button>
+                        <button id="bond-device-btn" class="btn btn-secondary py-1 px-3 text-sm flex items-center">
+                            <i data-feather="lock" class="w-3 h-3 mr-1"></i> Bond Device
+                        </button>
+                        <button id="set-preferred-btn" class="btn btn-secondary py-1 px-3 text-sm flex items-center" title="Set as preferred device">
+                            <i data-feather="star" class="w-3 h-3 mr-1"></i> Preferred
+                        </button>
+                    </div>
+                    
+                    <!-- Services List -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-medium">Device Services</h3>
+                            <span id="services-count" class="text-xs text-gray-400">0 services</span>
+                        </div>
+                        <div id="device-services" class="mt-2">
+                            <div class="empty-state">
+                                <i data-feather="list" class="empty-state-icon"></i>
+                                <p class="empty-state-text">No services available</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+
+    </div>
+    
+    <!-- Row 2: Console Cards - Combined card spanning full width -->
+    <div class="mt-6 grid grid-cols-1 gap-6">
+        {% call render_card(title="BLE Console", icon="terminal", id="ble-console-card", card_class="col-span-full") %}
+            <div class="p-4">
+                <!-- Tabs for different console views -->
+                <div class="flex border-b border-gray-700 mb-4">
+                    <button class="console-tab-btn active px-4 py-2 border-b-2 border-blue-500 -mb-px" data-tab="operations-log">
+                        Operations Log
+                    </button>
+                    <button class="console-tab-btn px-4 py-2" data-tab="debug-console">
+                        Debug Console
+                    </button>
+                    <button class="console-tab-btn px-4 py-2" data-tab="metrics-view">
+                        Performance Metrics
+                    </button>
+                </div>
+                
+                <!-- Console tab content -->
+                <div class="console-tabs">
+                    <!-- Operations Log Tab -->
+                    <div id="operations-log" class="console-tab-content">
+                        <div class="flex justify-between mb-3">
+                            <div class="text-sm font-medium">Recent Operations</div>
+                            <button id="clear-log-btn" class="text-xs text-gray-400 hover:text-white">
+                                Clear Log
                             </button>
                         </div>
+                        <div id="ble-log-container" class="bg-gray-900 rounded-lg p-3 font-mono text-sm h-64 overflow-y-auto">
+                            <div class="text-gray-500">No operations logged yet.</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Debug Console Tab -->
+                    <div id="debug-console" class="console-tab-content hidden">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between mb-3">
+                                    <div class="text-sm font-medium">Command Input</div>
+                                    <button id="clear-console-btn" class="text-xs text-gray-400 hover:text-white">
+                                        Clear
+                                    </button>
+                                </div>
+                                <div class="mb-3">
+                                    <select id="command-preset" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3 mb-2">
+                                        <option value="">Select a Command...</option>
+                                        <option value="scan">Start Scan</option>
+                                        <option value="list-adapters">List All Adapters</option>
+                                        <option value="get-adapter-info">Get Current Adapter Info</option>
+                                        <option value="list-connected">List Connected Devices</option>
+                                    </select>
+                                    <textarea id="console-input" class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg py-2 px-3 h-24 font-mono" placeholder="Enter BLE commands here..."></textarea>
+                                </div>
+                                <button id="run-command-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg w-full flex items-center justify-center">
+                                    <i data-feather="play" class="w-4 h-4 mr-2"></i>
+                                    Run Command
+                                </button>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium mb-3">Console Output</div>
+                                <div id="console-output" class="bg-gray-900 rounded-lg p-3 font-mono text-sm h-64 overflow-y-auto">
+                                    <div class="text-blue-500">BLE Debug Console v1.0</div>
+                                    <div class="text-gray-500">Type or select a command to execute.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Metrics View Tab -->
+                    <div id="metrics-view" class="console-tab-content hidden">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <div class="text-sm text-gray-400 mb-1">Scan Success Rate</div>
+                                <div class="text-2xl font-semibold" id="scan-success-rate">0%</div>
+                                <div class="w-full bg-gray-700 rounded-full h-1.5 mt-2">
+                                    <div class="bg-green-600 h-1.5 rounded-full" id="scan-success-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <div class="text-sm text-gray-400 mb-1">Connection Success Rate</div>
+                                <div class="text-2xl font-semibold" id="connection-success-rate">0%</div>
+                                <div class="w-full bg-gray-700 rounded-full h-1.5 mt-2">
+                                    <div class="bg-blue-600 h-1.5 rounded-full" id="connection-success-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <div class="text-sm text-gray-400 mb-1">Adapter Uptime</div>
+                                <div class="text-2xl font-semibold" id="adapter-uptime">0h 0m</div>
+                                <div class="text-xs text-gray-500 mt-1" id="uptime-since">Since last restart</div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-800 rounded-lg p-4">
+                            <div class="text-sm font-medium mb-3">Performance History</div>
+                            <canvas id="ble-performance-chart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+    
+    <!-- New Features Section -->
+    <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Settings Card -->
+        {% call render_card(title="Settings", icon="settings", id="ble-settings-card") %}
+            <div class="p-4">
+                <div class="space-y-4">
+                    <!-- Global Settings Section -->
+                    <div>
+                        <h3 class="text-sm font-medium mb-3">Global Settings</h3>
                         
-                        <div class="visualization-container border border-gray-700 rounded-lg p-4">
-                            <!-- Visualization will be rendered here -->
+                        <div class="space-y-3">
+                            <!-- Auto-Connect Option -->
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="font-medium">Auto-Connect to Last Device</div>
+                                    <div class="text-sm text-gray-400">Automatically connect to the last used device</div>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="auto-connect-toggle">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Connection Timeout -->
+                            <div>
+                                <div class="font-medium mb-1">Connection Timeout (seconds)</div>
+                                <input type="range" id="connection-timeout" min="5" max="30" value="10" class="w-full">
+                                <div class="flex justify-between text-xs text-gray-400">
+                                    <span>5s</span>
+                                    <span id="timeout-value">10s</span>
+                                    <span>30s</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Auto Reconnect Option -->
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="font-medium">Auto-Reconnect</div>
+                                    <div class="text-sm text-gray-400">Try to reconnect when connection is lost</div>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="auto-reconnect-toggle" checked>
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Appearance Settings -->
+                    <div>
+                        <h3 class="text-sm font-medium mb-3">Appearance</h3>
+                        
+                        <div class="space-y-3">
+                            <!-- Show Technical Details -->
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="font-medium">Show Technical Details</div>
+                                    <div class="text-sm text-gray-400">Display UUIDs and technical information</div>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="show-technical-toggle">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Log Level -->
+                            <div>
+                                <div class="font-medium mb-1">Log Level</div>
+                                <select id="settings-log-level" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
+                                    <option value="error">Errors Only</option>
+                                    <option value="warning">Warnings & Errors</option>
+                                    <option value="info" selected>Information</option>
+                                    <option value="debug">Debug</option>
+                                    <option value="verbose">Verbose</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Save Settings Button -->
+                    <div class="pt-2 border-t border-gray-700">
+                        <button id="save-settings-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg w-full flex items-center justify-center">
+                            <i data-feather="save" class="w-4 h-4 mr-2"></i>
+                            Save Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+        
+        <!-- Device Bonding Card -->
+        {% call render_card(title="Device Bonding", icon="link-2", id="ble-bonding-card") %}
+            <div class="p-4">
+                <div class="mb-4">
+                    <p class="text-sm text-gray-400 mb-3">Manage paired devices and bonding information.</p>
+                    
+                    <!-- Bond New Device -->
+                    <div class="flex space-x-2 mb-4">
+                        <button id="bond-device-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+                            <i data-feather="plus" class="w-4 h-4 mr-2"></i>
+                            Bond New Device
+                        </button>
+                        <button id="unbond-device-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center" disabled>
+                            <i data-feather="trash-2" class="w-4 h-4 mr-2"></i>
+                            Remove Bond
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Bonded Devices List -->
+                <div>
+                    <h3 class="text-sm font-medium mb-3">Bonded Devices</h3>
+                    <div id="bonded-devices-list" class="max-h-64 overflow-y-auto space-y-2">
+                        <div class="text-center py-4 text-gray-400">No bonded devices</div>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+        
+        <!-- MTU Settings Card -->
+        {% call render_card(title="MTU Settings", icon="maximize", id="ble-mtu-card") %}
+            <div class="p-4">
+                <div class="mb-4">
+                    <p class="text-sm text-gray-400 mb-3">Configure Maximum Transmission Unit (MTU) settings for BLE connections.</p>
+                    
+                    <!-- Current MTU -->
+                    <div class="bg-gray-800 p-3 rounded-lg mb-4">
+                        <div class="text-sm text-gray-400 mb-1">Current MTU Size</div>
+                        <div class="text-2xl font-semibold" id="current-mtu">23 bytes</div>
+                        <div class="text-xs text-gray-500">Default BLE MTU is 23 bytes</div>
+                    </div>
+                    
+                    <!-- MTU Request Form -->
+                    <div class="space-y-3">
+                        <div>
+                            <label for="mtu-request-size" class="block text-sm text-gray-400 mb-1">Request MTU Size</label>
+                            <input type="number" id="mtu-request-size" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3" 
+                                   value="247" min="23" max="512" step="1">
+                            <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                <span>Min: 23</span>
+                                <span>Max: 512</span>
+                            </div>
                         </div>
                         
-                        <div class="mt-2 text-sm text-gray-400" id="data-stats">
-                            <!-- Data statistics will be displayed here -->
+                        <button id="request-mtu-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg w-full flex items-center justify-center" disabled>
+                            <i data-feather="refresh-cw" class="w-4 h-4 mr-2"></i>
+                            Request MTU Change
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- MTU Information -->
+                <div class="border-t border-gray-700 pt-3">
+                    <h3 class="text-sm font-medium mb-2">About MTU Settings</h3>
+                    <div class="text-xs text-gray-400 space-y-2">
+                        <p>A larger MTU allows more data to be transferred in a single packet, improving efficiency for large data transfers.</p>
+                        <p>Not all devices support custom MTU sizes. The actual MTU will be negotiated between your device and the peripheral.</p>
+                    </div>
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+    
+    <!-- Additional New Features -->
+    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- MAC Address Search Card -->
+        {% call render_card(title="MAC Address Search", icon="search", id="ble-mac-search-card") %}
+            <div class="p-4">
+                <div class="mb-4">
+                    <p class="text-sm text-gray-400 mb-3">Search for specific devices by MAC address.</p>
+                    
+                    <div class="flex space-x-2 mb-4">
+                        <input type="text" id="mac-address-input" placeholder="Enter MAC address (e.g., 00:11:22:33:44:55)" 
+                               class="flex-1 bg-gray-700 border border-gray-600 text-white rounded-lg py-2 px-3">
+                        <button id="search-mac-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+                            <i data-feather="search" class="w-4 h-4 mr-2"></i>
+                            Search
+                        </button>
+                    </div>
+                    
+                    <!-- Search Results -->
+                    <div id="mac-search-results" class="bg-gray-800 rounded-lg p-3 max-h-60 overflow-y-auto hidden">
+                        <!-- Results will be populated here -->
+                    </div>
+                    
+                    <!-- Recent Searches -->
+                    <div class="mt-4">
+                        <h3 class="text-sm font-medium mb-2">Recent Searches</h3>
+                        <div id="recent-mac-searches" class="space-y-2">
+                            <div class="text-center py-2 text-gray-400">No recent searches</div>
                         </div>
                     </div>
                 </div>
             </div>
         {% endcall %}
         
-        {% call render_card(title="Notifications", icon="bell", id="ble-notifications-card") %}
+        <!-- OTA Firmware Upgrade Card -->
+        {% call render_card(title="OTA Firmware Upgrade", icon="upload-cloud", id="ble-ota-card") %}
             <div class="p-4">
-                <div id="notifications-header" class="flex justify-between items-center mb-2">
-                    <span class="font-medium text-gray-400">Real-time Updates</span>
-                    <button type="button" id="clear-notifications-btn" class="ble-btn ble-btn-tertiary" title="Clear notifications" disabled>
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-                
-                <div id="notifications-container" class="overflow-y-auto">
-                    <div class="text-gray-500 text-center py-4">
-                        No active notifications. Subscribe to characteristics to receive updates.
-                    </div>
-                </div>
-                
-                <div class="mt-4 text-sm text-gray-400" id="notification-stats">
-                    Active: <span id="active-notification-count">0</span> | 
-                    Total: <span id="total-notification-count">0</span>
-                </div>
-            </div>
-        {% endcall %}
-
-        <!-- Row 4: BLE Operations Log + Debug & Development -->
-        {% call render_card(title="BLE Operations Log", icon="terminal", id="ble-log-card") %}
-            <div class="p-4">
-                <div id="log-controls" class="flex justify-between items-center mb-2">
-                    <div>
-                        <select title="Log Level" id="log-level" class="w-auto bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
-                            <option value="info">Info</option>
-                            <option value="error">Errors Only</option>
-                            <option value="all">All</option>
+                <div class="mb-4">
+                    <p class="text-sm text-gray-400 mb-3">Perform Over-The-Air firmware updates for supported devices.</p>
+                    
+                    <!-- Device Selection -->
+                    <div class="mb-4">
+                        <label for="ota-device-select" class="block text-sm text-gray-400 mb-1">Select Device</label>
+                        <select id="ota-device-select" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
+                            <option value="">-- Select a device --</option>
+                            <!-- Will be populated with connected devices -->
                         </select>
                     </div>
-                    <button type="button" id="clear-log-btn" class="ble-btn ble-btn-tertiary">
-                        <i class="fas fa-trash mr-1"></i> Clear Log
+                    
+                    <!-- Firmware File Selection -->
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-400 mb-1">Firmware File</label>
+                        <div class="flex items-center space-x-2">
+                            <button id="select-firmware-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center">
+                                <i data-feather="file" class="w-4 h-4 mr-2"></i>
+                                Select Firmware
+                            </button>
+                            <span id="selected-firmware-name" class="text-sm text-gray-400">No file selected</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Upload Progress -->
+                    <div id="ota-progress-container" class="mb-4 hidden">
+                        <label class="block text-sm text-gray-400 mb-1">Upload Progress</label>
+                        <div class="relative pt-1">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <span id="ota-progress-percentage" class="text-xs font-semibold inline-block text-blue-400">0%</span>
+                                </div>
+                                <div class="text-right">
+                                    <span id="ota-transfer-rate" class="text-xs font-semibold inline-block text-blue-400">0 KB/s</span>
+                                </div>
+                            </div>
+                            <div class="overflow-hidden h-2 mb-1 text-xs flex rounded bg-gray-700">
+                                <div id="ota-progress-bar" style="width:0%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"></div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <span id="ota-bytes-sent" class="text-xs font-semibold inline-block text-gray-400">0 KB</span>
+                                </div>
+                                <div class="text-right">
+                                    <span id="ota-bytes-total" class="text-xs font-semibold inline-block text-gray-400">0 KB</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Upload Button -->
+                    <button id="start-ota-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg w-full flex items-center justify-center" disabled>
+                        <i data-feather="upload-cloud" class="w-4 h-4 mr-2"></i>
+                        Start Firmware Update
                     </button>
                 </div>
                 
-                <div id="ble-log-container" class="bg-gray-900 rounded p-3 overflow-y-auto font-mono text-sm">
-                    <div class="text-blue-600">[System] BLE subsystem initialized</div>
+                <!-- OTA Update Log -->
+                <div class="border-t border-gray-700 pt-3">
+                    <h3 class="text-sm font-medium mb-2">Update Log</h3>
+                    <div id="ota-log" class="bg-gray-900 rounded-lg p-3 font-mono text-xs h-40 overflow-y-auto">
+                        <div class="text-gray-500">OTA update log will appear here...</div>
+                    </div>
                 </div>
             </div>
         {% endcall %}
-        
-        {% call render_card(title="Debug & Development", icon="bug", id="ble-debug-card") %}
-    <div class="p-4">
-        <div class="space-y-4">
-            <!-- Diagnostic Runner -->
-            <button type="button" id="run-diagnostics-btn" class="ble-btn ble-btn-primary w-full">
-                <i class="fas fa-stethoscope mr-1"></i> Run BLE Diagnostics
-            </button>
-            
-            <!-- Diagnostic Results -->
-            <div id="diagnostics-results" class="hidden mt-3 p-3 bg-gray-800 rounded-md overflow-auto max-h-60 text-xs font-mono">
-                <div class="text-gray-400">Run diagnostics to see results here</div>
-            </div>
-            
-            <!-- API Testing Section -->
-            <div class="border-t border-gray-700 pt-3">
-                <h4 class="font-medium mb-2 text-white">API Testing</h4>
-                <div class="grid grid-cols-1 gap-2 mb-2">
-                    <select title="API Endpoint" id="api-endpoint-select" class="bg-gray-700 border border-gray-600 text-white rounded py-2 px-3 text-sm">
-                        <option value="">Select API endpoint...</option>
-                        <optgroup label="Adapter">
-                            <option value="/api/ble/adapter/info">Get Adapter Info</option>
-                            <option value="/api/ble/adapter/select">Select Adapter</option>
-                            <option value="/api/ble/adapter/reset">Reset Adapter</option>
-                        </optgroup>
-                        <optgroup label="Scanning">
-                            <option value="/api/ble/scan/start">Start Scan</option>
-                            <option value="/api/ble/scan/stop">Stop Scan</option>
-                            <option value="/api/ble/scan/results">Get Scan Results</option>
-                        </optgroup>
-                        <optgroup label="Devices">
-                            <option value="/api/ble/device/connect">Connect Device</option>
-                            <option value="/api/ble/device/disconnect">Disconnect Device</option>
-                        </optgroup>
-                    </select>
-                    
-                    <div class="flex space-x-2">
-                        <button type="button" id="test-api-btn" class="ble-btn ble-btn-secondary flex-grow text-sm">
-                            <i class="fas fa-paper-plane mr-1"></i> Send Request
-                        </button>
-                        <button type="button" id="view-request-btn" class="ble-btn ble-btn-tertiary text-sm">
-                            <i class="fas fa-edit mr-1"></i> Edit Body
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- API Request Body Editor (initially hidden) -->
-                <div id="api-request-editor" class="hidden">
-                    <textarea id="api-request-body" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3 text-xs font-mono h-20" placeholder="{ }"></textarea>
-                </div>
-                
-                <!-- API Response -->
-                <div id="api-response" class="mt-2 p-2 bg-gray-800 rounded-md overflow-auto max-h-36 text-xs font-mono hidden">
-                    <div class="text-gray-400">API response will appear here</div>
-                </div>
-            </div>
-            
-            <!-- Quick Debug Actions -->
-            <div class="border-t border-gray-700 pt-3">
-                <h4 class="font-medium mb-2 text-white">Quick Debug Actions</h4>
-                <div class="grid grid-cols-2 gap-2">
-                    <button type="button" id="reset-ble-state-btn" class="ble-btn ble-btn-secondary ble-btn-xs">
-                        <i class="fas fa-redo-alt mr-1"></i> Reset State
-                    </button>
-                    <button type="button" id="check-adapter-btn" class="ble-btn ble-btn-secondary ble-btn-xs">
-                        <i class="fas fa-microchip mr-1"></i> Check Adapter
-                    </button>
-                    <button type="button" id="test-websocket-btn" class="ble-btn ble-btn-secondary ble-btn-xs">
-                        <i class="fas fa-plug mr-1"></i> Test WebSocket
-                    </button>
-                    <button type="button" id="clear-cache-btn" class="ble-btn ble-btn-secondary ble-btn-xs">
-                        <i class="fas fa-trash mr-1"></i> Clear Cache
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Environment Information -->
-            <div class="border-t border-gray-700 pt-3">
-                <h4 class="font-medium mb-2 text-white">Environment</h4>
-                <div class="bg-gray-800 rounded-md p-2 text-xs font-mono">
-                    <div class="grid grid-cols-2 gap-x-2 gap-y-1">
-                        <div class="text-gray-400">Browser:</div>
-                        <div id="debug-browser-info" class="text-white"></div>
-                        
-                        <div class="text-gray-400">API:</div>
-                        <div id="debug-api-status" class="text-white"></div>
-                        
-                        <div class="text-gray-400">WebSocket:</div>
-                        <div id="debug-websocket-status" class="text-white"></div>
-                        
-                        <div class="text-gray-400">Mock:</div>
-                        <div id="debug-mock-status" class="text-white"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Export / Save Actions -->
-            <div class="flex justify-between">
-                <button type="button" id="save-diagnostics-btn" class="ble-btn ble-btn-secondary text-sm">
-                    <i class="fas fa-download mr-1"></i> Save Diagnostics
-                </button>
-                <button type="button" id="open-debug-console-btn" class="ble-btn ble-btn-secondary text-sm">
-                    <i class="fas fa-terminal mr-1"></i> Debug Console
-                </button>
-            </div>
-        </div>
     </div>
-{% endcall %}
-
-        <!-- Row 5: BLE Performance Metrics -->
-        {% call render_card(title="BLE Performance Metrics", icon="tachometer-alt", id="ble-metrics-card") %}
+    
+    <!-- File Transfer Card -->
+    <div class="mt-6">
+        {% call render_card(title="Bluetooth File Transfer", icon="file-text", id="ble-file-transfer-card", card_class="w-full") %}
             <div class="p-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    <div class="bg-gray-700 rounded-lg p-4 shadow-md">
-                        <div class="text-2xl font-bold text-blue-400" id="connection-success-rate">N/A</div>
-                        <div class="text-sm text-gray-300">Connection Success Rate</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Send File Section -->
+                    <div>
+                        <h3 class="text-sm font-medium mb-3">Send File</h3>
+                        
+                        <!-- Device Selection -->
+                        <div class="mb-4">
+                            <label for="file-transfer-device-select" class="block text-sm text-gray-400 mb-1">Destination Device</label>
+                            <select id="file-transfer-device-select" class="w-full bg-gray-700 border border-gray-600 text-white rounded py-2 px-3">
+                                <option value="">-- Select a device --</option>
+                                <!-- Will be populated with connected devices -->
+                            </select>
+                        </div>
+                        
+                        <!-- File Selection -->
+                        <div class="mb-4">
+                            <label class="block text-sm text-gray-400 mb-1">Select File</label>
+                            <div class="flex items-center space-x-2">
+                                <button id="select-transfer-file-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center">
+                                    <i data-feather="file" class="w-4 h-4 mr-2"></i>
+                                    Browse Files
+                                </button>
+                                <span id="selected-transfer-file-name" class="text-sm text-gray-400">No file selected</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Transfer Progress -->
+                        <div id="file-transfer-progress-container" class="mb-4 hidden">
+                            <label class="block text-sm text-gray-400 mb-1">Transfer Progress</label>
+                            <div class="relative pt-1">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <span id="file-transfer-percentage" class="text-xs font-semibold inline-block text-blue-400">0%</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span id="file-transfer-rate" class="text-xs font-semibold inline-block text-blue-400">0 KB/s</span>
+                                    </div>
+                                </div>
+                                <div class="overflow-hidden h-2 mb-1 text-xs flex rounded bg-gray-700">
+                                    <div id="file-transfer-progress-bar" style="width:0%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Send Button -->
+                        <button id="send-file-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg w-full flex items-center justify-center" disabled>
+                            <i data-feather="upload" class="w-4 h-4 mr-2"></i>
+                            Send File
+                        </button>
                     </div>
                     
-                    <div class="bg-gray-700 rounded-lg p-4 shadow-md">
-                        <div class="text-2xl font-bold text-green-400" id="avg-connection-time">N/A</div>
-                        <div class="text-sm text-gray-300">Avg. Connection Time</div>
+                    <!-- Receive Files Section -->
+                    <div>
+                        <h3 class="text-sm font-medium mb-3">Received Files</h3>
+                        
+                        <!-- Incoming Transfer Alert -->
+                        <div id="incoming-transfer-alert" class="mb-4 bg-blue-900 bg-opacity-50 rounded-lg p-3 hidden">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="font-medium">Incoming File Transfer</div>
+                                    <div class="text-sm text-gray-300">From: <span id="transfer-source-device">Unknown Device</span></div>
+                                    <div class="text-sm text-gray-300">File: <span id="transfer-file-name">Unknown File</span> (<span id="transfer-file-size">0 KB</span>)</div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button id="accept-transfer-btn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm">
+                                        Accept
+                                    </button>
+                                    <button id="reject-transfer-btn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-sm">
+                                        Reject
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Received Files List -->
+                        <div class="bg-gray-800 rounded-lg p-3 max-h-64 overflow-y-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="text-gray-400 text-left">
+                                        <th class="pb-2">File Name</th>
+                                        <th class="pb-2">Size</th>
+                                        <th class="pb-2">Source</th>
+                                        <th class="pb-2">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="received-files-list">
+                                    <tr>
+                                        <td colspan="4" class="text-center py-4 text-gray-500">No files received</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    
-                    <div class="bg-gray-700 rounded-lg p-4 shadow-md">
-                        <div class="text-2xl font-bold text-yellow-400" id="device-count">0</div>
-                        <div class="text-sm text-gray-300">Known Devices</div>
-                    </div>
-        
-                    <div class="bg-gray-700 rounded-lg p-4 shadow-md">
-                        <div class="text-2xl font-bold text-purple-400" id="notification-rate">N/A</div>
-                        <div class="text-sm text-gray-300">Notifications/min</div>
-                    </div>
-                </div>
-                
-                <div class="flex justify-end">
-                    <button type="button" id="refresh-metrics-btn" class="ble-btn ble-btn-secondary">
-                        <i class="fas fa-sync mr-1"></i> Refresh Metrics
-                    </button>
                 </div>
             </div>
         {% endcall %}
@@ -439,9 +803,22 @@
     // Import initialization code
     import { initialize } from './static/js/pages/ble/ble-init.js';
     
+    // Import dashboard controller
+    import './static/js/pages/ble/ble-dashboard.js';
+    
+    // Flag to prevent double initialization
+    window.BLE_DASHBOARD_INITIALIZED = false;
+    
     // Initialize the dashboard when the DOM is ready
     document.addEventListener('DOMContentLoaded', () => {
+        if (window.BLE_DASHBOARD_INITIALIZED) {
+            console.log('BLE Dashboard already initialized, skipping...');
+            return;
+        }
+        
         console.log('DOM loaded, initializing BLE Dashboard');
+        window.BLE_DASHBOARD_INITIALIZED = true;
+        
         initialize().catch(err => {
             console.error('Error during initialization:', err);
             // Show error message to user

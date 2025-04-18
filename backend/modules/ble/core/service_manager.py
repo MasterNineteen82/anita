@@ -34,9 +34,13 @@ class BleServiceManager:
         self.client = client
         self._gatt_services = {}  # Reset cached services
     
-    async def get_services(self) -> List[Dict[str, Any]]:
+    async def get_services(self, max_retries: int = 3, retry_delay: float = 1.0) -> List[Dict[str, Any]]:
         """
         Get all services from the connected device.
+        
+        Args:
+            max_retries: Maximum number of retries for getting services.
+            retry_delay: Delay between retries in seconds.
         
         Returns:
             List of service dictionaries
@@ -47,55 +51,70 @@ class BleServiceManager:
         if not self.client.is_connected:
             raise BleConnectionError("Device is not connected")
         
-        try:
-            # Get services
-            services = []
-            
-            # Cache service UUIDs for faster lookups
-            if not self._service_uuids:
+        attempt = 0
+        last_error = None
+        
+        while attempt < max_retries:
+            try:
+                self.logger.info(f"Attempting to get services (attempt {attempt + 1}/{max_retries})...")
+                # Get services
+                services = []
+                
+                # Cache service UUIDs for faster lookups
+                if not self._service_uuids:
+                    for service in self.client.services:
+                        short_uuid = self._get_short_uuid(service.uuid)
+                        self._service_uuids[short_uuid] = service.uuid
+                        self._service_uuids[service.uuid] = service.uuid
+                        
                 for service in self.client.services:
-                    short_uuid = self._get_short_uuid(service.uuid)
-                    self._service_uuids[short_uuid] = service.uuid
-                    self._service_uuids[service.uuid] = service.uuid
+                    # Get service description
+                    description = self._get_service_description(service.uuid)
                     
-            for service in self.client.services:
-                # Get service description
-                description = self._get_service_description(service.uuid)
+                    # Create service dictionary
+                    service_dict = {
+                        "uuid": service.uuid,
+                        "description": description,
+                        "characteristics": [],
+                        "handle": getattr(service, "handle", None)
+                    }
+                    
+                    # Add to results
+                    services.append(service_dict)
+                    
+                    # Cache the service
+                    self._gatt_services[service.uuid] = service
+                    
+                # Create pydantic model result
+                result = ServicesResult(
+                    services=services,
+                    count=len(services)
+                )
                 
-                # Create service dictionary
-                service_dict = {
-                    "uuid": service.uuid,
-                    "description": description,
-                    "characteristics": [],
-                    "handle": getattr(service, "handle", None)
-                }
-                
-                # Add to results
-                services.append(service_dict)
-                
-                # Cache the service
-                self._gatt_services[service.uuid] = service
-                
-            # Create pydantic model result
-            result = ServicesResult(
-                services=services,
-                count=len(services)
-            )
-            
-            return services
-        except BleConnectionError:
-            raise
-        except Exception as e:
-            self.logger.error(f"Error getting services: {e}", exc_info=True)
-            raise BleServiceError(f"Error getting services: {e}")
+                self.logger.info(f"Successfully retrieved {len(services)} services")
+                return services
+            except BleConnectionError:
+                raise
+            except Exception as e:
+                attempt += 1
+                last_error = str(e)
+                self.logger.warning(f"Attempt {attempt} failed to get services: {e}")
+                if attempt < max_retries:
+                    await asyncio.sleep(retry_delay)
+                continue
+        
+        self.logger.error(f"Failed to get services after {max_retries} attempts: {last_error}", exc_info=True)
+        raise BleServiceError(f"Failed to get services after {max_retries} attempts: {last_error}")
 
-    async def get_characteristics(self, service_uuid: str) -> List[Dict[str, Any]]:
+    async def get_characteristics(self, service_uuid: str, max_retries: int = 3, retry_delay: float = 1.0) -> List[Dict[str, Any]]:
         """
         Get all characteristics for a service.
         
         Args:
             service_uuid: UUID of the service
-            
+            max_retries: Maximum number of retries for getting characteristics.
+            retry_delay: Delay between retries in seconds.
+        
         Returns:
             List of characteristic dictionaries
         """
@@ -105,46 +124,75 @@ class BleServiceManager:
         if not self.client.is_connected:
             raise BleConnectionError("Device is not connected")
         
-        try:
-            # Get the service
-            service = await self._get_service(service_uuid)
-            
-            if not service:
-                raise BleServiceError(f"Service {service_uuid} not found")
-            
-            # Get characteristics
-            characteristics = []
-            for char in service.characteristics:
-                # Get characteristic description
-                description = self._get_characteristic_description(char.uuid)
+        # Resolve short UUID if provided
+        service_uuid = self._service_uuids.get(service_uuid, service_uuid)
+        
+        attempt = 0
+        last_error = None
+        
+        while attempt < max_retries:
+            try:
+                self.logger.info(f"Attempting to get characteristics for service {service_uuid} (attempt {attempt + 1}/{max_retries})...")
+                # Get the service
+                if service_uuid not in self._gatt_services:
+                    # Try to find the service in client.services if not cached
+                    found = False
+                    for svc in self.client.services:
+                        if svc.uuid == service_uuid:
+                            self._gatt_services[service_uuid] = svc
+                            found = True
+                            break
+                    if not found:
+                        raise BleServiceError(f"Service {service_uuid} not found")
                 
-                # Create characteristic dictionary
-                char_dict = {
-                    "uuid": char.uuid,
-                    "description": description,
-                    "properties": char.properties,
-                    "handle": getattr(char, "handle", None),
-                    "descriptors": []
-                }
+                service = self._gatt_services[service_uuid]
                 
-                # Add descriptors if available
-                if hasattr(char, "descriptors"):
-                    for desc in char.descriptors:
-                        desc_dict = {
-                            "uuid": desc.uuid,
-                            "handle": getattr(desc, "handle", None)
-                        }
-                        char_dict["descriptors"].append(desc_dict)
-                
-                # Add to results
-                characteristics.append(char_dict)
-                
-            return characteristics
-        except BleConnectionError:
-            raise
-        except Exception as e:
-            self.logger.error(f"Error getting characteristics: {e}", exc_info=True)
-            raise BleServiceError(f"Error getting characteristics: {e}")
+                # Get characteristics
+                characteristics = []
+                for char in service.characteristics:
+                    # Get characteristic description
+                    description = self._get_characteristic_description(char.uuid)
+                    
+                    # Get properties
+                    properties = []
+                    if char.properties:
+                        properties = char.properties
+                    
+                    # Create characteristic dictionary
+                    char_dict = {
+                        "uuid": char.uuid,
+                        "description": description,
+                        "properties": properties,
+                        "handle": getattr(char, "handle", None),
+                        "descriptors": []
+                    }
+                    
+                    # Add descriptors if available
+                    if hasattr(char, "descriptors") and char.descriptors:
+                        for desc in char.descriptors:
+                            desc_dict = {
+                                "uuid": desc.uuid,
+                                "handle": getattr(desc, "handle", None)
+                            }
+                            char_dict["descriptors"].append(desc_dict)
+                    
+                    # Add to results
+                    characteristics.append(char_dict)
+                    
+                self.logger.info(f"Successfully retrieved {len(characteristics)} characteristics for service {service_uuid}")
+                return characteristics
+            except BleConnectionError:
+                raise
+            except Exception as e:
+                attempt += 1
+                last_error = str(e)
+                self.logger.warning(f"Attempt {attempt} failed to get characteristics for service {service_uuid}: {e}")
+                if attempt < max_retries:
+                    await asyncio.sleep(retry_delay)
+                continue
+        
+        self.logger.error(f"Failed to get characteristics for service {service_uuid} after {max_retries} attempts: {last_error}", exc_info=True)
+        raise BleServiceError(f"Error getting characteristics: {last_error}")
 
     async def read_characteristic(self, characteristic_uuid: str) -> CharacteristicValue:
         """

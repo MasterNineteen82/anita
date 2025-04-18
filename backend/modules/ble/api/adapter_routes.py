@@ -18,7 +18,8 @@ from backend.modules.ble.core.ble_metrics import BleMetricsCollector, SystemMoni
 from backend.modules.ble.models.ble_models import (
     BleAdapter, AdapterResult, AdapterStatus, 
     AdapterSelectionRequest, AdapterResetRequest,
-    SystemMetric, AdapterMetric, BluetoothHealthReport, AdapterSelectRequest, AdapterSelectResponse
+    SystemMetric, AdapterMetric, BluetoothHealthReport, AdapterSelectRequest, AdapterSelectResponse,
+    AdapterInfo
 )
 # Fix the import - likely the broadcast function is in the websocket module
 from backend.modules.ble.comms.websocket import broadcast_message as broadcast_ble_event
@@ -278,44 +279,55 @@ async def select_adapter(request: AdapterSelectRequest, ble_service: BleService 
                 logger.debug("is_connected method not available, assuming not connected")
         except Exception as e:
             logger.warning(f"Error checking connection status: {e}")
+        
+        # Get available adapters first to ensure we're working with current data
+        try:
+            available_adapters = await ble_service.get_adapters()
+            logger.info(f"Available adapters: {[a.get('id', 'unknown') for a in available_adapters]}")
+        except Exception as e:
+            logger.warning(f"Error getting adapters: {e}")
+            available_adapters = []
             
         # Select the adapter using the adapter_id property
-        result = await ble_service.select_adapter(adapter_id)
+        try:
+            result = await ble_service.select_adapter(adapter_id)
+        except Exception as e:
+            logger.error(f"Error selecting adapter {adapter_id}: {e}")
+            # Provide helpful error message based on available adapters
+            if not available_adapters:
+                detail = "No Bluetooth adapters found on this system"
+            else:
+                detail = f"Failed to select adapter: {e}. Available adapters: {[a.get('id', 'unknown') for a in available_adapters]}"
+            raise HTTPException(status_code=404, detail=detail)
         
         if result:
             # Get current adapter status
-            adapter = await ble_service.get_current_adapter()
+            status = await ble_service.get_adapter_status()
             
+            # Create adapter info as a dictionary (not an AdapterInfo object)
+            adapter_info = {
+                "id": result.get("id", adapter_id),
+                "name": result.get("name", "Selected Adapter"),
+                "address": result.get("address", adapter_id),
+                "available": result.get("available", True),
+                "status": "active",
+                "description": result.get("description", ""),
+                "manufacturer": result.get("manufacturer", "Unknown")
+            }
+            
+            # Return response matching the AdapterSelectResponse model
             return AdapterSelectResponse(
                 status="success",
-                adapter=adapter,
+                adapter=adapter_info,
                 message="Adapter selected successfully"
             )
         else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Failed to select adapter {request.id}"
-            )
+            raise HTTPException(status_code=404, detail=f"Adapter not found: {adapter_id}")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error selecting adapter: {e}", exc_info=True)
-        
-        # Provide a more helpful response with potential fixes
-        error_msg = str(e)
-        suggestions = []
-        
-        if "not found" in error_msg.lower():
-            suggestions.append("Ensure the adapter ID is correct")
-            suggestions.append("Check if the adapter is connected to your system")
-        elif "permission" in error_msg.lower() or "access" in error_msg.lower():
-            suggestions.append("Try running the application with administrator privileges")
-        
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": f"Failed to select adapter: {str(e)}",
-                "suggestions": suggestions
-            }
-        )
+        raise HTTPException(status_code=500, detail=f"Error selecting adapter: {e}")
 
 # Add this new endpoint
 @adapter_router.get("/diagnostics", response_model=None)
